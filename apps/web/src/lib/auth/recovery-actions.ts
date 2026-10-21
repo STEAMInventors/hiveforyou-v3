@@ -1,7 +1,6 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 
 import { createServerSupabaseClient, requireAuthenticatedUser } from "@/lib/supabase/server";
 
@@ -16,13 +15,7 @@ import {
 import type { AuthActionState } from "./auth-state";
 import { classifyAuthError, localAuthFailure, publicAuthOutcome, toAuthErrorInput } from "./map-auth-error";
 import { PASSWORD_UPDATED, RESEND_ACCEPTED, RESET_REQUEST_ACCEPTED } from "./messages";
-import {
-  isRecoveryCookieValue,
-  recoveryNextCookieValue,
-  RECOVERY_COOKIE_NAME,
-  RECOVERY_NEXT_COOKIE_NAME,
-  RESET_PASSWORD_PATH,
-} from "./recovery";
+import { isRecoveryCookieValue, RECOVERY_COOKIE_NAME, RESET_PASSWORD_PATH } from "./recovery";
 import { safeNextPath } from "./redirects";
 import { isPlausibleEmail, newPasswordIssue, newPasswordIssueMessage, normalizeEmail } from "./validation";
 
@@ -191,10 +184,14 @@ export async function updatePasswordFromRecoveryAction(
     return providerFailure(route, correlationId, caught, "password_update", started);
   }
 
-  const next = recoveryNextCookieValue(cookieStore.get(RECOVERY_NEXT_COOKIE_NAME)?.value);
   await clearRecoveryCookies();
+  try {
+    await supabase.auth.signOut();
+  } catch {
+    // Password is already updated; continue to login even if sign-out fails.
+  }
   logAuthInfo(route, correlationId, "password_updated", Date.now() - started);
-  redirect(next);
+  return { passwordResetComplete: true };
 }
 
 export async function changePasswordAction(

@@ -20,6 +20,7 @@ type AuthCardProps = {
   checkEmail?: boolean;
   initialEmail?: string;
   linkError?: string | null;
+  linkInfo?: string | null;
 };
 
 const initialState: AuthActionState = {};
@@ -30,6 +31,7 @@ export function AuthCard({
   checkEmail = false,
   initialEmail = "",
   linkError = null,
+  linkInfo = null,
 }: AuthCardProps) {
   const action = mode === "login" ? signInAction : signUpAction;
   const [state, formAction, pending] = useActionState(action, initialState);
@@ -50,6 +52,7 @@ export function AuthCard({
   return (
     <AuthFrame>
       {linkError ? <AuthNotice tone="error">{linkError}</AuthNotice> : null}
+      {linkInfo ? <AuthNotice tone="info">{linkInfo}</AuthNotice> : null}
       {state.error ? <AuthNotice tone="error">{state.error}</AuthNotice> : null}
       {state.info ? <AuthNotice tone="info">{state.info}</AuthNotice> : null}
 

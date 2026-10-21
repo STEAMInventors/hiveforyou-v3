@@ -11,6 +11,10 @@ export function isRecoveryCookieValue(value: string | undefined): boolean {
   return value === "1";
 }
 
+export function isRecoveryOtpType(value: string | null | undefined): boolean {
+  return value?.trim().toLowerCase() === "recovery";
+}
+
 export function recoveryNextCookieValue(path: string | null | undefined): string {
   const safe = safeNextPath(path, "/hives");
   return safe.length <= 512 ? safe : "/hives";

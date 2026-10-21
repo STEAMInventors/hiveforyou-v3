@@ -12,6 +12,7 @@ import {
   INVALID_CREDENTIALS_MESSAGE,
   RESET_REQUEST_ACCEPTED,
   SIGN_UP_CHECK_EMAIL_BODY,
+  authInfoMessage,
   authLinkErrorMessage,
 } from "./messages";
 
@@ -152,6 +153,13 @@ describe("classifyAuthError", () => {
     expect(mapped.diagnostic).toBe("unclassified");
     expect(mapped.kind).toBe("unknown");
     assertNoSecret(JSON.stringify(mapped));
+  });
+});
+
+describe("authInfoMessage", () => {
+  it("allows only known info codes", () => {
+    expect(authInfoMessage("password_updated")).toContain("updated");
+    expect(authInfoMessage("javascript:alert(1)")).toBeNull();
   });
 });
 

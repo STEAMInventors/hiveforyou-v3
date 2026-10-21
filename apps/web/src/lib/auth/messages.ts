@@ -31,6 +31,13 @@ export function isAuthLinkErrorCode(value: string | null | undefined): value is 
   return AUTH_LINK_ERROR_CODES.includes(value as AuthLinkErrorCode);
 }
 
+export function authInfoMessage(code: string | null | undefined): string | null {
+  if (code === "password_updated") {
+    return PASSWORD_UPDATED;
+  }
+  return null;
+}
+
 export function authLinkErrorMessage(
   code: string | null | undefined,
   surface: "login" | "recovery",

@@ -14,7 +14,7 @@ export default async function ResetPasswordPage() {
 
   const cookieStore = await cookies();
   if (!isRecoveryCookieValue(cookieStore.get(RECOVERY_COOKIE_NAME)?.value)) {
-    redirect("/hives");
+    redirect(`${FORGOT_PASSWORD_PATH}?error=link_invalid`);
   }
 
   return (
