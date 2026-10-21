@@ -72,6 +72,28 @@ function parseFailureBody(body: unknown): DocumentEdgeFailure | null {
   };
 }
 
+async function readFunctionsHttpErrorBody(error: unknown): Promise<unknown> {
+  if (typeof error !== "object" || !error || !("context" in error)) {
+    return undefined;
+  }
+  const context = (error as { context?: unknown }).context;
+  if (context instanceof Response) {
+    try {
+      const text = await context.text();
+      if (!text.trim()) {
+        return undefined;
+      }
+      return JSON.parse(text) as unknown;
+    } catch {
+      return undefined;
+    }
+  }
+  if (context && typeof context === "object" && "body" in context) {
+    return (context as { body?: unknown }).body;
+  }
+  return undefined;
+}
+
 function parseDocument(value: unknown): SourceDocumentV1 | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -135,10 +157,7 @@ async function invoke<T>(
     );
 
     if (error) {
-      const contextBody =
-        typeof error === "object" && error && "context" in error
-          ? (error as { context?: { body?: unknown } }).context?.body
-          : undefined;
+      const contextBody = await readFunctionsHttpErrorBody(error);
       const parsed = parseFailureBody(contextBody ?? data);
       if (parsed) {
         return { ok: false, error: parsed };
