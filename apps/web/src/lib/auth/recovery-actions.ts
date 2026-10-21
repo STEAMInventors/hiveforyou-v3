@@ -4,37 +4,34 @@ import { cookies } from "next/headers";
 
 import { createServerSupabaseClient, requireAuthenticatedUser } from "@/lib/supabase/server";
 
+import { providerAuthFailure } from "./action-outcome";
 import {
   clearRecoveryCookies,
   logAuthFailure,
   logAuthInfo,
-  rememberRecoveryNext,
   requestAppOrigin,
   requestCorrelationId,
 } from "./action-support";
 import type { AuthActionState } from "./auth-state";
 import { classifyAuthError, localAuthFailure, publicAuthOutcome, toAuthErrorInput } from "./map-auth-error";
 import { PASSWORD_UPDATED, RESEND_ACCEPTED, RESET_REQUEST_ACCEPTED } from "./messages";
-import { isRecoveryCookieValue, RECOVERY_COOKIE_NAME, RESET_PASSWORD_PATH } from "./recovery";
+import { authEmailRedirectTo, passwordRecoveryEmailRedirectTo } from "./auth-callback-url";
+import { isRecoveryCookieValue, RECOVERY_COOKIE_NAME } from "./recovery";
 import { safeNextPath } from "./redirects";
 import { isPlausibleEmail, newPasswordIssue, newPasswordIssueMessage, normalizeEmail } from "./validation";
 
-function providerFailure(
-  route: string,
-  correlationId: string,
-  error: unknown,
-  context: Parameters<typeof classifyAuthError>[1],
-  started: number,
-): AuthActionState {
-  const mapped = classifyAuthError(toAuthErrorInput(error), context);
-  logAuthFailure(route, correlationId, mapped, Date.now() - started);
-  if (
-    (context === "recovery_request" || context === "resend") &&
-    publicAuthOutcome(context, mapped) === "neutral"
-  ) {
-    return { info: context === "resend" ? RESEND_ACCEPTED : RESET_REQUEST_ACCEPTED };
-  }
-  return { error: mapped.message };
+function resetAccepted(email: string): AuthActionState {
+  return {
+    info: RESET_REQUEST_ACCEPTED,
+    otpChallenge: { purpose: "recovery", email },
+  };
+}
+
+function resendAccepted(email: string): AuthActionState {
+  return {
+    info: RESEND_ACCEPTED,
+    otpChallenge: { purpose: "signup", email },
+  };
 }
 
 export async function requestPasswordResetAction(
@@ -42,7 +39,6 @@ export async function requestPasswordResetAction(
   formData: FormData,
 ): Promise<AuthActionState> {
   const email = normalizeEmail(String(formData.get("email") ?? ""));
-  const next = safeNextPath(String(formData.get("next") ?? ""), "/hives");
   const correlationId = await requestCorrelationId();
   const route = "auth.reset_request";
 
@@ -57,30 +53,28 @@ export async function requestPasswordResetAction(
   const started = Date.now();
   try {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${appOrigin}/auth/callback?next=${encodeURIComponent(RESET_PASSWORD_PATH)}`,
+      redirectTo: passwordRecoveryEmailRedirectTo(appOrigin),
     });
     const durationMs = Date.now() - started;
     if (error) {
       const mapped = classifyAuthError(toAuthErrorInput(error), "recovery_request");
       if (publicAuthOutcome("recovery_request", mapped) === "neutral") {
-        await rememberRecoveryNext(next);
         logAuthInfo(route, correlationId, "reset_email_accepted", durationMs);
-        return { info: RESET_REQUEST_ACCEPTED };
+        return resetAccepted(email);
       }
       logAuthFailure(route, correlationId, mapped, durationMs);
       return { error: mapped.message };
     }
   } catch (caught) {
-    const failure = providerFailure(route, correlationId, caught, "recovery_request", started);
+    const failure = providerAuthFailure(route, correlationId, caught, "recovery_request", started);
     if (failure.info) {
-      await rememberRecoveryNext(next);
+      return resetAccepted(email);
     }
     return failure;
   }
 
-  await rememberRecoveryNext(next);
   logAuthInfo(route, correlationId, "reset_email_accepted", Date.now() - started);
-  return { info: RESET_REQUEST_ACCEPTED };
+  return resetAccepted(email);
 }
 
 export async function resendConfirmationAction(
@@ -106,7 +100,7 @@ export async function resendConfirmationAction(
       type: "signup",
       email,
       options: {
-        emailRedirectTo: `${appOrigin}/auth/callback?next=${encodeURIComponent(next)}`,
+        emailRedirectTo: authEmailRedirectTo(appOrigin, next),
       },
     });
     const durationMs = Date.now() - started;
@@ -114,17 +108,21 @@ export async function resendConfirmationAction(
       const mapped = classifyAuthError(toAuthErrorInput(error), "resend");
       if (publicAuthOutcome("resend", mapped) === "neutral") {
         logAuthInfo(route, correlationId, "confirmation_resend_accepted", durationMs);
-        return { info: RESEND_ACCEPTED };
+        return resendAccepted(email);
       }
       logAuthFailure(route, correlationId, mapped, durationMs);
       return { error: mapped.message };
     }
   } catch (caught) {
-    return providerFailure(route, correlationId, caught, "resend", started);
+    const failure = providerAuthFailure(route, correlationId, caught, "resend", started);
+    if (failure.info) {
+      return resendAccepted(email);
+    }
+    return failure;
   }
 
   logAuthInfo(route, correlationId, "confirmation_resend_accepted", Date.now() - started);
-  return { info: RESEND_ACCEPTED };
+  return resendAccepted(email);
 }
 
 export async function updatePasswordFromRecoveryAction(
@@ -140,7 +138,7 @@ export async function updatePasswordFromRecoveryAction(
   if (!isRecoveryCookieValue(cookieStore.get(RECOVERY_COOKIE_NAME)?.value)) {
     const mapped = localAuthFailure(
       "recovery_cookie_missing",
-      "Open the reset link from your email again, or change your password from your account.",
+      "Verify the code from your reset email again, or change your password from your account.",
     );
     logAuthFailure(route, correlationId, mapped);
     return { error: mapped.message };
@@ -161,7 +159,7 @@ export async function updatePasswordFromRecoveryAction(
     await clearRecoveryCookies();
     const mapped = localAuthFailure(
       "session_missing",
-      "Your session expired. Request a new reset link, or log in again.",
+      "Your session expired. Request a new reset email, or log in again.",
     );
     logAuthFailure(route, correlationId, mapped);
     return { error: mapped.message };
@@ -181,7 +179,7 @@ export async function updatePasswordFromRecoveryAction(
       return { error: mapped.message };
     }
   } catch (caught) {
-    return providerFailure(route, correlationId, caught, "password_update", started);
+    return providerAuthFailure(route, correlationId, caught, "password_update", started);
   }
 
   await clearRecoveryCookies();
@@ -267,7 +265,7 @@ export async function changePasswordAction(
       return { error: mapped.message };
     }
   } catch (caught) {
-    return providerFailure(route, correlationId, caught, "password_update", started);
+    return providerAuthFailure(route, correlationId, caught, "password_update", started);
   }
 
   await clearRecoveryCookies();

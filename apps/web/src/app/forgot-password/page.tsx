@@ -17,7 +17,7 @@ export default async function ForgotPasswordPage({ searchParams }: PageProps) {
       <AuthFrame>
         <AuthHeading
           title="Reset your password"
-          lede="Enter the email on your account. If it's registered, we'll send a link to choose a new password."
+          lede="Enter the email on your account. If it's registered, we'll email a reset code you can enter here—without opening the link if your mail app scans links."
         />
         <ForgotPasswordForm nextPath={next} linkError={linkError} />
       </AuthFrame>

@@ -26,6 +26,22 @@ export function newPasswordIssue(password: string, confirm: string): NewPassword
   return null;
 }
 
+const OTP_MIN_LENGTH = 6;
+const OTP_MAX_LENGTH = 10;
+
+export function normalizeOtpToken(value: string): string {
+  return value.replace(/\s+/g, "").trim();
+}
+
+export function isPlausibleOtpToken(value: string): boolean {
+  const normalized = normalizeOtpToken(value);
+  return (
+    normalized.length >= OTP_MIN_LENGTH &&
+    normalized.length <= OTP_MAX_LENGTH &&
+    /^[0-9]+$/.test(normalized)
+  );
+}
+
 export function newPasswordIssueMessage(issue: NewPasswordIssue): string {
   switch (issue) {
     case "missing":

@@ -127,6 +127,9 @@ describe("classifyAuthError", () => {
     expect(down.diagnostic).toBe("http_503");
 
     expect(classifyAuthError({ code: "otp_expired" }, "callback").kind).toBe("link_expired");
+    const otpCode = classifyAuthError({ code: "invalid_otp" }, "otp_verify");
+    expect(otpCode.message).toContain("incorrect");
+    expect(classifyAuthError({ code: "otp_expired" }, "otp_verify").message).toContain("expired");
     expect(classifyAuthError({ code: "flow_state_expired" }, "callback").kind).toBe("link_expired");
     expect(classifyAuthError({ code: "flow_state_not_found" }, "callback").kind).toBe("link_reused");
     expect(classifyAuthError({ code: "bad_code_verifier" }, "callback").kind).toBe("link_reused");
@@ -159,6 +162,7 @@ describe("classifyAuthError", () => {
 describe("authInfoMessage", () => {
   it("allows only known info codes", () => {
     expect(authInfoMessage("password_updated")).toContain("updated");
+    expect(authInfoMessage("email_confirmed")).toContain("confirmed");
     expect(authInfoMessage("javascript:alert(1)")).toBeNull();
   });
 });

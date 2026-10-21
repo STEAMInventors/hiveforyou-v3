@@ -1,5 +1,4 @@
 import { createServerClient } from "@supabase/ssr";
-import type { EmailOtpType } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -10,6 +9,7 @@ import {
   safeEmailOtpType,
 } from "@/lib/auth/callback-intent";
 import { classifyAuthError, linkErrorCodeForKind, sanitizeDiagnostic, toAuthErrorInput } from "@/lib/auth/map-auth-error";
+import { verifyEmailOtp } from "@/lib/auth/otp";
 import {
   RECOVERY_COOKIE_NAME,
   recoveryCookieIsSecure,
@@ -29,6 +29,10 @@ function safeProviderCode(value: string | null): string | undefined {
   return sanitizeDiagnostic(normalized) === normalized ? normalized : undefined;
 }
 
+function attachRecoveryCookie(response: NextResponse): void {
+  response.cookies.set(RECOVERY_COOKIE_NAME, "1", recoveryCookieOptions(recoveryCookieIsSecure()));
+}
+
 function failureRedirect(appOrigin: string, next: string, errorCode: string, recoveryIntent: boolean): URL {
   const destination = new URL(recoveryIntent ? "/forgot-password" : "/login", appOrigin);
   destination.searchParams.set("error", errorCode);
@@ -36,11 +40,6 @@ function failureRedirect(appOrigin: string, next: string, errorCode: string, rec
     destination.searchParams.set("next", next);
   }
   return destination;
-}
-
-function attachRecoveryCookie(response: NextResponse): void {
-  const options = recoveryCookieOptions(recoveryCookieIsSecure());
-  response.cookies.set(RECOVERY_COOKIE_NAME, "1", options);
 }
 
 export async function GET(request: Request) {
@@ -78,7 +77,7 @@ export async function GET(request: Request) {
       "auth.callback",
       correlationId,
       providerCode
-        ? mapped
+        ? { ...mapped, diagnostic: `provider_${providerCode}` }
         : { ...mapped, kind: "link_invalid", diagnostic: "missing_code", message: mapped.message },
     );
     return sendFailure(linkCode);
@@ -113,9 +112,9 @@ export async function GET(request: Request) {
         return sendFailure(linkErrorCodeForKind(mapped.kind));
       }
     } else if (tokenHash && safeOtpType) {
-      const { error } = await supabase.auth.verifyOtp({
+      const { error } = await verifyEmailOtp(supabase, {
         token_hash: tokenHash,
-        type: safeOtpType as EmailOtpType,
+        type: safeOtpType,
       });
       const durationMs = Date.now() - started;
       if (error) {

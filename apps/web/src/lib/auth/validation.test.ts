@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { isPlausibleEmail, newPasswordIssue, normalizeEmail } from "./validation";
+import {
+  isPlausibleEmail,
+  isPlausibleOtpToken,
+  newPasswordIssue,
+  normalizeEmail,
+  normalizeOtpToken,
+} from "./validation";
 
 describe("auth validation", () => {
   it("accepts a normal email and rejects malformed ones", () => {
@@ -16,5 +22,11 @@ describe("auth validation", () => {
     expect(newPasswordIssue("shortpass", "otherpass")).toBe("mismatch");
     expect(newPasswordIssue("shortpass", "shortpass")).toBe("policy");
     expect(newPasswordIssue("long-enough-password", "long-enough-password")).toBeNull();
+  });
+
+  it("accepts numeric OTP tokens with optional spacing", () => {
+    expect(isPlausibleOtpToken(normalizeOtpToken(" 123 456 "))).toBe(true);
+    expect(isPlausibleOtpToken("12345")).toBe(false);
+    expect(isPlausibleOtpToken("abcdef")).toBe(false);
   });
 });

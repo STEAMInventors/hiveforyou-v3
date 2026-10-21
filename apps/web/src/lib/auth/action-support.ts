@@ -8,13 +8,7 @@ import { logServerEvent } from "@/lib/server/log";
 
 import type { MappedAuthError } from "./map-auth-error";
 import { authLogLevel, sanitizeDiagnostic } from "./map-auth-error";
-import {
-  RECOVERY_COOKIE_NAME,
-  RECOVERY_NEXT_COOKIE_NAME,
-  recoveryCookieIsSecure,
-  recoveryCookieOptions,
-  recoveryNextCookieValue,
-} from "./recovery";
+import { RECOVERY_COOKIE_NAME, recoveryCookieIsSecure, recoveryCookieOptions } from "./recovery";
 
 export async function requestCorrelationId(): Promise<string> {
   const headerStore = await headers();
@@ -65,14 +59,10 @@ export async function clearRecoveryCookies(): Promise<void> {
   const cookieStore = await cookies();
   const options = recoveryCookieOptions(recoveryCookieIsSecure(), 0);
   cookieStore.set(RECOVERY_COOKIE_NAME, "", options);
-  cookieStore.set(RECOVERY_NEXT_COOKIE_NAME, "", options);
 }
 
-export async function rememberRecoveryNext(path: string): Promise<void> {
+/** Issued only after successful recovery OTP or callback verification. */
+export async function issueRecoveryMarker(): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.set(
-    RECOVERY_NEXT_COOKIE_NAME,
-    recoveryNextCookieValue(path),
-    recoveryCookieOptions(recoveryCookieIsSecure()),
-  );
+  cookieStore.set(RECOVERY_COOKIE_NAME, "1", recoveryCookieOptions(recoveryCookieIsSecure()));
 }

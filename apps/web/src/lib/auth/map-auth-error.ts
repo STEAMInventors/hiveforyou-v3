@@ -15,7 +15,8 @@ export type AuthErrorContext =
   | "recovery_request"
   | "resend"
   | "password_update"
-  | "callback";
+  | "callback"
+  | "otp_verify";
 
 export type AuthFailureKind =
   | "invalid_email"
@@ -60,6 +61,7 @@ const KIND_BY_CODE: Record<string, AuthFailureKind> = {
   over_email_send_rate_limit: "rate_limited",
   over_sms_send_rate_limit: "rate_limited",
   otp_expired: "link_expired",
+  invalid_otp: "link_invalid",
   flow_state_expired: "link_expired",
   flow_state_not_found: "link_reused",
   bad_code_verifier: "link_reused",
@@ -150,7 +152,7 @@ function resolveKind(input: AuthErrorInput, context: AuthErrorContext): Resolved
     if (context === "sign_up" || context === "recovery_request" || context === "resend") {
       return { kind: "conceal_account", diagnostic };
     }
-    if (context === "callback") {
+    if (context === "callback" || context === "otp_verify") {
       return { kind: "link_invalid", diagnostic };
     }
     return { kind: "unknown", diagnostic };
@@ -191,7 +193,10 @@ function resolveKind(input: AuthErrorInput, context: AuthErrorContext): Resolved
   if (message === "email not confirmed") {
     return { kind: "email_not_confirmed", diagnostic: diagnosticFor(code, input.status, "email_not_confirmed") };
   }
-  if (context === "callback" && message === "email link is invalid or has expired") {
+  if (
+    (context === "callback" || context === "otp_verify") &&
+    message === "email link is invalid or has expired"
+  ) {
     return { kind: "link_invalid", diagnostic: diagnosticFor(code, input.status, "link_invalid") };
   }
 
@@ -203,6 +208,17 @@ function resolveKind(input: AuthErrorInput, context: AuthErrorContext): Resolved
 }
 
 function messageFor(kind: AuthFailureKind, input: AuthErrorInput, context: AuthErrorContext): string {
+  if (context === "otp_verify") {
+    if (kind === "link_expired") {
+      return "That code has expired. Request a new email and try again.";
+    }
+    if (kind === "link_reused") {
+      return "That code was already used. Request a new email and try again.";
+    }
+    if (kind === "link_invalid" || kind === "invalid_credentials") {
+      return "That code is incorrect. Check the email and try again.";
+    }
+  }
   if (kind === "weak_password") {
     const message = (input.message ?? "").toLowerCase();
     if (

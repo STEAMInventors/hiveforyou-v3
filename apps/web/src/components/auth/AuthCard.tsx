@@ -9,6 +9,7 @@ import { SIGN_UP_CHECK_EMAIL_BODY, SIGN_UP_CHECK_EMAIL_TITLE } from "@/lib/auth/
 import { safeNextPath } from "@/lib/auth/redirects";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/auth/validation";
 
+import { EmailOtpForm } from "./EmailOtpForm";
 import { ResendConfirmationForm } from "./ResendConfirmationForm";
 import { AuthCrossLinks, AuthField, AuthFrame, AuthHeading, AuthNotice, AuthSubmit } from "./auth-ui";
 
@@ -43,6 +44,9 @@ export function AuthCard({
     return (
       <AuthFrame>
         <AuthHeading title={SIGN_UP_CHECK_EMAIL_TITLE} lede={SIGN_UP_CHECK_EMAIL_BODY} />
+        {initialEmail ? (
+          <EmailOtpForm purpose="signup" email={initialEmail} nextPath={safeNext} codeLabel="Confirmation code" />
+        ) : null}
         <ResendConfirmationForm email={initialEmail} nextPath={safeNext} />
         <AuthCrossLinks nextPath={safeNext} showForgot />
       </AuthFrame>
@@ -71,7 +75,13 @@ export function AuthCard({
               onChange={(event) => setEmail(event.target.value)}
             />
             <AuthField label="Password" name="password" type="password" autoComplete="current-password" required />
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-3">
+              <Link
+                href="/sign-in-help"
+                className="text-sm font-semibold text-[#2456B8] no-underline hover:underline"
+              >
+                Forgot email?
+              </Link>
               <Link
                 href={`/forgot-password?next=${encodeURIComponent(safeNext)}`}
                 className="text-sm font-semibold text-[#2456B8] no-underline hover:underline"

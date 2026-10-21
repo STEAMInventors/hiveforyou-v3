@@ -1,19 +1,23 @@
 # Active ticket
 
-**Phase / Ticket:** P1.4 — Reuse V2 Edge Function Architecture (Hive persistence)  
-**Status:** IMPLEMENTED in repo — **BLOCKED** on Supabase apply + Edge Function deploy (2026-10-21)
+**Phase / Ticket:** P1.4 — Hive persistence + unified Supabase authentication (V3)  
+**Status:** **IN PROGRESS** — app code in repo; Hive path **BLOCKED** on Supabase apply + Edge Function deploy; auth **ready for live email-code verification** after deploy (2026-10-21)
 
-**Objective:** Landing → Register/Login → My Hives → Create Hive → Hive workspace via `/api/v1/hives`, with Hive persistence through Supabase Edge Function `v1-hives` and public RPC wrappers (schema `hive3` stays off PostgREST).
+**Objective (Hive):** Landing → Register/Login → My Hives → Create Hive → Hive workspace via `/api/v1/hives`, with Hive persistence through Supabase Edge Function `v1-hives` and public RPC wrappers (schema `hive3` stays off PostgREST).
 
-**Evidence:** `apps/web/`, `supabase/functions/v1-hives/`, `supabase/migrations/20261021130000_hive3_m1_public_hive_rpc.sql`, `packages/contracts/src/hives/v1/`, `docs/acceptance/P1.4-first-user-flow.md`.
+**Objective (Auth):** One cohesive `apps/web/src/lib/auth/` module: registration, email verification (link + code), login, forgot password with recovery-code entry, signed-in password change, logout, `/sign-in-help` (Forgot User ID guidance). Shared `verifyEmailOtp()`; short-lived recovery marker cookie only after successful recovery verification (not `recovery_sent_at`).
 
-**V2 read-only finding:** Checked `hiveforyou-v2` — no `supabase/functions` in git; V2 uses session-scoped PostgREST on exposed schema **`hive`** (`supabase/config.toml`, `HiveGateway` in `app/src/lib/persistence/hive-gateway.ts`). V3 adaptation keeps the same session + RLS model but routes writes/reads through Edge Function + **`public.hive3_m1_*` RPC** so `hive3` need not be publicly exposed.
+**Evidence:** `apps/web/src/lib/auth/` (`otp.ts`, `session-actions.ts`, `recovery-actions.ts`, `otp-actions.ts`, `index.ts`), `apps/web/src/components/auth/EmailOtpForm.tsx`, `supabase/functions/v1-hives/`, `supabase/migrations/20261021130000_hive3_m1_public_hive_rpc.sql`, `docs/acceptance/P1.4-first-user-flow.md`.
 
-**Done when:** P1.3-authorized apply of RPC migration; deploy Edge Function `v1-hives`; Supabase Auth redirect allow-list includes `https://hiveforyou-v3.vercel.app/auth/callback` and `http://localhost:3000/auth/callback` (public web config: `apps/web/src/lib/config/`); browser verification §10 passes with two confirmed users and saved evidence.
+**V2 read-only finding:** Checked `hiveforyou-v2` — no `supabase/functions` in git; V2 uses session-scoped PostgREST on exposed schema **`hive`**. V3 keeps session + RLS but routes Hive writes/reads through Edge Function + **`public.hive3_m1_*` RPC**.
 
-**Blocked on:** Operator applies `20261021130000_hive3_m1_public_hive_rpc.sql` and deploys `supabase/functions/v1-hives` (no `hive3` PostgREST exposure required). Deferred: formal P1.3 SQL Q1–Q5 scripts and migration history recording.
+**Done when (Hive):** P1.3-authorized apply of RPC migration; deploy `v1-hives`; redirect allow-list for V3 `/auth/callback`; browser §10 with two confirmed users.
 
-**Auth recovery (2026-10-21):** Registration, login, password reset, and signed-in password change in `apps/web` map Supabase auth failures to safe messages and use the existing `/auth/callback` PKCE redirect. Hive persistence remains blocked on the migration apply and Edge Function deploy above. No commit or deploy from this change.
+**Done when (Auth):** Unit tests pass; live reset/confirm emails exercised on V3 with code entry (no link prefetch) and link callback; no login regression.
+
+**Blocked on (Hive):** Operator applies `20261021130000_hive3_m1_public_hive_rpc.sql` and deploys `supabase/functions/v1-hives`. Shared Supabase email template changes remain **operator-approved only** (documented in ticket report, not edited in repo).
+
+**Removed duplication (auth):** `hfy_recovery_next` cookie and `rememberRecoveryNext`; `recovery_sent_at` callback inference; split session vs recovery actions with shared `otp.ts` / `action-outcome.ts`.
 
 ---
 

@@ -1,10 +1,8 @@
-import { safeNextPath } from "./redirects";
-
 export const RECOVERY_COOKIE_NAME = "hfy_recovery_password";
-export const RECOVERY_NEXT_COOKIE_NAME = "hfy_recovery_next";
 export const RESET_PASSWORD_PATH = "/reset-password";
 export const FORGOT_PASSWORD_PATH = "/forgot-password";
 export const ACCOUNT_PASSWORD_PATH = "/account/password";
+export const SIGN_IN_HELP_PATH = "/sign-in-help";
 export const RECOVERY_COOKIE_MAX_AGE_SECONDS = 15 * 60;
 
 export function isRecoveryCookieValue(value: string | undefined): boolean {
@@ -13,11 +11,6 @@ export function isRecoveryCookieValue(value: string | undefined): boolean {
 
 export function isRecoveryOtpType(value: string | null | undefined): boolean {
   return value?.trim().toLowerCase() === "recovery";
-}
-
-export function recoveryNextCookieValue(path: string | null | undefined): string {
-  const safe = safeNextPath(path, "/hives");
-  return safe.length <= 512 ? safe : "/hives";
 }
 
 export function recoveryCookieIsSecure(): boolean {
