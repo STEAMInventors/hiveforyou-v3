@@ -1,11 +1,10 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { CreateYourHiveModal } from "@/components/landing/CreateYourHiveModal";
 import { HiveCardGrid } from "@/components/hives/HiveCardGrid";
-import { useCreateHive } from "@/components/hives/useCreateHive";
+import { useHiveComposerCreateFlow } from "@/components/hives/useHiveComposerCreateFlow";
 import { HiveCustomerShell } from "@/components/shell/HiveCustomerShell";
 import type { HiveV1 } from "@hiveforyou/contracts/hives/v1";
 import { fetchMyHives, HiveApiError } from "@/lib/hives/client";
@@ -19,12 +18,18 @@ function greeting(): string {
 }
 
 export function MyHivesExperience() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hives, setHives] = useState<HiveV1[]>([]);
   const [firstName, setFirstName] = useState("there");
-  const [modalOpen, setModalOpen] = useState(false);
-  const create = useCreateHive();
+
+  const flow = useHiveComposerCreateFlow({
+    signedIn: true,
+    onHiveCreated: (hiveId) => {
+      router.push(`/hives/${hiveId}`);
+    },
+  });
 
   const load = async () => {
     setLoading(true);
@@ -56,16 +61,6 @@ export function MyHivesExperience() {
     })();
   }, []);
 
-  const handleCreate = async () => {
-    const result = await create.submit();
-    if (!result) {
-      return;
-    }
-    setModalOpen(false);
-    create.resetForm();
-    window.location.href = `/hives/${result.hiveId}`;
-  };
-
   return (
     <HiveCustomerShell>
       <div className="mx-auto flex w-full max-w-[1160px] flex-col gap-9 px-4 py-10 md:px-8 md:py-14">
@@ -82,12 +77,15 @@ export function MyHivesExperience() {
             <button
               type="button"
               className="inline-flex h-11 items-center gap-2 rounded-[10px] bg-[#2F6FE4] px-4 text-[15px] font-semibold text-white hover:bg-[#2456B8]"
-              onClick={() => setModalOpen(true)}
+              onClick={flow.openCreateModal}
+              disabled={flow.submitBusy}
             >
               Create a Hive
             </button>
           ) : null}
         </div>
+
+        <div className="flex w-full justify-center px-0 md:px-4">{flow.composer}</div>
 
         {loading ? (
           <p className="text-sm text-[#6B7280]" role="status">
@@ -119,7 +117,8 @@ export function MyHivesExperience() {
             <button
               type="button"
               className="mt-6 inline-flex h-11 items-center rounded-[10px] bg-[#2F6FE4] px-5 text-[15px] font-semibold text-white hover:bg-[#2456B8]"
-              onClick={() => setModalOpen(true)}
+              onClick={flow.openCreateModal}
+              disabled={flow.submitBusy}
             >
               Create a Hive
             </button>
@@ -129,28 +128,9 @@ export function MyHivesExperience() {
         {!loading && !error && hives.length > 0 ? <HiveCardGrid hives={hives} /> : null}
       </div>
 
-      <CreateYourHiveModal
-        open={modalOpen}
-        hiveName={create.hiveName}
-        hiveDescription={create.hiveDescription}
-        nameError={create.nameError}
-        descriptionError={create.descriptionError}
-        submitBusy={create.submitBusy}
-        onHiveNameChange={create.setHiveName}
-        onHiveDescriptionChange={create.setHiveDescription}
-        onCancel={() => {
-          if (!create.submitBusy) {
-            setModalOpen(false);
-          }
-        }}
-        onSubmit={() => {
-          void handleCreate();
-        }}
-      />
-      {create.submitError ? (
-        <p className="pb-6 text-center text-sm text-[#B3261E]" role="alert">
-          {create.submitError}
-        </p>
+      {flow.modal}
+      {flow.submitErrorAlert ? (
+        <div className="pb-6">{flow.submitErrorAlert}</div>
       ) : null}
     </HiveCustomerShell>
   );
