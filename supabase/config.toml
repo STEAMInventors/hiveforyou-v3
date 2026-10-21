@@ -1,0 +1,15 @@
+# HiveForYou V3 — local Supabase config (shared project may differ in Dashboard).
+# V2 exposes schema `hive` on PostgREST; V3 keeps `hive3` private and uses public RPC + Edge Functions.
+
+project_id = "hiveforyou"
+
+[api]
+enabled = true
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+
+[db]
+major_version = 15
+
+[functions.v1-hives]
+verify_jwt = true

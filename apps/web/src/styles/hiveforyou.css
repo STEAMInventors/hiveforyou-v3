@@ -1,0 +1,434 @@
+/*! HiveForYou CSS v1.0 — tokens, base, components, utilities. Load fonts.css (or self-host) first. */
+@layer hfy.tokens, hfy.base, hfy.components, hfy.utilities;
+/* ==========================================================================
+   HiveForYou design tokens — v1.0
+   Variables only. Safe to load anywhere (website, React app, emails-with-CSS).
+   ========================================================================== */
+@layer hfy.tokens {
+  :root {
+    /* Brand — fills, icons, charts (≥3:1 on white) */
+    --hfy-blue:   #3B7CF6;
+    --hfy-coral:  #EF5143;
+    --hfy-honey:  #F6B826;
+    --hfy-leaf:   #2FA35A;
+
+    /* Brand — text-safe (≥5.5:1 on white) */
+    --hfy-blue-deep:  #1A56C4;
+    --hfy-coral-deep: #B33A2E;
+    --hfy-honey-deep: #7A5200;
+    --hfy-leaf-deep:  #197040;
+
+    /* Washes — badge and chip fills */
+    --hfy-blue-wash:  #E8F0FE;
+    --hfy-coral-wash: #FDEDEB;
+    --hfy-honey-wash: #FFF6DC;
+    --hfy-leaf-wash:  #E6F4EA;
+
+    /* Neutrals */
+    --hfy-ink:      #1F2328;
+    --hfy-graphite: #4A525C;
+    --hfy-quiet:    #6B737D;
+    --hfy-line:     #E3E6EA;
+    --hfy-mist:     #F4F6F8;
+    --hfy-paper:    #FFFFFF;
+
+    /* Semantic surface + text (switch with theme) */
+    --hfy-bg:          var(--hfy-paper);
+    --hfy-surface:     var(--hfy-paper);
+    --hfy-surface-2:   var(--hfy-mist);
+    --hfy-text:        var(--hfy-ink);
+    --hfy-text-2:      var(--hfy-graphite);
+    --hfy-text-3:      var(--hfy-quiet);
+    --hfy-border:      var(--hfy-line);
+    --hfy-link:        var(--hfy-blue-deep);
+    --hfy-focus:       var(--hfy-blue);
+    --hfy-primary-bg:  var(--hfy-ink);
+    --hfy-primary-fg:  #FFFFFF;
+    --hfy-wordmark-sub:var(--hfy-graphite);
+
+    /* States — always this order and these colours */
+    --hfy-needs-bg:    var(--hfy-blue-wash);  --hfy-needs-fg:    var(--hfy-blue-deep);  --hfy-needs:    var(--hfy-blue);
+    --hfy-changed-bg:  #FEF3D6;               --hfy-changed-fg:  var(--hfy-honey-deep); --hfy-changed:  var(--hfy-honey);
+    --hfy-missing-bg:  var(--hfy-coral-wash); --hfy-missing-fg:  var(--hfy-coral-deep); --hfy-missing:  var(--hfy-coral);
+    --hfy-checked-bg:  var(--hfy-leaf-wash);  --hfy-checked-fg:  var(--hfy-leaf-deep);  --hfy-checked:  var(--hfy-leaf);
+
+    /* Source chip */
+    --hfy-chip-bg:     var(--hfy-honey-wash);
+    --hfy-chip-border: #F1DFA8;
+    --hfy-chip-fg:     #4A3500;
+
+    /* Type */
+    --hfy-font-brand: var(--font-outfit), "Outfit", "Helvetica Neue", Arial, sans-serif;
+    --hfy-font-ui:    var(--font-dm-sans), "DM Sans", "Helvetica Neue", Arial, sans-serif;
+    --hfy-font-quote: var(--font-source-serif), "Source Serif 4", Georgia, "Times New Roman", serif;
+    --hfy-font-ref:   var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --hfy-text-display: clamp(2.5rem, 5vw + 1rem, 4rem);  /* 40–64 */
+    --hfy-text-title:   clamp(1.75rem, 2vw + 1rem, 1.875rem); /* 28–30 */
+    --hfy-text-section: 1.3125rem;  /* 21 */
+    --hfy-text-lede:    1.125rem;   /* 18 */
+    --hfy-text-body:    1rem;       /* 16 */
+    --hfy-text-small:   0.875rem;   /* 14 */
+    --hfy-text-caption: 0.78125rem; /* 12.5 */
+    --hfy-leading-body: 1.55;
+    --hfy-leading-tight: 1.1;
+    --hfy-measure: 70ch;
+
+    /* Space — 4px base */
+    --hfy-1: 4px;  --hfy-2: 8px;  --hfy-3: 12px; --hfy-4: 16px;
+    --hfy-5: 24px; --hfy-6: 32px; --hfy-7: 48px; --hfy-8: 64px; --hfy-9: 96px;
+
+    /* Shape */
+    --hfy-r-chip: 7px; --hfy-r-control: 12px; --hfy-r-card: 20px; --hfy-r-sheet: 24px; --hfy-r-pill: 999px;
+    --hfy-shadow-1: 0 1px 2px rgba(31,35,40,.06);
+    --hfy-shadow-2: 0 1px 2px rgba(31,35,40,.04), 0 8px 28px rgba(31,35,40,.06);
+    --hfy-shadow-3: 0 24px 64px rgba(31,35,40,.18);
+    --hfy-ring: conic-gradient(from 200deg, var(--hfy-blue), var(--hfy-coral), var(--hfy-honey), var(--hfy-leaf), var(--hfy-blue));
+
+    /* Motion */
+    --hfy-ease-settle: cubic-bezier(.3, .9, .3, 1);
+    --hfy-ease-out:    cubic-bezier(.2, .8, .2, 1);
+    --hfy-dur-fast: 150ms; --hfy-dur: 250ms; --hfy-dur-slow: 400ms;
+
+    /* Layout */
+    --hfy-container: 1120px;
+    --hfy-reading:   760px;
+    --hfy-touch:     44px;
+
+    /* Logo — dense UI (guide allows up to 28px header / 16px min mark) */
+    --hfy-brand-header-h: 34px;
+    --hfy-brand-mark-min: 12px;
+    --hfy-brand-mark-glyph: 10px;
+    --hfy-brand-mark-standalone: 28px;
+    --hfy-brand-mark-hero: 32px;
+    --hfy-brand-mark-footer: 24px;
+    --hfy-chip-mark: var(--hfy-brand-mark-min);
+    --hfy-chip-mark-glyph: var(--hfy-brand-mark-glyph);
+
+    color-scheme: light;
+  }
+
+}
+
+/* Dark theme: data-theme="dark" forces it; with no data-theme the OS setting decides; data-theme="light" forces light. */
+@layer hfy.tokens {
+  :root[data-theme="dark"] {
+    --hfy-bg: #15181C; --hfy-surface: #1B1F24; --hfy-surface-2: #22272E;
+    --hfy-text: #F1F3F5; --hfy-text-2: #C9CED6; --hfy-text-3: #9AA2AD; --hfy-border: #2F353D;
+    --hfy-link: #8DB4FA; --hfy-focus: #8DB4FA;
+    --hfy-primary-bg: #FFFFFF; --hfy-primary-fg: var(--hfy-ink); --hfy-wordmark-sub: #C9CED6;
+    --hfy-needs-bg: rgba(59,124,246,.18);  --hfy-needs-fg: #A9C6FB;
+    --hfy-changed-bg: rgba(246,184,38,.18); --hfy-changed-fg: #F7D27A;
+    --hfy-missing-bg: rgba(239,81,67,.18);  --hfy-missing-fg: #F6A39B;
+    --hfy-checked-bg: rgba(47,163,90,.18);  --hfy-checked-fg: #8FD3A9;
+    --hfy-chip-bg: rgba(246,184,38,.14); --hfy-chip-border: rgba(246,184,38,.35); --hfy-chip-fg: #F7D27A;
+    --hfy-shadow-2: 0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.35);
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]):not([data-theme="dark"]) {
+      --hfy-bg: #15181C; --hfy-surface: #1B1F24; --hfy-surface-2: #22272E;
+      --hfy-text: #F1F3F5; --hfy-text-2: #C9CED6; --hfy-text-3: #9AA2AD; --hfy-border: #2F353D;
+      --hfy-link: #8DB4FA; --hfy-focus: #8DB4FA;
+      --hfy-primary-bg: #FFFFFF; --hfy-primary-fg: var(--hfy-ink); --hfy-wordmark-sub: #C9CED6;
+      --hfy-needs-bg: rgba(59,124,246,.18);  --hfy-needs-fg: #A9C6FB;
+      --hfy-changed-bg: rgba(246,184,38,.18); --hfy-changed-fg: #F7D27A;
+      --hfy-missing-bg: rgba(239,81,67,.18);  --hfy-missing-fg: #F6A39B;
+      --hfy-checked-bg: rgba(47,163,90,.18);  --hfy-checked-fg: #8FD3A9;
+      --hfy-chip-bg: rgba(246,184,38,.14); --hfy-chip-border: rgba(246,184,38,.35); --hfy-chip-fg: #F7D27A;
+      --hfy-shadow-2: 0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.35);
+      color-scheme: dark;
+    }
+  }
+}
+/* ==========================================================================
+   Base — low-specificity defaults (wrapped in :where so your app can override)
+   ========================================================================== */
+@layer hfy.base {
+  :where(*, *::before, *::after) { box-sizing: border-box; }
+  :where(html) { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  :where(body) {
+    margin: 0; background: var(--hfy-bg); color: var(--hfy-text);
+    font-family: var(--hfy-font-ui); font-size: var(--hfy-text-body); line-height: var(--hfy-leading-body);
+    -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+  }
+  :where(h1, h2, h3, h4) { margin: 0; color: var(--hfy-text); line-height: var(--hfy-leading-tight); text-wrap: balance; }
+  :where(h1) { font-family: var(--hfy-font-brand); font-size: var(--hfy-text-title); font-weight: 600; letter-spacing: -0.02em; }
+  :where(h2) { font-family: var(--hfy-font-brand); font-size: var(--hfy-text-section); font-weight: 600; letter-spacing: -0.015em; }
+  :where(h3) { font-size: 1.0625rem; font-weight: 600; }
+  :where(p) { margin: 0; max-width: var(--hfy-measure); text-wrap: pretty; }
+  :where(a) { color: var(--hfy-link); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+  :where(a:hover) { text-decoration-thickness: 2px; }
+  :where(img, svg, video) { display: block; max-width: 100%; }
+  :where(button, input, select, textarea) { font: inherit; color: inherit; }
+  :where(hr) { border: 0; border-top: 1px solid var(--hfy-border); margin: var(--hfy-6) 0; }
+  :where(:focus-visible) { outline: 2px solid var(--hfy-focus); outline-offset: 2px; }
+  :where(::selection) { background: rgba(59,124,246,.22); }
+  :where(code, kbd, samp) { font-family: var(--hfy-font-ref); font-size: .9em; }
+
+  @media (prefers-reduced-motion: reduce) {
+    :where(*, *::before, *::after) { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  }
+}
+/* ==========================================================================
+   Components — prefixed .hfy-*, framework-agnostic (works with className in React)
+   ========================================================================== */
+@layer hfy.components {
+
+  /* ---------- Type ---------- */
+  .hfy-display { font-family: var(--hfy-font-brand); font-size: var(--hfy-text-display); font-weight: 600; letter-spacing: -0.03em; line-height: 1.04; color: var(--hfy-text); }
+  .hfy-title   { font-family: var(--hfy-font-brand); font-size: var(--hfy-text-title); font-weight: 600; letter-spacing: -0.02em; line-height: 1.12; }
+  .hfy-section { font-family: var(--hfy-font-brand); font-size: var(--hfy-text-section); font-weight: 600; letter-spacing: -0.015em; line-height: 1.2; }
+  .hfy-lede    { font-size: var(--hfy-text-lede); color: var(--hfy-text-2); line-height: 1.55; max-width: 62ch; }
+  .hfy-small   { font-size: var(--hfy-text-small); color: var(--hfy-text-2); }
+  .hfy-caption { font-size: var(--hfy-text-caption); color: var(--hfy-text-3); }
+  .hfy-slogan  { font-family: var(--hfy-font-brand); font-weight: 500; letter-spacing: -0.015em; }
+  /* Words quoted from a document — Source Serif only here */
+  .hfy-quote { margin: 0; padding: 12px 14px; border-radius: var(--hfy-r-control); background: var(--hfy-chip-bg); font-family: var(--hfy-font-quote); font-size: 1.0625rem; line-height: 1.45; color: var(--hfy-text); }
+  .hfy-quote mark { background: rgba(246,184,38,.45); color: inherit; border-radius: 3px; padding: 0 2px; }
+  .hfy-ref { font-family: var(--hfy-font-ref); font-size: .8125rem; }
+
+  /* ---------- Wordmark (text version for UI headers; use SVG files for print/social) ---------- */
+  .hfy-wordmark { font-family: var(--hfy-font-brand); font-weight: 600; letter-spacing: -0.03em; color: var(--hfy-text); line-height: 1; white-space: nowrap; }
+  .hfy-wordmark > span { font-weight: 400; color: var(--hfy-wordmark-sub); }
+  .hfy-logo { display: inline-flex; align-items: center; gap: .55em; text-decoration: none; font-size: 1.125rem; }
+  .hfy-logo svg, .hfy-logo img { width: var(--hfy-brand-header-h); height: var(--hfy-brand-header-h); flex: none; }
+
+  .hfy-brand-header-logo {
+    height: var(--hfy-brand-header-h) !important;
+    max-height: var(--hfy-brand-header-h) !important;
+    width: auto !important;
+  }
+  .hfy-brand-header-mark {
+    height: var(--hfy-brand-header-h) !important;
+    max-height: var(--hfy-brand-header-h) !important;
+    width: var(--hfy-brand-header-h) !important;
+    max-width: var(--hfy-brand-header-h) !important;
+  }
+  .hfy-brand-pro-logo {
+    height: var(--hfy-brand-header-h) !important;
+    max-height: var(--hfy-brand-header-h) !important;
+    width: auto !important;
+    display: block;
+  }
+  .hfy-brand-mark { width: var(--hfy-brand-mark-standalone); height: var(--hfy-brand-mark-standalone); flex: none; display: block; }
+  .hfy-brand-mark--hero { width: var(--hfy-brand-mark-hero); height: var(--hfy-brand-mark-hero); }
+  .hfy-brand-mark--footer { width: var(--hfy-brand-mark-footer); height: var(--hfy-brand-mark-footer); }
+  .hfy-brand-wordmark-footer { height: 18px; width: auto; display: block; }
+
+  /* ---------- Layout ---------- */
+  .hfy-container { width: 100%; max-width: var(--hfy-container); margin-inline: auto; padding-inline: var(--hfy-5); }
+  .hfy-reading   { width: 100%; max-width: var(--hfy-reading); margin-inline: auto; padding-inline: var(--hfy-5); }
+  .hfy-stack { display: flex; flex-direction: column; gap: var(--hfy-gap, var(--hfy-4)); }
+  .hfy-row   { display: flex; flex-wrap: wrap; align-items: center; gap: var(--hfy-gap, var(--hfy-3)); }
+  .hfy-grid  { display: grid; gap: var(--hfy-gap, var(--hfy-4)); grid-template-columns: repeat(auto-fit, minmax(min(var(--hfy-min, 240px), 100%), 1fr)); }
+  .hfy-spacer { flex: 1; }
+
+  /* ---------- Header ---------- */
+  .hfy-header { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: var(--hfy-4); padding: 12px var(--hfy-5); padding-top: max(12px, env(safe-area-inset-top)); background: color-mix(in srgb, var(--hfy-bg) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--hfy-border); }
+
+  /* ---------- Buttons ---------- */
+  .hfy-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--hfy-touch); padding: 10px 18px; border-radius: var(--hfy-r-pill); border: 1px solid var(--hfy-border); background: var(--hfy-surface); color: var(--hfy-text); font-size: .9375rem; font-weight: 600; line-height: 1; text-decoration: none; cursor: pointer; transition: background var(--hfy-dur-fast), border-color var(--hfy-dur-fast), transform var(--hfy-dur-fast); }
+  .hfy-btn:hover { background: var(--hfy-surface-2); }
+  .hfy-btn:active { transform: translateY(1px); }
+  .hfy-btn:disabled, .hfy-btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; transform: none; }
+  .hfy-btn--primary { background: var(--hfy-primary-bg); color: var(--hfy-primary-fg); border-color: var(--hfy-primary-bg); }
+  .hfy-btn--primary:hover { background: color-mix(in srgb, var(--hfy-primary-bg) 85%, var(--hfy-bg)); }
+  .hfy-btn--accent { background: var(--hfy-blue-deep); color: #FFFFFF; border-color: var(--hfy-blue-deep); }
+  .hfy-btn--accent:hover { background: #164AAB; }
+  .hfy-btn--quiet { border-color: transparent; background: transparent; color: var(--hfy-text-2); font-weight: 500; }
+  .hfy-btn--quiet:hover { background: var(--hfy-surface-2); color: var(--hfy-text); }
+  .hfy-btn--sm { min-height: 36px; padding: 7px 13px; font-size: .8125rem; }
+  .hfy-btn--lg { min-height: 52px; padding: 14px 24px; font-size: 1rem; }
+  .hfy-btn--icon { width: var(--hfy-touch); padding: 0; }
+  .hfy-btn--icon.hfy-btn--sm { width: 36px; }
+
+  /* ---------- Form controls ---------- */
+  .hfy-field { display: flex; flex-direction: column; gap: 6px; }
+  .hfy-label { font-size: var(--hfy-text-small); font-weight: 600; color: var(--hfy-text); }
+  .hfy-hint  { font-size: var(--hfy-text-caption); color: var(--hfy-text-3); }
+  .hfy-input, .hfy-select, .hfy-textarea { width: 100%; min-height: var(--hfy-touch); padding: 10px 14px; border-radius: var(--hfy-r-control); border: 1px solid var(--hfy-border); background: var(--hfy-surface); color: var(--hfy-text); transition: border-color var(--hfy-dur-fast), box-shadow var(--hfy-dur-fast); }
+  .hfy-input::placeholder, .hfy-textarea::placeholder { color: var(--hfy-text-3); }
+  .hfy-input:hover, .hfy-select:hover, .hfy-textarea:hover { border-color: color-mix(in srgb, var(--hfy-border) 50%, var(--hfy-text-3)); }
+  .hfy-input:focus-visible, .hfy-select:focus-visible, .hfy-textarea:focus-visible { outline: none; border-color: var(--hfy-focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hfy-focus) 25%, transparent); }
+  .hfy-input[aria-invalid="true"] { border-color: var(--hfy-coral); }
+  .hfy-textarea { min-height: 120px; resize: vertical; line-height: 1.5; }
+  .hfy-search { border-radius: var(--hfy-r-pill); padding-inline: 18px; }
+
+  /* ---------- Composer: the four-colour ring (signature element) ---------- */
+  .hfy-composer { position: relative; border-radius: 28px; background: var(--hfy-surface); border: 1px solid var(--hfy-border); box-shadow: var(--hfy-shadow-2); padding: 14px 14px 12px 22px; transition: box-shadow var(--hfy-dur); }
+  .hfy-composer::before { content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1.5px; background: var(--hfy-ring); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0; transition: opacity var(--hfy-dur); pointer-events: none; }
+  .hfy-composer:hover::before, .hfy-composer:focus-within::before { opacity: .85; }
+  .hfy-composer:hover, .hfy-composer:focus-within { box-shadow: -10px 10px 30px rgba(59,124,246,.10), 10px 10px 30px rgba(47,163,90,.08), 0 -6px 24px rgba(246,184,38,.06); }
+  .hfy-composer textarea { width: 100%; border: 0; outline: 0; resize: none; background: transparent; font-size: 1.0625rem; line-height: 1.5; padding: 6px 8px 0 0; }
+  .hfy-ring { position: relative; border-radius: var(--hfy-r-card); }
+  .hfy-ring::before { content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1.5px; background: var(--hfy-ring); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: .8; pointer-events: none; }
+
+  /* ---------- Source chip (no source, no claim) ----------
+     Honey pill + Hive mark tile (React: HfyChipButton).
+     Optional data-doc="iep" etc. swaps the tile glyph; default uses brand favicon in app.
+  */
+  .hfy-chip {
+    --chip-mark: var(--hfy-chip-mark);
+    --chip-mark-glyph: var(--hfy-chip-mark-glyph);
+    --chip-text: 8px;
+    display: inline-flex; align-items: center; gap: 3px; min-height: var(--chip-mark);
+    padding: 0 3px 0 0; border-radius: 4px; vertical-align: middle; box-sizing: content-box;
+    background: var(--hfy-chip-bg); border: 1px solid var(--hfy-chip-border); color: var(--hfy-chip-fg);
+    font-family: var(--hfy-font-ref); font-size: var(--chip-text); font-weight: 400; line-height: 1; letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums; white-space: nowrap; text-decoration: none; cursor: pointer;
+    -webkit-text-size-adjust: none; text-size-adjust: none;
+    transition: background var(--hfy-dur-fast), border-color var(--hfy-dur-fast);
+  }
+  .hfy-chip__label {
+    font-size: var(--chip-text); line-height: 1; font-weight: 400; font-family: inherit;
+    transform: none;
+  }
+  button.hfy-chip, a.hfy-chip { color: var(--hfy-chip-fg); }
+  .hfy-chip:hover { background: color-mix(in srgb, var(--hfy-chip-bg) 65%, var(--hfy-honey)); }
+  .hfy-chip:focus-visible { outline: 2px solid var(--hfy-focus); outline-offset: 1px; }
+  .hfy-chip__icon {
+    width: var(--chip-mark); height: var(--chip-mark); flex: none; border-radius: 3px;
+    background-color: var(--hfy-surface); box-shadow: inset 0 0 0 1px var(--hfy-chip-border);
+    background-repeat: no-repeat; background-position: center; background-size: var(--chip-mark-glyph) var(--chip-mark-glyph);
+  }
+  .hfy-chip__icon--brand { background-image: none; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+  .hfy-chip__icon--brand img { width: var(--chip-mark-glyph); height: var(--chip-mark-glyph); max-width: none; display: block; object-fit: contain; }
+  .hfy-chip > svg { width: var(--chip-mark-glyph); height: var(--chip-mark-glyph); flex: none; }
+  .hfy-chip__arrow { opacity: .65; margin: 0 1px; font-size: 1em; color: var(--hfy-honey-deep); }
+  p .hfy-chip, li .hfy-chip, .hfy-chip--inline { margin-left: 2px; vertical-align: 0.08em; padding-right: 3px; }
+  .hfy-chip--lg { --chip-mark: 14px; --chip-mark-glyph: 12px; --chip-text: 9px; padding-right: 4px; gap: 3px; }
+  @media (pointer: coarse) { .hfy-chip { position: relative; } .hfy-chip::after { content: ""; position: absolute; inset: -12px -4px; } }
+
+  .hfy-chip--searched { background: transparent; border-style: dashed; border-color: color-mix(in srgb, var(--hfy-coral) 60%, transparent); color: var(--hfy-missing-fg); --doc-icon: var(--doc-icon-search); }
+  .hfy-chip--you { background: var(--hfy-needs-bg); border-color: color-mix(in srgb, var(--hfy-blue) 30%, transparent); color: var(--hfy-needs-fg); --doc-icon: var(--doc-icon-you); }
+  .hfy-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+
+  .hfy-chip, .hfy-chip__icon {
+    --doc-icon-doc: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237A5200' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 3v5h5'/%3E%3C/svg%3E");
+    --doc-icon-iep: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237A5200' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 3v5h5'/%3E%3Cpath d='M9 13h6M9 17h4'/%3E%3C/svg%3E");
+    --doc-icon-eval: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237A5200' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h16'/%3E%3Cpath d='M7 16v-4M12 16V7M17 16v-6'/%3E%3C/svg%3E");
+    --doc-icon-eligibility: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237A5200' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='m8 12.5 2.8 2.8L16 10'/%3E%3C/svg%3E");
+    --doc-icon-progress: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237A5200' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 18l5-5 4 3 7-8'/%3E%3Cpath d='M15 8h5v5'/%3E%3C/svg%3E");
+    --doc-icon-plan: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237A5200' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='5' width='16' height='15' rx='2'/%3E%3Cpath d='M8 3v4M16 3v4M4 10h16'/%3E%3C/svg%3E");
+    --doc-icon-notice: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237A5200' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4 3 20h18z'/%3E%3Cpath d='M12 10v4M12 17v.5'/%3E%3C/svg%3E");
+    --doc-icon-letter: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237A5200' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='2'/%3E%3Cpath d='m4 7 8 6 8-6'/%3E%3C/svg%3E");
+    --doc-icon-statement: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237A5200' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3h12v18l-3-2-3 2-3-2-3 2z'/%3E%3Cpath d='M9 8h6M9 12h6'/%3E%3C/svg%3E");
+    --doc-icon-search: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23B33A2E' stroke-width='2.6' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6'/%3E%3Cpath d='m20 20-4.5-4.5'/%3E%3C/svg%3E");
+    --doc-icon-you: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231A56C4' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M4 21a8 8 0 0 1 16 0'/%3E%3C/svg%3E");
+  }
+  .hfy-chip[data-doc="iep"]         { --doc-icon: var(--doc-icon-iep); }
+  .hfy-chip[data-doc="eval"]        { --doc-icon: var(--doc-icon-eval); }
+  .hfy-chip[data-doc="eligibility"] { --doc-icon: var(--doc-icon-eligibility); }
+  .hfy-chip[data-doc="progress"]    { --doc-icon: var(--doc-icon-progress); }
+  .hfy-chip[data-doc="plan"]        { --doc-icon: var(--doc-icon-plan); }
+  .hfy-chip[data-doc="notice"]      { --doc-icon: var(--doc-icon-notice); }
+  .hfy-chip[data-doc="letter"]      { --doc-icon: var(--doc-icon-letter); }
+  .hfy-chip[data-doc="statement"]   { --doc-icon: var(--doc-icon-statement); }
+  .hfy-chip[data-doc] .hfy-chip__icon:not(.hfy-chip__icon--brand) { background-image: var(--doc-icon, var(--doc-icon-doc)); }
+
+  /* ---------- Badges (states) ---------- */
+  .hfy-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: var(--hfy-r-pill); font-size: .75rem; font-weight: 600; line-height: 1.4; white-space: nowrap; background: var(--hfy-surface-2); color: var(--hfy-text-2); }
+  .hfy-badge::before { content: ""; width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+  .hfy-badge--needs     { background: var(--hfy-needs-bg);   color: var(--hfy-needs-fg); }
+  .hfy-badge--changed   { background: var(--hfy-changed-bg); color: var(--hfy-changed-fg); }
+  .hfy-badge--missing   { background: var(--hfy-missing-bg); color: var(--hfy-missing-fg); }
+  .hfy-badge--checked, .hfy-badge--same, .hfy-badge--reconfirmed { background: var(--hfy-checked-bg); color: var(--hfy-checked-fg); }
+  .hfy-badge--added     { background: var(--hfy-needs-bg);   color: var(--hfy-needs-fg); }
+  .hfy-badge--dropped   { background: var(--hfy-surface-2);  color: var(--hfy-text-2); border: 1px solid var(--hfy-border); }
+  .hfy-badge--not-compared { background: transparent; color: var(--hfy-text-3); border: 1px dashed var(--hfy-border); }
+  .hfy-badge--not-compared::before { display: none; }
+  .hfy-badge--scheduled { background: transparent; color: var(--hfy-checked-fg); border: 1px solid color-mix(in srgb, var(--hfy-leaf) 35%, transparent); }
+  .hfy-pill { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: var(--hfy-r-pill); background: var(--hfy-needs-bg); color: var(--hfy-needs-fg); font-size: .8125rem; font-weight: 500; }
+
+  /* ---------- State bar: need you · changed · missing · checked ---------- */
+  .hfy-statebar { display: flex; height: 8px; gap: 3px; border-radius: 999px; }
+  .hfy-statebar > i { display: block; flex: var(--n, 1) 1 0; border-radius: 999px; transition: flex .5s var(--hfy-ease-out); }
+  .hfy-statebar > .is-needs { background: var(--hfy-needs); }
+  .hfy-statebar > .is-changed { background: var(--hfy-changed); }
+  .hfy-statebar > .is-missing { background: var(--hfy-missing); }
+  .hfy-statebar > .is-checked { background: var(--hfy-checked); }
+  .hfy-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: var(--hfy-text-small); color: var(--hfy-text-2); }
+  .hfy-legend > span { display: inline-flex; align-items: center; gap: 8px; }
+  .hfy-dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; flex: none; }
+  .hfy-dot--needs { background: var(--hfy-needs); } .hfy-dot--changed { background: var(--hfy-changed); }
+  .hfy-dot--missing { background: var(--hfy-missing); } .hfy-dot--checked { background: var(--hfy-checked); }
+
+  /* ---------- Surfaces ---------- */
+  .hfy-card { background: var(--hfy-surface); border: 1px solid var(--hfy-border); border-radius: var(--hfy-r-card); padding: var(--hfy-pad, 20px); }
+  .hfy-card--raised { box-shadow: var(--hfy-shadow-2); }
+  .hfy-card--interactive { cursor: pointer; transition: border-color var(--hfy-dur-fast), background var(--hfy-dur-fast); }
+  .hfy-card--interactive:hover { border-color: color-mix(in srgb, var(--hfy-border) 40%, var(--hfy-text-3)); }
+  .hfy-panel { background: var(--hfy-surface-2); border-radius: var(--hfy-r-card); padding: var(--hfy-pad, 20px); }
+
+  /* ---------- Notes ---------- */
+  .hfy-ask { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; background: var(--hfy-needs-bg); }
+  .hfy-ask > b { flex: none; font-size: .8125rem; font-weight: 700; color: var(--hfy-needs-fg); padding-top: 2px; }
+  .hfy-gap { padding: 14px 16px; border-radius: var(--hfy-r-card); background: var(--hfy-missing-bg); border: 1px dashed color-mix(in srgb, var(--hfy-coral) 50%, transparent); }
+  .hfy-uncertain { padding: 12px 14px; border-radius: var(--hfy-r-control); background: var(--hfy-changed-bg); color: var(--hfy-text); font-size: var(--hfy-text-small); }
+  .hfy-success { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: var(--hfy-r-pill); background: var(--hfy-checked-bg); color: var(--hfy-text); }
+
+  /* ---------- Delta (prior → current) ---------- */
+  .hfy-delta { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px 14px; border-radius: 14px; background: var(--hfy-surface-2); }
+  .hfy-delta .was { color: var(--hfy-text-3); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--hfy-text-3) 60%, transparent); }
+  .hfy-delta .now { font-weight: 600; }
+
+  /* ---------- Segmented control / tabs ---------- */
+  .hfy-seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: var(--hfy-r-pill); background: var(--hfy-surface-2); border: 1px solid var(--hfy-border); }
+  .hfy-seg > button, .hfy-seg > a { border: 0; background: transparent; border-radius: var(--hfy-r-pill); padding: 7px 14px; min-height: 36px; font-size: .875rem; font-weight: 500; color: var(--hfy-text-2); text-decoration: none; cursor: pointer; }
+  .hfy-seg > [aria-pressed="true"], .hfy-seg > [aria-current="page"], .hfy-seg > [aria-selected="true"] { background: var(--hfy-surface); color: var(--hfy-text); font-weight: 600; box-shadow: var(--hfy-shadow-1); }
+
+  /* ---------- Table ---------- */
+  .hfy-table-wrap { align-self: start; overflow: auto; border: 1px solid var(--hfy-border); border-radius: 16px; }
+  .hfy-table { width: 100%; border-collapse: collapse; font-size: var(--hfy-text-small); }
+  .hfy-table th { position: sticky; top: 0; z-index: 1; text-align: left; font-size: .78125rem; font-weight: 600; color: var(--hfy-text-2); background: var(--hfy-surface-2); padding: 10px 14px; border-bottom: 1px solid var(--hfy-border); white-space: nowrap; }
+  .hfy-table td { padding: 11px 14px; border-bottom: 1px solid var(--hfy-border); vertical-align: top; }
+  .hfy-table tr:last-child td { border-bottom: 0; }
+  .hfy-table tbody tr:hover { background: color-mix(in srgb, var(--hfy-surface-2) 50%, transparent); }
+  .hfy-num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- Drawer / bottom sheet ---------- */
+  .hfy-scrim { position: fixed; inset: 0; z-index: 40; background: rgba(31,35,40,.32); animation: hfy-fade var(--hfy-dur) ease both; }
+  .hfy-drawer { position: fixed; z-index: 41; top: 0; right: 0; bottom: 0; width: min(460px, 100%); display: flex; flex-direction: column; background: var(--hfy-surface); border-radius: var(--hfy-r-sheet) 0 0 var(--hfy-r-sheet); box-shadow: var(--hfy-shadow-3); animation: hfy-slide-in .28s var(--hfy-ease-out) both; }
+  .hfy-drawer__head { display: flex; justify-content: space-between; gap: 12px; padding: 18px 20px; border-bottom: 1px solid var(--hfy-border); }
+  .hfy-drawer__body { flex: 1; overflow-y: auto; padding: 18px 20px 28px; display: flex; flex-direction: column; gap: 14px; }
+  @media (max-width: 700px) {
+    .hfy-drawer { top: auto; left: 0; width: 100%; max-height: 88vh; border-radius: var(--hfy-r-sheet) var(--hfy-r-sheet) 0 0; padding-bottom: env(safe-area-inset-bottom); animation-name: hfy-sheet-in; }
+  }
+
+  /* ---------- Dialog / modal ---------- */
+  .hfy-overlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(31,35,40,.38); backdrop-filter: blur(6px); animation: hfy-fade var(--hfy-dur) ease both; }
+  .hfy-dialog { width: 100%; max-width: 500px; background: var(--hfy-surface); border-radius: 28px; padding: 24px 26px 22px; box-shadow: var(--hfy-shadow-3); display: flex; flex-direction: column; gap: 16px; animation: hfy-rise var(--hfy-dur-slow) var(--hfy-ease-out) both; }
+
+  /* ---------- Mark (inline SVG: <svg class="hfy-mark">…<g class="hfy-cell">) ---------- */
+  .hfy-mark { width: var(--hfy-mark-size, 32px); height: var(--hfy-mark-size, 32px); flex: none; }
+  /* Assembly: cells need --sx --sy --sr; optional .hfy-noise shapes fade away */
+  .hfy-mark--assemble .hfy-cell { transform-box: fill-box; transform-origin: center; animation: hfy-cell-in .8s var(--hfy-ease-settle) both; }
+  .hfy-mark--assemble .hfy-cell:nth-of-type(2) { animation-delay: .06s; }
+  .hfy-mark--assemble .hfy-cell:nth-of-type(3) { animation-delay: .12s; }
+  .hfy-mark--assemble .hfy-cell:nth-of-type(4) { animation-delay: .18s; }
+  .hfy-mark--assemble .hfy-noise { transform-box: fill-box; transform-origin: center; animation: hfy-noise-out .5s .1s ease-in both; }
+
+  /* ---------- Spinner (on-brand, four colours) ---------- */
+  .hfy-spinner { width: 20px; height: 20px; border-radius: 999px; background: conic-gradient(var(--hfy-blue) 0 25%, var(--hfy-coral) 0 50%, var(--hfy-honey) 0 75%, var(--hfy-leaf) 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px)); mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px)); animation: hfy-spin .9s linear infinite; }
+
+  /* ---------- Keyframes ---------- */
+  @keyframes hfy-fade { from { opacity: 0; } }
+  @keyframes hfy-rise { from { opacity: 0; transform: translateY(16px) scale(.97); } }
+  @keyframes hfy-slide-in { from { transform: translateX(100%); } }
+  @keyframes hfy-sheet-in { from { transform: translateY(100%); } }
+  @keyframes hfy-spin { to { transform: rotate(360deg); } }
+  @keyframes hfy-cell-in { from { transform: translate(var(--sx, 0), var(--sy, 0)) rotate(var(--sr, 0deg)) scale(.8); } }
+  @keyframes hfy-noise-out { to { transform: scale(.2); opacity: 0; } }
+}
+
+/* ==========================================================================
+   Utilities — tiny set; layer ensures they win over components
+   ========================================================================== */
+@layer hfy.utilities {
+  .hfy-visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .hfy-text-2 { color: var(--hfy-text-2); } .hfy-text-3 { color: var(--hfy-text-3); }
+  .hfy-center { text-align: center; }
+  .hfy-mt-0 { margin-top: 0; } .hfy-mt-4 { margin-top: var(--hfy-4); } .hfy-mt-6 { margin-top: var(--hfy-6); }
+  .hfy-surface-2 { background: var(--hfy-surface-2); }
+}

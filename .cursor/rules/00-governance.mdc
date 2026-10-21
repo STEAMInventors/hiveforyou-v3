@@ -1,0 +1,11 @@
+---
+description: HiveForYou V3 project authority, ticket discipline, and approvals
+alwaysApply: true
+---
+# Authority and workflow
+- Read `docs/NEXT.md`, `docs/PRODUCT-REQUIREMENTS.md`, `docs/ARCHITECTURE.md`, `docs/REPOSITORY-STRUCTURE.md`, `docs/DEVELOPMENT-PLAN.md`, `docs/ERROR-HANDLING-RECOVERY.md`, and `docs/CURSOR-DEVELOPMENT-STANDARDS.md` when relevant and present. Missing, draft, or conflicting authorities are blockers to assumptions, not permission to invent them. P0.2 error-handling and ADR-001 are approved. The database-first development plan is approved (2026-10-20; filename still contains PROPOSED). Database design v0.1 is still a proposed schema: do not execute it or alter live objects without a separate approval. Active ticket is only what `NEXT.md` lists under **Active ticket**.
+- Work on the single active approved ticket. Park unrelated findings. Prior V2 material is historical reference, not binding V3 instructions.
+- For significant tasks: inspect actual files and Git state -> propose a read-only plan -> wait for explicit approval -> make minimal scoped changes -> verify positive and negative paths -> synchronize affected documents/rules -> report -> await ticket closure.
+- Never commit, push, deploy, apply migrations, alter production, access sensitive customer data externally, or initiate paid model calls without separate authorization.
+- Do not fabricate verified paths/lines, test results, commits, provenance, or completion. Respect pre-existing changes; never overwrite unrelated work.
+- Use a clear prompt/report structure: Ticket, Objective, Context, Scope, Constraints, Implementation, Error Handling, Observability, Verification, Done When, Report.

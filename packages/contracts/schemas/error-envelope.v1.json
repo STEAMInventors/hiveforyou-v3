@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hiveforyou.dev/schemas/error-envelope.v1.json",
+  "title": "ErrorEnvelopeV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "error_code",
+    "category",
+    "retryable",
+    "message_safe",
+    "correlation_id"
+  ],
+  "properties": {
+    "contract_version": { "const": "error-envelope@1" },
+    "error_code": {
+      "type": "string",
+      "enum": [
+        "AUTH_FAILED",
+        "ACCESS_DENIED",
+        "INVALID_REQUEST",
+        "NOT_FOUND",
+        "STORAGE_UNAVAILABLE",
+        "STORAGE_NOT_FOUND",
+        "MODEL_UNAVAILABLE",
+        "MODEL_TIMEOUT",
+        "MODEL_OUTPUT_INVALID",
+        "EVIDENCE_NOT_VERIFIED",
+        "EXTRACTION_FAILED",
+        "COVERAGE_INCOMPLETE",
+        "MERGE_FAILED",
+        "DB_TRANSIENT",
+        "DB_OUTCOME_UNKNOWN",
+        "DEPENDENCY_UNAVAILABLE"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "auth",
+        "authorization",
+        "validation",
+        "not_found",
+        "storage",
+        "model",
+        "processing",
+        "dependency"
+      ]
+    },
+    "retryable": { "type": "boolean" },
+    "message_safe": { "type": "string", "minLength": 1 },
+    "correlation_id": { "type": "string", "minLength": 1 },
+    "study_run_id": { "type": "string", "format": "uuid" },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "enqueue",
+        "load_sources",
+        "plan_schema",
+        "extract",
+        "verify",
+        "merge_study",
+        "analyze",
+        "report",
+        "finalize"
+      ]
+    }
+  }
+}

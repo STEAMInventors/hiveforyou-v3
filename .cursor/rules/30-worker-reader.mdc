@@ -1,0 +1,14 @@
+---
+description: Oracle Worker and Python Reader responsibilities
+globs: apps/{worker,reader}/**
+alwaysApply: false
+---
+# Processing
+- Worker owns orchestration logic, deterministic validation, verified evidence, canonical reconciliation and safe persistence. Reader owns candidate extraction via versioned internal HTTP contract; Reader does not own database writes or final report truth.
+- Fail closed on unsupported source/page/quote, malformed model output, authorization denial or missing LiteLLM alias. Do not promote candidate text into verified claims.
+- Make run/status transitions explicit and protect prior accepted study versions on failure. **Inngest owns workflow retries**; do not nest HTTP/model retry loops in Worker or Reader. At most **3 immediate** inline retries per invocation for classified `DB_TRANSIENT` only.
+- **Every intentional Generate/Reprocess/Study action gets a new `study_run_id`.** `idempotency_key` dedupes delivery only; failed runs must not block new attempts. Side effects idempotent per run (batches, merge via `based_on_run_id`).
+- **Inngest steps must fail the invocation on business failure**; never HTTP/step success with a failed outcome in the body. Idempotent no-op when work already committed is success.
+- Merge: **one transaction** for new `study_revisions` row and `current_revision_id`; reconcile unknown commits by `study_run_id` (`docs/ERROR-HANDLING-RECOVERY.md`). Required coverage missing → terminal `FAILED`, no pointer advance.
+- Use `error-envelope@1` from `packages/contracts`. Preserve `correlation_id` and `study_run_id` across Vercel, Inngest, Worker, Reader and LiteLLM. Internal diagnostics stay out of browser responses.
+- Avoid logs of prompts, private document text, secrets, auth tokens and personally identifying details.

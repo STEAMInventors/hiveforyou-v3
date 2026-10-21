@@ -1,0 +1,28 @@
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap");
+
+@import "../styles/hiveforyou.css";
+
+:root {
+  --hive-color-page: #f5f7f9;
+  --hive-color-surface: #ffffff;
+  --hive-color-border: #e2e6eb;
+  --hive-color-text: #111827;
+  --hive-color-text-muted: #6b7280;
+  --hive-radius-md: 0.5rem;
+  --hive-radius-xl: 1rem;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply bg-hive-page font-sans text-hive-text;
+  }
+}

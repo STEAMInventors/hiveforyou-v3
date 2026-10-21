@@ -1,0 +1,11 @@
+---
+description: Contracts, Core, packs, Supabase and Oracle infrastructure rules
+globs: "{packages/**,domain-packs/**,supabase/**,infra/**}"
+alwaysApply: false
+---
+# Contract / data safety
+- Version externally consumed API and data contracts; independently deployed services communicate across approved contracts, not cross-app source imports. Error responses use **`error-envelope@1`** (`packages/contracts`, `docs/ERROR-HANDLING-RECOVERY.md`).
+- Keep Core domain-agnostic; no IEP-specific assumptions in core schemas, matching or merge logic. Domain Packs are optional configuration/data, not executable authorization policy.
+- Database design targets the isolated `hive3` schema under the approved database-first plan. Design v0.1 remains proposed until reviewed SQL is approved. A reported manual `hive3.hives` object is not a migration baseline. Do not apply migrations, drop or recreate live objects, or change RLS/storage permissions without separate authorization.
+- Apply owner/Hive-scoped access and least privilege; verify negative cross-user and cross-Hive cases. Preserve provenance, immutable prior snapshots, corrections and history.
+- Keep infrastructure declarative and minimal. Never commit secrets, live state or customer uploads. Do not change Oracle deployment, Supabase production data or model routing without explicit approval.

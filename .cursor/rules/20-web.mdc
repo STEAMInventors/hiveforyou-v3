@@ -1,0 +1,10 @@
+---
+description: Vercel Next.js UI rules
+globs: apps/web/**
+alwaysApply: false
+---
+# Web boundaries
+- Implement customer/pro UI, auth/session, uploads, intent entry, job status and result rendering only. Keep model calls, document extraction, study merge, and domain rules out of the web runtime.
+- Enforce server-side ownership/access on every API and storage operation; never trust client-provided user/Hive identifiers without authorization checks. Never expose service-role keys in browser bundles.
+- Display uncertainty, failure/retry states and evidence links honestly; generated reports must identify source study revision. Follow `reference/HiveForYou brand guide.pdf` when available, including accessible semantic colors and source chips.
+- Web requests/events carry scoped IDs, not raw private documents or model prompts. Show actionable errors without leaking implementation details.

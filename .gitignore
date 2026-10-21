@@ -1,0 +1,103 @@
+# HiveForYou V3 — generated / machine-local files only.
+# Never use .gitignore as the sole protection against sensitive data.
+
+# Secrets and local configuration (keep documented templates)
+.env
+.env.*
+!.env.example
+!.env.*.example
+!.env.template
+!.env.*.template
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+**/service-account*.json
+**/credentials.local.json
+
+# Node / Next.js / Vercel / TS
+**/node_modules/
+**/.next/
+**/.nuxt/
+**/.turbo/
+**/.vercel/
+**/out/
+**/dist/
+**/build/
+**/coverage/
+**/*.tsbuildinfo
+**/.eslintcache
+**/.cache/
+**/.parcel-cache/
+**/.npm/
+**/.pnpm-store/
+
+# Python / FastAPI
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.hypothesis/
+**/.tox/
+**/.nox/
+**/.venv/
+**/venv/
+**/.coverage
+**/.coverage.*
+**/htmlcov/
+**/*.egg-info/
+
+# Local runtime, traces, dumps, private uploads and extracted data
+*.log
+*.log.*
+logs/
+**/logs/
+.tmp/
+tmp/
+temp/
+**/tmp/
+**/temp/
+local-data/
+private-data/
+uploads/
+**/uploads/
+**/runtime-data/
+**/artifacts/local/
+**/traces/local/
+*.sqlite
+*.sqlite3
+*.db-journal
+*.dump
+*.sql.gz
+
+# Local Supabase / infrastructure state
+supabase/.branches/
+supabase/.profiles/
+supabase/.temp/
+**/.terraform/
+**/terraform.tfstate*
+**/crash.log
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# IMPORTANT: keep lockfiles, migrations, Domain Packs, the brand PDF,
+# curated synthetic fixtures, and .cursor/rules/*.mdc under version control.
+# Do not blanket-ignore *.pdf, *.json, *.sql, *.md, or *.lock.

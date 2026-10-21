@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#ECEEF1;font-family:Figtree,system-ui,sans-serif;color:#1F2328}a{color:#2F6FE4}a:hover{color:#2659C2}</style>
+</helmet>
+<section id="mobile" style="padding:48px 56px 40px;border-bottom:1px solid rgba(0,0,0,.08)">
+  <div style="display:flex;flex-direction:column;gap:8px;max-width:900px;margin-bottom:32px">
+    <img src="assets/hiveforyou-logo.svg" alt="HiveForYou" style="height:28px;align-self:flex-start">
+    <h1 style="margin:12px 0 0;font:600 32px Outfit,sans-serif;letter-spacing:-0.02em">Responsive previews</h1>
+    <p style="margin:0;font:400 16px/1.55 Figtree;color:#4A525C">Every frame is the live prototype, opened at a set width and jumped to a state. Scroll inside a frame to see the full screen; everything is clickable. Open <a href="HiveForYou Prototype.dc.html">the prototype</a> and resize the window to see it adapt.</p>
+  </div>
+  <h2 style="margin:0 0 6px;font:600 20px Outfit,sans-serif">Mobile · 390px</h2>
+  <p style="margin:0 0 24px;font:400 14px Figtree;color:#6B7280">Login → My Hives → Create Hive → Upload → Processing → Canonical Study → Generate report → View report → Evidence → Billing → Logout</p>
+  <sc-for list="{{ mobileGroups }}" as="g" hint-placeholder-count="2">
+    <div style="margin-bottom:40px">
+      <div style="font:600 14px Figtree;color:#4A525C;margin-bottom:14px">{{ g.title }}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start">
+        <sc-for list="{{ g.frames }}" as="f" hint-placeholder-count="4">
+          <div id="{{ f.id }}" style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:baseline;gap:8px"><a href="#{{ f.id }}" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1F2328;border-radius:5px;text-decoration:none">{{ f.id }}</a><span style="font:500 13px Figtree;color:#4A525C">{{ f.label }}</span></div>
+            <div style="width:390px;height:844px;background:#fff;border-radius:28px;border:8px solid #1F2328;overflow:hidden;box-shadow:0 8px 28px rgba(31,35,40,.14)">
+              <iframe src="{{ f.src }}" title="{{ f.label }}" style="width:374px;height:828px;border:0;display:block"></iframe>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-for>
+</section>
+<section id="tablet" style="padding:40px 56px;border-bottom:1px solid rgba(0,0,0,.08)">
+  <h2 style="margin:0 0 6px;font:600 20px Outfit,sans-serif">Tablet · 820px (shown at 60%)</h2>
+  <p style="margin:0 0 24px;font:400 14px Figtree;color:#6B7280">Header navigation stays; multi-column tables become stacked rows.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start">
+    <sc-for list="{{ tablet }}" as="f" hint-placeholder-count="3">
+      <div id="{{ f.id }}" style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:baseline;gap:8px"><a href="#{{ f.id }}" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1F2328;border-radius:5px;text-decoration:none">{{ f.id }}</a><span style="font:500 13px Figtree;color:#4A525C">{{ f.label }}</span></div>
+        <div style="width:492px;height:708px;overflow:hidden;border-radius:14px;border:6px solid #1F2328;background:#fff">
+          <iframe src="{{ f.src }}" title="{{ f.label }}" style="width:820px;height:1180px;border:0;display:block;transform:scale(.6);transform-origin:0 0"></iframe>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+<section id="desktop" style="padding:40px 56px 64px">
+  <h2 style="margin:0 0 6px;font:600 20px Outfit,sans-serif">Desktop · 1440px (shown at 50%)</h2>
+  <p style="margin:0 0 24px;font:400 14px Figtree;color:#6B7280">Unchanged from the approved design.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start">
+    <sc-for list="{{ desktop }}" as="f" hint-placeholder-count="2">
+      <div id="{{ f.id }}" style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:baseline;gap:8px"><a href="#{{ f.id }}" style="font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1F2328;border-radius:5px;text-decoration:none">{{ f.id }}</a><span style="font:500 13px Figtree;color:#4A525C">{{ f.label }}</span></div>
+        <div style="width:720px;height:450px;overflow:hidden;border-radius:10px;border:1px solid #D9DDE3;background:#fff;box-shadow:0 4px 16px rgba(31,35,40,.08)">
+          <iframe src="{{ f.src }}" title="{{ f.label }}" style="width:1440px;height:900px;border:0;display:block;transform:scale(.5);transform-origin:0 0"></iframe>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const SRC=j=>'HiveForYou%20Prototype.dc.html?embed=1&jump='+j;
+const M=[
+ ['Sign in & onboarding',[['Landing','landing'],['Log in','login'],['Log in error','loginErr'],['Sign up','signup'],['Check your email','verify'],['Onboarding','onboard'],['Forgot password','forgot']]],
+ ['My Hives & Create Hive',[['My Hives','hives'],['Mobile menu','mnav'],['First-time empty state','hivesEmpty'],['Create a Hive (sheet)','create'],['Create: validation','createErr']]],
+ ['Documents',[['Empty documents','docsEmpty'],['Add documents','upload'],['Files selected + invalid file','uploadSel'],['Uploading','uploading'],['Reading documents','docsProc'],['Needs attention + Retry','docsFailed'],['Extracted information','docOpen']]],
+ ['Canonical Study',[['Ready to build','studyIntro'],['Confirm','studyConfirm'],['Connecting information','studyProc'],['Study ready','studyReady'],['Study details','studyDetails']]],
+ ['Reports & evidence',[['Choose audience','audience'],['Preparing report','genProc'],['Report ready','genSuccess'],['Customer report','customer'],['Source evidence (full screen)','evidence'],['Report history','history'],['Pro: no report yet','pro'],['Pro purchase','payOffer'],['Card declined','payDeclined'],['Pro report','proReport']]],
+ ['Billing, account & logout',[['Billing & Plan','billing'],['My Account','account'],['Log out','logout'],['Session expired','expired']]]
+];
+const T=[['My Hives','hives'],['Reading documents','docsProc'],['Study ready','studyReady'],['Choose audience','audience'],['Customer report','customer'],['Pro report','proReport']];
+const D=[['My Hives','hives'],['Reading documents','docsProc'],['Customer report','customer'],['Pro report','proReport']];
+class Component extends DCLogic {
+  renderVals(){
+    let n=0;
+    const mobileGroups=M.map(([title,fr])=>({title,frames:fr.map(([label,j])=>({label,src:SRC(j),id:'m'+(++n)}))}));
+    return {mobileGroups,
+      tablet:T.map(([label,j],i)=>({label,src:SRC(j),id:'t'+(i+1)})),
+      desktop:D.map(([label,j],i)=>({label,src:SRC(j),id:'d'+(i+1)}))};
+  }
+}
+
+</script>
+</body>
+</html>

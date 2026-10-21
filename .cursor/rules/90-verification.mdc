@@ -1,0 +1,9 @@
+---
+description: Shared verification, security, and completion requirements
+alwaysApply: true
+---
+# Definition of done
+- For relevant changes, verify normal path plus denied access, malformed input, missing/inaccessible source, dependency/model timeout/rejection, invalid output, failed persistence, interrupted or duplicate run.
+- At service boundaries use stable error codes, sanitized structured logs, propagated correlation IDs, bounded timeouts/retries and a safe user-visible recovery state. Do not add duplicate logging/retry frameworks.
+- Passing compilation, unit tests or healthy containers alone is not UI-to-result acceptance. Initial product gates require 8-document synthetic L001 with verified evidence and pack-free grocery receipts with reuse across 20 -> 30 documents.
+- Before closing, report changed files, commands and results, end-to-end evidence when appropriate, failures, limitations, approvals, and any documentation/ADR/NEXT synchronization still pending. Stop if out-of-scope changes are needed.
