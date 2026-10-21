@@ -1,13 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { HiveHomeComposer, type HiveComposerSubmit } from "@/components/intake/HiveHomeComposer";
 import { CreateYourHiveModal } from "@/components/landing/CreateYourHiveModal";
 import { useCreateHive } from "@/components/hives/useCreateHive";
+import { markHiveForPendingUpload } from "@/components/workspace/usePendingLandingUpload";
+import { clearDraftFiles, saveDraftFiles } from "@/lib/landing/draft-file-blobs";
 import {
   clearLandingDraft,
+  createLandingDraftId,
   readLandingDraft,
   saveLandingDraft,
 } from "@/lib/landing/draft-storage";
@@ -26,12 +29,16 @@ export function useHiveComposerCreateFlow({
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<{ name: string; size: number }[]>([]);
+  const draftIdRef = useRef<string>(createLandingDraftId());
   const create = useCreateHive();
 
   useEffect(() => {
     const draft = readLandingDraft();
     if (!draft) {
       return;
+    }
+    if (draft.draftId) {
+      draftIdRef.current = draft.draftId;
     }
     setPendingFiles(draft.files);
     if (signedIn && draft.files.length > 0) {
@@ -45,14 +52,18 @@ export function useHiveComposerCreateFlow({
     }
     const names = pendingFiles.map((file) => file.name).slice(0, 3);
     const suffix = pendingFiles.length > 3 ? ` and ${pendingFiles.length - 3} more` : "";
-    return `You selected ${pendingFiles.length} file${pendingFiles.length === 1 ? "" : "s"} (${names.join(", ")}${suffix}). Document upload is not available yet — after you create your Hive, add documents from the workspace when uploads open.`;
+    return `You selected ${pendingFiles.length} file${pendingFiles.length === 1 ? "" : "s"} (${names.join(", ")}${suffix}). They will upload right after your Hive is created.`;
   }, [pendingFiles]);
 
   const handleComposerSubmit = useCallback(
     (payload: HiveComposerSubmit) => {
+      const draftId = draftIdRef.current;
+      void clearDraftFiles(draftId).then(() => saveDraftFiles(draftId, payload.files));
+
       const draftFiles = payload.files.map((file) => ({ name: file.name, size: file.size }));
       setPendingFiles(draftFiles);
       saveLandingDraft({
+        draftId,
         rawIntent: payload.rawIntent,
         selectedDomainId: payload.selectedDomainId,
         files: draftFiles,
@@ -73,11 +84,17 @@ export function useHiveComposerCreateFlow({
     if (!result) {
       return;
     }
-    clearLandingDraft();
+    if (pendingFiles.length > 0) {
+      markHiveForPendingUpload(result.hiveId);
+    } else {
+      clearLandingDraft();
+      void clearDraftFiles(draftIdRef.current);
+    }
     setModalOpen(false);
     create.resetForm();
+    draftIdRef.current = createLandingDraftId();
     onHiveCreated(result.hiveId);
-  }, [create, onHiveCreated]);
+  }, [create, onHiveCreated, pendingFiles.length]);
 
   const openCreateModal = useCallback(() => {
     setModalOpen(true);

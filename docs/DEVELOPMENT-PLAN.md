@@ -2,7 +2,7 @@
 
 **Governing plan:** [`HIVEFORYOU-V3-DEVELOPMENT-PLAN-database-first-PROPOSED.md`](./HIVEFORYOU-V3-DEVELOPMENT-PLAN-database-first-PROPOSED.md) (version 0.1, **approved** 2026-10-20). The filename still contains `PROPOSED` so history and links stay stable. Ticket gates live in that document. Superseded connectivity-first P1 IDs are in its §4.1 only.
 
-**Active ticket:** [`docs/NEXT.md`](./NEXT.md) — **P1.4** Hive persistence via Edge Function + RPC (implemented; blocked on migration apply + function deploy).
+**Active ticket:** [`docs/NEXT.md`](./NEXT.md) — **P1.5** reusable document upload (implemented in repo; blocked on upload migration apply + `v1-documents` deploy).
 
 ## P0 — Design freeze (status)
 
@@ -27,7 +27,8 @@ Implementation-time decisions from P0.2 (LiteLLM aliases, Worker–Reader HTTP, 
 | P1.1 | **ACCEPTED** (2026-10-20) | `docs/HIVEFORYOU-V3-DATABASE-INVENTORY-P1.1.md` |
 | P1.2 | **READY_FOR_REVIEW** (2026-10-20) | `docs/HIVEFORYOU-V3-DATABASE-MIGRATION-P1.2.md`, `supabase/migrations/20261020120000_hive3_m1_hives_baseline.sql`; not applied. OD-12 keeps `ON DELETE CASCADE`; deletion processing is deferred |
 | P1.3 | PROCEDURE_READY (execution deferred) | Formal SQL qualification; parallel to feature-first P1.4 |
-| P1.4 | **IMPLEMENTED** (blocked on `hive3` REST exposure) | `apps/web` first user journey; see acceptance doc |
-| P1.5 | NOT_STARTED | UI → Inngest → Oracle integration |
+| P1.4 | **IMPLEMENTED** (blocked on migration apply + `v1-hives` deploy) | Hive list/create; see `docs/acceptance/P1.4-first-user-flow.md` |
+| P1.5 | **IMPLEMENTED (repo)** (blocked on upload SQL + `v1-documents`) | Document upload slice; see `docs/acceptance/P1.5-document-upload.md` |
+| P1.5-processing | NOT_STARTED | UI → Inngest → Oracle integration (deferred; not upload ticket) |
 
 P2 and later remain NOT_STARTED. Their definitions are in the governing plan.

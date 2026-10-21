@@ -4,12 +4,17 @@ export type LandingDraftFile = {
 };
 
 export type LandingDraft = {
+  draftId: string;
   rawIntent: string;
   selectedDomainId: string | null;
   files: LandingDraftFile[];
 };
 
 const STORAGE_KEY = "hive3-landing-draft-v1";
+
+export function createLandingDraftId(): string {
+  return crypto.randomUUID();
+}
 
 export function saveLandingDraft(draft: LandingDraft): void {
   if (typeof window === "undefined") {
@@ -31,7 +36,11 @@ export function readLandingDraft(): LandingDraft | null {
     if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.files)) {
       return null;
     }
-    return parsed;
+    const draftId =
+      typeof parsed.draftId === "string" && parsed.draftId.trim()
+        ? parsed.draftId.trim()
+        : createLandingDraftId();
+    return { ...parsed, draftId };
   } catch {
     return null;
   }

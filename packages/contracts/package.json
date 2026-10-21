@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./errors/v1": "./src/errors/v1/index.ts",
-    "./hives/v1": "./src/hives/v1/index.ts"
+    "./hives/v1": "./src/hives/v1/index.ts",
+    "./documents/v1": "./src/documents/v1/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

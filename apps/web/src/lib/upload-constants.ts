@@ -1,9 +1,5 @@
-export const ACCEPTED_UPLOAD_MIME = [
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "image/png",
-  "image/jpeg",
-  "image/tiff",
-  "text/plain",
-].join(",");
+import { ALLOWED_UPLOAD_MIME_TYPES } from "@hiveforyou/contracts/documents/v1";
+
+export const ACCEPTED_UPLOAD_MIME = ALLOWED_UPLOAD_MIME_TYPES.join(",");
+
+export const ACCEPTED_UPLOAD_EXTENSIONS = ".pdf,.png,.jpg,.jpeg,.docx";
