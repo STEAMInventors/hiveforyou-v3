@@ -3,17 +3,13 @@ import { redirect } from "next/navigation";
 
 import { ResetPasswordForm } from "@/components/auth/ResetPasswordForm";
 import { AuthFrame, AuthHeading, AuthPage } from "@/components/auth/auth-ui";
-import { FORGOT_PASSWORD_PATH, isRecoveryCookieValue, RECOVERY_COOKIE_NAME } from "@/lib/auth/recovery";
+import { FORGOT_PASSWORD_PATH, isRecoveryResetSession, RECOVERY_COOKIE_NAME } from "@/lib/auth/recovery";
 import { requireAuthenticatedUser } from "@/lib/supabase/server";
 
 export default async function ResetPasswordPage() {
   const auth = await requireAuthenticatedUser();
-  if (!auth.ok) {
-    redirect(`${FORGOT_PASSWORD_PATH}?error=link_invalid`);
-  }
-
   const cookieStore = await cookies();
-  if (!isRecoveryCookieValue(cookieStore.get(RECOVERY_COOKIE_NAME)?.value)) {
+  if (!isRecoveryResetSession(auth.ok, cookieStore.get(RECOVERY_COOKIE_NAME)?.value)) {
     redirect(`${FORGOT_PASSWORD_PATH}?error=link_invalid`);
   }
 

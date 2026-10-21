@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { createServerSupabaseClient, requireAuthenticatedUser } from "@/lib/supabase/server";
 
@@ -182,14 +183,14 @@ export async function updatePasswordFromRecoveryAction(
     return providerAuthFailure(route, correlationId, caught, "password_update", started);
   }
 
+  logAuthInfo(route, correlationId, "password_updated", Date.now() - started);
   await clearRecoveryCookies();
   try {
     await supabase.auth.signOut();
   } catch {
-    // Password is already updated; continue to login even if sign-out fails.
+    logAuthInfo(route, correlationId, "reset_complete_sign_out_failed", Date.now() - started);
   }
-  logAuthInfo(route, correlationId, "password_updated", Date.now() - started);
-  return { passwordResetComplete: true };
+  redirect("/login?info=password_updated");
 }
 
 export async function changePasswordAction(

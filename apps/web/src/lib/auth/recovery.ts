@@ -9,6 +9,11 @@ export function isRecoveryCookieValue(value: string | undefined): boolean {
   return value === "1";
 }
 
+/** Both session and recovery marker are required to show the reset-password form. */
+export function isRecoveryResetSession(signedIn: boolean, recoveryCookieValue: string | undefined): boolean {
+  return signedIn && isRecoveryCookieValue(recoveryCookieValue);
+}
+
 export function isRecoveryOtpType(value: string | null | undefined): boolean {
   return value?.trim().toLowerCase() === "recovery";
 }
