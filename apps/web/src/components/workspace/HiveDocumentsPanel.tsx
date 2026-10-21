@@ -7,6 +7,11 @@ import type { SourceDocumentV1, UploadQuotaV1 } from "@hiveforyou/contracts/docu
 
 import { fetchHiveDocuments, fetchUploadQuota } from "@/lib/documents/client";
 import { uploadDocumentBatch } from "@/lib/documents/upload-batch";
+import {
+  isFreeUploadQuotaExhausted,
+  UPLOAD_QUOTA_OFFER_FOOTNOTE,
+  UPLOAD_QUOTA_OFFER_HEADLINE,
+} from "@/lib/documents/upload-quota-offer";
 import { validateUploadFile } from "@/lib/documents/validation";
 import { formatFileSize } from "@/lib/format-file-metadata";
 import { ACCEPTED_UPLOAD_EXTENSIONS, ACCEPTED_UPLOAD_MIME } from "@/lib/upload-constants";
@@ -52,9 +57,11 @@ export function HiveDocumentsPanel({
     void refresh();
   }, [refresh]);
 
+  const quotaExhausted = isFreeUploadQuotaExhausted(quota);
+
   const runUpload = useCallback(
     async (files: File[]) => {
-      if (files.length === 0 || uploadBusy) {
+      if (files.length === 0 || uploadBusy || isFreeUploadQuotaExhausted(quota)) {
         return;
       }
       setUploadBusy(true);
@@ -90,22 +97,24 @@ export function HiveDocumentsPanel({
       }
       await refresh();
     },
-    [hiveId, refresh, uploadBusy],
+    [hiveId, quota, refresh, uploadBusy],
   );
 
   useEffect(() => {
-    if (pendingStarted.current || initialPendingFiles.length === 0) {
+    if (pendingStarted.current || initialPendingFiles.length === 0 || loading) {
       return;
     }
     pendingStarted.current = true;
     void (async () => {
-      await runUpload(initialPendingFiles);
+      if (!isFreeUploadQuotaExhausted(quota)) {
+        await runUpload(initialPendingFiles);
+      }
       onPendingFilesConsumed?.();
     })();
-  }, [initialPendingFiles, onPendingFilesConsumed, runUpload]);
+  }, [initialPendingFiles, loading, onPendingFilesConsumed, quota, runUpload]);
 
   const onFilesSelected = (fileList: FileList | null) => {
-    if (!fileList || uploadBusy) {
+    if (!fileList || uploadBusy || quotaExhausted) {
       return;
     }
     const accepted: File[] = [];
@@ -145,29 +154,53 @@ export function HiveDocumentsPanel({
       <div className="mt-6 flex min-h-[220px] flex-col items-center justify-center rounded-[18px] border-2 border-dashed border-[#C9CFD8] bg-[#FAFCFF] px-6 py-10 text-center">
         <Upload className="mb-3 h-8 w-8 text-[#2F6FE4]" aria-hidden />
         <p className="m-0 text-lg font-semibold text-[#1F2328]">Add documents</p>
-        <p className="mt-2 max-w-lg text-sm leading-relaxed text-[#4A525C]">
-          PDF, PNG, JPG, or DOCX — up to 25 MB each.
-        </p>
-        <input
-          ref={inputRef}
-          id={inputId}
-          type="file"
-          className="sr-only"
-          multiple
-          accept={`${ACCEPTED_UPLOAD_MIME},${ACCEPTED_UPLOAD_EXTENSIONS}`}
-          onChange={(event) => onFilesSelected(event.target.files)}
-          disabled={uploadBusy}
-        />
-        <label
-          htmlFor={inputId}
-          className={
-            uploadBusy
-              ? "mt-4 inline-flex cursor-not-allowed rounded-[10px] bg-[#ECECEC] px-4 py-2 text-sm font-semibold text-[#9AA0A6]"
-              : "mt-4 inline-flex cursor-pointer rounded-[10px] bg-[#2F6FE4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#2456B8]"
-          }
-        >
-          Choose files
-        </label>
+        {quotaExhausted ? (
+          <div
+            id={`${inputId}-quota-offer`}
+            className="mt-4 w-full max-w-md rounded-[10px] border border-[#D6E4FF] bg-[#EEF4FF] px-4 py-3 text-left"
+            role="status"
+            aria-live="polite"
+          >
+            <p className="m-0 text-base font-semibold text-[#1F3F86]">{UPLOAD_QUOTA_OFFER_HEADLINE}</p>
+            <p className="m-0 mt-2 text-sm leading-relaxed text-[#4A525C]">{UPLOAD_QUOTA_OFFER_FOOTNOTE}</p>
+          </div>
+        ) : (
+          <p className="mt-2 max-w-lg text-sm leading-relaxed text-[#4A525C]">
+            PDF, PNG, JPG, or DOCX — up to 25 MB each.
+          </p>
+        )}
+        {quotaExhausted ? (
+          <button
+            type="button"
+            className="mt-4 inline-flex cursor-default rounded-[10px] bg-[#2F6FE4] px-4 py-2 text-sm font-semibold text-white"
+            aria-describedby={`${inputId}-quota-offer`}
+          >
+            Choose files
+          </button>
+        ) : (
+          <>
+            <input
+              ref={inputRef}
+              id={inputId}
+              type="file"
+              className="sr-only"
+              multiple
+              accept={`${ACCEPTED_UPLOAD_MIME},${ACCEPTED_UPLOAD_EXTENSIONS}`}
+              onChange={(event) => onFilesSelected(event.target.files)}
+              disabled={uploadBusy}
+            />
+            <label
+              htmlFor={inputId}
+              className={
+                uploadBusy
+                  ? "mt-4 inline-flex cursor-not-allowed rounded-[10px] bg-[#ECECEC] px-4 py-2 text-sm font-semibold text-[#9AA0A6]"
+                  : "mt-4 inline-flex cursor-pointer rounded-[10px] bg-[#2F6FE4] px-4 py-2 text-sm font-semibold text-white hover:bg-[#2456B8]"
+              }
+            >
+              Choose files
+            </label>
+          </>
+        )}
         {progressLabel ? (
           <p className="mt-3 text-sm text-[#4A525C]" aria-live="polite">
             {progressLabel}
