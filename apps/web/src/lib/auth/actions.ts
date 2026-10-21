@@ -2,6 +2,9 @@
 
 import { redirect } from "next/navigation";
 
+import { headers } from "next/headers";
+
+import { resolveAppOrigin } from "@/lib/config/app-origin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { readServerEnv } from "@/lib/server/env";
 
@@ -39,7 +42,9 @@ export async function signUpAction(
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const next = safeNextPath(String(formData.get("next") ?? ""), "/hives");
-  const env = readServerEnv();
+  readServerEnv();
+  const headerStore = await headers();
+  const appOrigin = resolveAppOrigin({ hostHeader: headerStore.get("host") });
 
   if (!email || !password) {
     return { error: "Enter your email and password to create an account." };
@@ -53,7 +58,7 @@ export async function signUpAction(
     email,
     password,
     options: {
-      emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}/auth/callback?next=${encodeURIComponent(next)}`,
+      emailRedirectTo: `${appOrigin}/auth/callback?next=${encodeURIComponent(next)}`,
       data: name ? { full_name: name } : undefined,
     },
   });

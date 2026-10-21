@@ -9,7 +9,7 @@
 
 **V2 read-only finding:** Checked `hiveforyou-v2` — no `supabase/functions` in git; V2 uses session-scoped PostgREST on exposed schema **`hive`** (`supabase/config.toml`, `HiveGateway` in `app/src/lib/persistence/hive-gateway.ts`). V3 adaptation keeps the same session + RLS model but routes writes/reads through Edge Function + **`public.hive3_m1_*` RPC** so `hive3` need not be publicly exposed.
 
-**Done when:** P1.3-authorized apply of RPC migration; deploy Edge Function `v1-hives`; auth redirect allow-list includes `NEXT_PUBLIC_APP_URL/auth/callback`; browser verification §10 passes with two confirmed users and saved evidence.
+**Done when:** P1.3-authorized apply of RPC migration; deploy Edge Function `v1-hives`; Supabase Auth redirect allow-list includes `https://hiveforyou-v3.vercel.app/auth/callback` and `http://localhost:3000/auth/callback` (public web config: `apps/web/src/lib/config/`); browser verification §10 passes with two confirmed users and saved evidence.
 
 **Blocked on:** Operator applies `20261021130000_hive3_m1_public_hive_rpc.sql` and deploys `supabase/functions/v1-hives` (no `hive3` PostgREST exposure required). Deferred: formal P1.3 SQL Q1–Q5 scripts and migration history recording.
 

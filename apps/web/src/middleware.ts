@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { CORRELATION_HEADER, resolveCorrelationId } from "@/lib/correlation/constants";
+import { getPublicSupabaseConfig } from "@/lib/config/public-supabase";
 
 const PROTECTED_PREFIXES = ["/hives"];
 
@@ -23,13 +24,15 @@ export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
   response.headers.set(CORRELATION_HEADER, correlationId);
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) {
+  let supabaseUrl: string;
+  let supabaseAnonKey: string;
+  try {
+    ({ url: supabaseUrl, anonKey: supabaseAnonKey } = getPublicSupabaseConfig());
+  } catch {
     return response;
   }
 
-  const supabase = createServerClient(url, anonKey, {
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
         return request.cookies.getAll();
