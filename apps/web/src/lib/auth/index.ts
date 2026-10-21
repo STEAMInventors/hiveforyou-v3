@@ -1,6 +1,7 @@
 export type { AuthActionState, AuthOtpPurpose } from "./auth-state";
 export { signInAction, signOutAction, signUpAction } from "./session-actions";
 export {
+  backToLoginFromRecoveryAction,
   changePasswordAction,
   requestPasswordResetAction,
   resendConfirmationAction,

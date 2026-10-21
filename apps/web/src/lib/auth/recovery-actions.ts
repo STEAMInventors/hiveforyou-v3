@@ -193,6 +193,28 @@ export async function updatePasswordFromRecoveryAction(
   redirect("/login?info=password_updated");
 }
 
+/** Ends a temporary recovery session and returns to login without changing the password. */
+export async function backToLoginFromRecoveryAction(): Promise<void> {
+  const correlationId = await requestCorrelationId();
+  const route = "auth.recovery_back_to_login";
+  const supabase = await createServerSupabaseClient();
+  const started = Date.now();
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      const mapped = classifyAuthError(toAuthErrorInput(error), "sign_in");
+      logAuthFailure(route, correlationId, mapped, Date.now() - started);
+    } else {
+      logAuthInfo(route, correlationId, "recovery_exit_accepted", Date.now() - started);
+    }
+  } catch (caught) {
+    const mapped = classifyAuthError(toAuthErrorInput(caught), "sign_in");
+    logAuthFailure(route, correlationId, mapped, Date.now() - started);
+  }
+  await clearRecoveryCookies();
+  redirect("/login");
+}
+
 export async function changePasswordAction(
   _prev: AuthActionState,
   formData: FormData,

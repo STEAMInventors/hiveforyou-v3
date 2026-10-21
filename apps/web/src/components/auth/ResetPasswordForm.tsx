@@ -2,9 +2,8 @@
 
 import { useActionState } from "react";
 
-import { signOutAction } from "@/lib/auth/actions";
 import type { AuthActionState } from "@/lib/auth/auth-state";
-import { updatePasswordFromRecoveryAction } from "@/lib/auth/recovery-actions";
+import { backToLoginFromRecoveryAction, updatePasswordFromRecoveryAction } from "@/lib/auth/recovery-actions";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/auth/validation";
 
 import { AuthField, AuthNotice, AuthSubmit } from "./auth-ui";
@@ -40,9 +39,9 @@ export function ResetPasswordForm() {
         />
         <AuthSubmit pending={pending} label="Update password" pendingLabel="Updating…" />
       </form>
-      <form action={signOutAction}>
+      <form action={backToLoginFromRecoveryAction}>
         <button type="submit" className="text-sm font-semibold text-[#2456B8] underline">
-          Log out and request a new link
+          Back to Login
         </button>
       </form>
     </>
