@@ -22,6 +22,9 @@ Legend: **Adopt** (M1) · **Defer** (later phase) · **Drop** (not in V3) · **N
 | 12 | Professional portal | V2 pro routes | — | **Defer** | P4.2+ |
 | 13 | Domain picker as requirement | Composer domain pills | Optional examples only | **Drop as requirement** | Pack-free intents; no locked domain_id on create |
 | 14 | Intake run / understanding UI | V2 intake machinery | — | **Drop** | Replaced by V3 study/run model later |
+| 15 | Forgot password | — | `/forgot-password` | **New** | Neutral reset request; same `/auth/callback` allow-list |
+| 16 | Set password from recovery link | — | `/reset-password` | **New** | PKCE recovery session only; no custom reset tokens |
+| 17 | Change password | — | `/account/password` | **New** | Signed-in; current password required |
 
 ---
 

@@ -13,6 +13,8 @@
 
 **Blocked on:** Operator applies `20261021130000_hive3_m1_public_hive_rpc.sql` and deploys `supabase/functions/v1-hives` (no `hive3` PostgREST exposure required). Deferred: formal P1.3 SQL Q1–Q5 scripts and migration history recording.
 
+**Auth recovery (2026-10-21):** Registration, login, password reset, and signed-in password change in `apps/web` map Supabase auth failures to safe messages and use the existing `/auth/callback` PKCE redirect. Hive persistence remains blocked on the migration apply and Edge Function deploy above. No commit or deploy from this change.
+
 ---
 
 ## P1.3 — Database Qualification (deferred execution)

@@ -1,4 +1,5 @@
 import { AuthCard } from "@/components/auth/AuthCard";
+import { AuthPage } from "@/components/auth/auth-ui";
 import { safeNextPath } from "@/lib/auth/redirects";
 
 type PageProps = {
@@ -11,8 +12,8 @@ export default async function RegisterPage({ searchParams }: PageProps) {
   const checkEmail = params.checkEmail === "1";
 
   return (
-    <div className="min-h-dvh bg-[#F7F8FA]">
+    <AuthPage>
       <AuthCard mode="register" nextPath={next} checkEmail={checkEmail} />
-    </div>
+    </AuthPage>
   );
 }

@@ -1,4 +1,6 @@
 import { AuthCard } from "@/components/auth/AuthCard";
+import { AuthPage } from "@/components/auth/auth-ui";
+import { authLinkErrorMessage } from "@/lib/auth/messages";
 import { safeNextPath } from "@/lib/auth/redirects";
 
 type PageProps = {
@@ -8,14 +10,11 @@ type PageProps = {
 export default async function LoginPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const next = safeNextPath(params.next, "/hives");
-  const linkError =
-    params.error === "link_invalid"
-      ? "That sign-in link is invalid or expired. Request a new one or log in with your password."
-      : null;
+  const linkError = authLinkErrorMessage(params.error, "login");
 
   return (
-    <div className="min-h-dvh bg-[#F7F8FA]">
+    <AuthPage>
       <AuthCard mode="login" nextPath={next} linkError={linkError} />
-    </div>
+    </AuthPage>
   );
 }

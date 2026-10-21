@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { HiveCustomerNav } from "@/components/shell/HiveCustomerNav";
@@ -64,6 +65,12 @@ export function HiveCustomerShell({ children }: { children: ReactNode }) {
           >
             <MenuIcon open={mobileNavOpen} />
           </button>
+          <Link
+            href="/account/password"
+            className="hidden rounded-[10px] px-3 py-2 text-sm font-semibold text-[#2456B8] no-underline hover:bg-[#F4F6F8] md:inline-flex"
+          >
+            Change password
+          </Link>
           <form action={signOutAction} className="hidden md:block">
             <button
               type="submit"
@@ -87,7 +94,14 @@ export function HiveCustomerShell({ children }: { children: ReactNode }) {
               className="absolute left-0 right-0 top-full z-50 flex max-h-[calc(100vh-3.5rem)] flex-col overflow-auto border-b border-[#E8EAEE] bg-white px-4 py-2 shadow-[0_16px_32px_rgba(31,35,40,0.12)] md:hidden"
             >
               <HiveCustomerNav variant="drawer" onNavigate={closeMobileNav} />
-              <form action={signOutAction} className="mt-2 border-t border-[#EEF0F3] pt-2">
+              <Link
+                href="/account/password"
+                onClick={closeMobileNav}
+                className="mt-2 block rounded-[10px] border-t border-[#EEF0F3] px-3 py-3 text-sm font-semibold text-[#2456B8] no-underline"
+              >
+                Change password
+              </Link>
+              <form action={signOutAction} className="border-t border-[#EEF0F3] pt-2">
                 <button
                   type="submit"
                   className="w-full rounded-[10px] px-3 py-3 text-left text-sm font-semibold text-[#1F2328]"
