@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type {
   CompleteDocumentUploadResponseV1,
+  DismissFailedDocumentUploadResponseV1,
   ListDocumentsResponseV1,
   PrepareDocumentUploadResponseV1,
   UploadQuotaResponseV1,
@@ -11,6 +12,7 @@ import {
   type DocumentEdgeFailure,
   edgeAbortDocumentUpload,
   edgeCompleteDocumentUpload,
+  edgeDismissFailedDocumentUpload,
   edgeGetUploadQuota,
   edgeListDocuments,
   edgePrepareDocumentUpload,
@@ -78,4 +80,13 @@ export async function abortDocumentUpload(
   input: { client_request_id: string; reason?: "abandoned" | "failed" },
 ): Promise<void> {
   await unwrap(await edgeAbortDocumentUpload(client, correlationId, hiveId, input));
+}
+
+export async function dismissFailedDocumentUpload(
+  client: SupabaseClient,
+  hiveId: string,
+  correlationId: string,
+  input: { client_request_id: string },
+): Promise<DismissFailedDocumentUploadResponseV1> {
+  return unwrap(await edgeDismissFailedDocumentUpload(client, correlationId, hiveId, input));
 }

@@ -99,3 +99,14 @@ export type AbortDocumentUploadRequestV1 = {
   client_request_id: string;
   reason?: "abandoned" | "failed";
 };
+
+export type DismissFailedDocumentUploadRequestV1 = {
+  client_request_id: string;
+};
+
+export type DismissFailedDocumentUploadResponseV1 = {
+  dismiss: {
+    document_id: string;
+    dismissed: boolean;
+  };
+};

@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type {
   CompleteDocumentUploadResponseV1,
+  DismissFailedDocumentUploadResponseV1,
   ListDocumentsResponseV1,
   PrepareDocumentUploadResponseV1,
   SourceDocumentV1,
@@ -383,6 +384,39 @@ export async function edgeCompleteDocumentUpload(
               ? c.registered_at
               : null,
           replayed: c.replayed,
+        },
+      };
+    },
+  );
+}
+
+export async function edgeDismissFailedDocumentUpload(
+  client: SupabaseClient,
+  correlationId: string,
+  hiveId: string,
+  input: { client_request_id: string },
+): Promise<DocumentEdgeResult<DismissFailedDocumentUploadResponseV1>> {
+  return invoke(
+    client,
+    correlationId,
+    {
+      op: "dismiss",
+      hive_id: hiveId,
+      client_request_id: input.client_request_id,
+    },
+    (record) => {
+      const dismiss = record.dismiss;
+      if (!dismiss || typeof dismiss !== "object") {
+        return null;
+      }
+      const d = dismiss as Record<string, unknown>;
+      if (typeof d.document_id !== "string" || d.dismissed !== true) {
+        return null;
+      }
+      return {
+        dismiss: {
+          document_id: d.document_id,
+          dismissed: true,
         },
       };
     },

@@ -3,12 +3,21 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { ErrorCode, type ErrorCode as ErrorCodeType } from "@hiveforyou/contracts/errors/v1";
 import type {
   CompleteDocumentUploadResponseV1,
+  DismissFailedDocumentUploadResponseV1,
   ListDocumentsResponseV1,
   PrepareDocumentUploadResponseV1,
   UploadQuotaResponseV1,
 } from "@hiveforyou/contracts/documents/v1";
 
-import { DocumentRepositoryError, abortDocumentUpload, completeDocumentUpload, getUploadQuota, listDocumentsForHive, prepareDocumentUpload } from "./repository";
+import {
+  DocumentRepositoryError,
+  abortDocumentUpload,
+  completeDocumentUpload,
+  dismissFailedDocumentUpload,
+  getUploadQuota,
+  listDocumentsForHive,
+  prepareDocumentUpload,
+} from "./repository";
 
 export type DocumentServiceError = {
   error_code: ErrorCodeType | "QUOTA_EXCEEDED";
@@ -165,6 +174,33 @@ export async function abortHiveDocumentUploadForUser(
   try {
     await abortDocumentUpload(client, hiveId, correlationId, input);
     return { ok: true };
+  } catch (error) {
+    if (error instanceof DocumentRepositoryError) {
+      return { ok: false, error: mapRepositoryFailure(error.failure) };
+    }
+    return {
+      ok: false,
+      error: serviceError(
+        ErrorCode.DEPENDENCY_UNAVAILABLE,
+        "Something went wrong. Please try again.",
+        true,
+        "unknown",
+      ),
+    };
+  }
+}
+
+export async function dismissFailedHiveDocumentForUser(
+  client: SupabaseClient,
+  hiveId: string,
+  correlationId: string,
+  input: { client_request_id: string },
+): Promise<
+  { ok: true; body: DismissFailedDocumentUploadResponseV1 } | { ok: false; error: DocumentServiceError }
+> {
+  try {
+    const body = await dismissFailedDocumentUpload(client, hiveId, correlationId, input);
+    return { ok: true, body };
   } catch (error) {
     if (error instanceof DocumentRepositoryError) {
       return { ok: false, error: mapRepositoryFailure(error.failure) };

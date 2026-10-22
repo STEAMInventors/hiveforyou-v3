@@ -95,3 +95,22 @@ export async function verifyStoragePrefixEmpty(
   const remaining = await listStorageObjectPaths(admin, bucket, prefix);
   return remaining.length === 0;
 }
+
+/** True when no object exists at the exact storage path (file name match under parent folder). */
+export async function verifyStorageObjectAbsent(
+  admin: SupabaseClient,
+  bucket: string,
+  storagePath: string,
+): Promise<boolean> {
+  const folder = storagePath.split("/").slice(0, -1).join("/");
+  const name = storagePath.split("/").pop() ?? "";
+  const { data, error } = await admin.storage.from(bucket).list(folder, {
+    search: name,
+    limit: 1,
+  });
+  if (error) {
+    throw new Error(`storage_list_failed:${error.message}`);
+  }
+  const match = (data ?? []).find((entry) => entry.name === name);
+  return !match;
+}

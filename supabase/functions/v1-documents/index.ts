@@ -1,5 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
+import {
+  removeStorageObjects,
+  verifyStorageObjectAbsent,
+} from "../_shared/hive-source-storage.ts";
 import { corsHeaders, jsonResponse } from "../_shared/http.ts";
 
 const DB_TIMEOUT_MS = 8000;
@@ -28,6 +32,11 @@ type Operation =
       hive_id: string;
       client_request_id: string;
       reason?: "abandoned" | "failed";
+    }
+  | {
+      op: "dismiss";
+      hive_id: string;
+      client_request_id: string;
     };
 
 function parseOperation(body: unknown): Operation | null {
@@ -93,6 +102,19 @@ function parseOperation(body: unknown): Operation | null {
       hive_id: record.hive_id.trim(),
       client_request_id: record.client_request_id.trim(),
       reason,
+    };
+  }
+  if (
+    op === "dismiss" &&
+    typeof record.hive_id === "string" &&
+    record.hive_id.trim() &&
+    typeof record.client_request_id === "string" &&
+    record.client_request_id.trim()
+  ) {
+    return {
+      op: "dismiss",
+      hive_id: record.hive_id.trim(),
+      client_request_id: record.client_request_id.trim(),
     };
   }
   return null;
@@ -170,11 +192,25 @@ function mapRpcError(message: string): { error_code: string; message_safe: strin
       retryable: false,
     };
   }
+  if (/invalid_status/i.test(message)) {
+    return {
+      error_code: "INVALID_REQUEST",
+      message_safe: "Only failed uploads can be dismissed.",
+      retryable: false,
+    };
+  }
   if (/invalid_|byte_size_mismatch/i.test(message)) {
     return {
       error_code: "INVALID_REQUEST",
       message_safe: "This file cannot be uploaded. Check type and size limits.",
       retryable: false,
+    };
+  }
+  if (/storage_list_failed|storage_remove_failed/i.test(message)) {
+    return {
+      error_code: "STORAGE_UNAVAILABLE",
+      message_safe: "Storage is temporarily unavailable. Please try again.",
+      retryable: true,
     };
   }
   if (message === "timeout") {
@@ -383,17 +419,64 @@ Deno.serve(async (req) => {
       return jsonResponse({ complete: data });
     }
 
-    const { data, error } = await withTimeout(
-      supabase.rpc("hive3_m1_abort_source_document_upload", {
+    if (operation.op === "abort") {
+      const { data, error } = await withTimeout(
+        supabase.rpc("hive3_m1_abort_source_document_upload", {
+          p_hive_id: operation.hive_id,
+          p_client_request_id: operation.client_request_id,
+          p_reason: operation.reason ?? "abandoned",
+        }),
+      );
+      if (error) {
+        throw error;
+      }
+      return jsonResponse({ abort: data });
+    }
+
+    const { data: targetRow, error: targetError } = await withTimeout(
+      supabase.rpc("hive3_m1_get_source_document_upload", {
         p_hive_id: operation.hive_id,
         p_client_request_id: operation.client_request_id,
-        p_reason: operation.reason ?? "abandoned",
+      }),
+    );
+    if (targetError) {
+      throw targetError;
+    }
+    const target = targetRow as Record<string, unknown> | null;
+    const storagePath =
+      target && typeof target.storage_path === "string" ? target.storage_path : null;
+    const status = target && typeof target.status === "string" ? target.status : null;
+    if (!storagePath || !status) {
+      throw new Error("document_not_found");
+    }
+    if (status !== "failed") {
+      throw new Error("invalid_status");
+    }
+
+    const admin = createServiceClient();
+    await removeStorageObjects(admin, STORAGE_BUCKET, [storagePath]);
+    const absent = await verifyStorageObjectAbsent(admin, STORAGE_BUCKET, storagePath);
+    if (!absent) {
+      return jsonResponse(
+        {
+          error_code: "STORAGE_UNAVAILABLE",
+          message_safe: "We could not remove the failed upload file. Try again.",
+          retryable: true,
+        },
+        503,
+      );
+    }
+
+    const { data, error } = await withTimeout(
+      supabase.rpc("hive3_m1_dismiss_failed_source_document", {
+        p_hive_id: operation.hive_id,
+        p_client_request_id: operation.client_request_id,
       }),
     );
     if (error) {
       throw error;
     }
-    return jsonResponse({ abort: data });
+    return jsonResponse({ dismiss: data });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const mapped = mapRpcError(message);
