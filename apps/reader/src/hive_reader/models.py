@@ -81,3 +81,81 @@ class ErrorEnvelopeV1(BaseModel):
     correlation_id: str
     study_run_id: str | None = None
     stage: str | None = None
+
+
+class ExtractionSchemaField(BaseModel):
+    field_key: str
+    title: str
+    description: str | None = None
+    value_type: str
+    required: bool | None = None
+    reusable: bool | None = None
+    evidence_required: bool | None = None
+    required_for_intent: bool | None = None
+
+
+class ExtractionSchemaProvenance(BaseModel):
+    match_tier: Literal["exact", "partial", "generic"]
+    pack_id: str | None = None
+    pack_version: str | None = None
+    pack_digest: str | None = None
+    document_type_id: str | None = None
+    domain_id: str | None = None
+
+
+class ExtractionSchema(BaseModel):
+    contract_version: Literal["extraction-schema@1"]
+    extraction_schema_id: str
+    schema_hash: str
+    intent_text: str
+    fields: list[ExtractionSchemaField]
+    provenance: ExtractionSchemaProvenance
+    generic: bool
+
+
+class CandidateEvidence(BaseModel):
+    page_number: int
+    exact_quote: str
+    quote_verified: bool = False
+
+
+class CandidateField(BaseModel):
+    field_key: str
+    value_json: dict | None = None
+    status: Literal["observed", "missing", "unknown", "unreadable"]
+    evidence: list[CandidateEvidence] = Field(default_factory=list)
+    issues: list[str] | None = None
+
+
+class ReusableSourceFact(BaseModel):
+    fact_key: str
+    kind: Literal["observed", "classification"]
+    value_json: dict
+    evidence: list[CandidateEvidence] = Field(default_factory=list)
+
+
+class ReaderCandidateExtraction(BaseModel):
+    contract_version: Literal["reader-candidate-extraction@1"]
+    extraction_schema_id: str
+    schema_hash: str
+    candidates: list[CandidateField]
+    reusable_source_facts: list[ReusableSourceFact]
+    field_coverage: dict[str, int]
+    extract_fingerprint: str
+
+
+class ReaderExtractCandidatesRequest(BaseModel):
+    contract_version: Literal["reader-extract-candidates@1"]
+    source: ReaderReadDocumentSource
+    pages: list[ReaderReadDocumentPage]
+    read_fingerprint: str
+    extraction_schema: ExtractionSchema
+
+
+class ReaderExtractCandidatesResponse(BaseModel):
+    contract_version: Literal["reader-extract-candidates@1"]
+    status: Literal["SUCCEEDED", "FAILED"]
+    source: ReaderReadDocumentSource
+    read_fingerprint: str
+    extraction: ReaderCandidateExtraction
+    provenance: ReaderReadDocumentProvenance

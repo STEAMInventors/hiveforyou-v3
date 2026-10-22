@@ -6,7 +6,8 @@ from fastapi.responses import JSONResponse
 
 from hive_reader.auth import ServiceAuthError, require_service_token
 from hive_reader.errors import error_response
-from hive_reader.models import ReaderReadDocumentRequest
+from hive_reader.extract.service import extract_candidates
+from hive_reader.models import ReaderExtractCandidatesRequest, ReaderReadDocumentRequest
 from hive_reader.pipeline.router import ExtractionError
 from hive_reader.service import read_document
 from hive_reader.storage import StorageError
@@ -111,9 +112,111 @@ async def read_document_route(
         )
     except ExtractionError as exc:
         code = exc.code
-        retryable = code in {"MODEL_UNAVAILABLE", "MODEL_TIMEOUT"}
-        category = "model" if code.startswith("MODEL") else "validation" if code == "INVALID_REQUEST" else "processing"
-        status = 503 if retryable else 400 if code == "INVALID_REQUEST" else 422
+        retryable = code in {"MODEL_UNAVAILABLE", "MODEL_TIMEOUT", "DEPENDENCY_UNAVAILABLE"}
+        category = (
+            "dependency"
+            if code == "DEPENDENCY_UNAVAILABLE"
+            else "model"
+            if code.startswith("MODEL")
+            else "validation"
+            if code == "INVALID_REQUEST"
+            else "processing"
+        )
+        status = (
+            503
+            if retryable
+            else 400
+            if code == "INVALID_REQUEST"
+            else 422
+        )
+        return error_response(
+            status_code=status,
+            error_code=code,
+            category=category,
+            retryable=retryable,
+            message_safe=exc.message,
+            correlation_id=correlation_id,
+            study_run_id=study_run_id,
+        )
+
+
+@app.post("/v1/extract-candidates")
+async def extract_candidates_route(
+    request: Request,
+    body: ReaderExtractCandidatesRequest,
+    _: None = Depends(require_service_token),
+    x_correlation_id: str | None = Header(default=None, alias="x-correlation-id"),
+    x_study_run_id: str | None = Header(default=None, alias="x-study-run-id"),
+    x_extraction_batch_id: str | None = Header(default=None, alias="x-extraction-batch-id"),
+):
+    correlation_id = _correlation_id(x_correlation_id)
+    study_run_id = (x_study_run_id or "").strip() or None
+
+    logger.info(
+        "extract_candidates_start",
+        extra={
+            "correlation_id": correlation_id,
+            "study_run_id": study_run_id,
+            "extraction_batch_id": (x_extraction_batch_id or "").strip() or None,
+            "source_document_id": body.source.source_document_id,
+            "schema_hash": body.extraction_schema.schema_hash,
+            "match_tier": body.extraction_schema.provenance.match_tier,
+            "pack_digest": body.extraction_schema.provenance.pack_digest,
+            "stage": "extract",
+        },
+    )
+
+    try:
+        result = await extract_candidates(body)
+        model_call = result.provenance.model_calls[0] if result.provenance.model_calls else None
+        logger.info(
+            "extract_candidates_success",
+            extra={
+                "correlation_id": correlation_id,
+                "study_run_id": study_run_id,
+                "schema_hash": result.extraction.schema_hash,
+                "match_tier": body.extraction_schema.provenance.match_tier,
+                "pack_digest": body.extraction_schema.provenance.pack_digest,
+                "model_alias": model_call.litellm_alias if model_call else None,
+                "duration_ms": model_call.latency_ms if model_call else None,
+                "populated": result.extraction.field_coverage.get("populated"),
+                "stage": "extract",
+            },
+        )
+        return result
+    except ExtractionError as exc:
+        code = exc.code
+        retryable = code in {"MODEL_UNAVAILABLE", "MODEL_TIMEOUT", "DEPENDENCY_UNAVAILABLE"}
+        category = (
+            "dependency"
+            if code == "DEPENDENCY_UNAVAILABLE"
+            else "model"
+            if code.startswith("MODEL")
+            else "validation"
+            if code == "INVALID_REQUEST"
+            else "processing"
+        )
+        status = (
+            503
+            if retryable
+            else 400
+            if code == "INVALID_REQUEST"
+            else 422
+        )
+        logger.warning(
+            "extract_candidates_failed",
+            extra={
+                "correlation_id": correlation_id,
+                "study_run_id": study_run_id,
+                "schema_hash": body.extraction_schema.schema_hash,
+                "match_tier": body.extraction_schema.provenance.match_tier,
+                "pack_digest": body.extraction_schema.provenance.pack_digest,
+                "error_code": code,
+                "retryable": retryable,
+                "message_safe": exc.message,
+                "stage": "extract",
+            },
+        )
         return error_response(
             status_code=status,
             error_code=code,

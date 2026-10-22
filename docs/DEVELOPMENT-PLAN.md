@@ -2,7 +2,7 @@
 
 **Governing plan:** [`HIVEFORYOU-V3-DEVELOPMENT-PLAN-database-first-PROPOSED.md`](./HIVEFORYOU-V3-DEVELOPMENT-PLAN-database-first-PROPOSED.md) (version 0.1, **approved** 2026-10-20). The filename still contains `PROPOSED` so history and links stay stable. Ticket gates live in that document. Superseded connectivity-first P1 IDs are in its §4.1 only.
 
-**Active ticket:** [`docs/NEXT.md`](./NEXT.md) — **P2.1** Oracle Reader page-grounded read (`reader-document-read@1`; implemented in repo; blocked on Worker integration and Oracle deploy).
+**Active ticket:** [`docs/NEXT.md`](./NEXT.md) — **P2.3** evidence verification (investigation; P2.2 accepted locally in repo).
 
 ## P0 — Design freeze (status)
 
@@ -40,6 +40,8 @@ Implementation-time decisions from P0.2 (LiteLLM aliases, Worker–Reader HTTP, 
 | Ticket | Status | Notes |
 |--------|--------|--------|
 | P2.1 | **IMPLEMENTED (repo)** | `apps/reader`, `packages/contracts` `reader/v1`; see `docs/acceptance/P2.1-reader-document-read.md` |
-| P2.2+ | NOT_STARTED | Intent/schema extraction, verification, L001 qualification per governing plan |
+| P2.2 | **ACCEPTED (local, repo)** | Contracts, IEP pack, dynamic Worker classify/schema (mocked LiteLLM), Reader extract route; see `docs/acceptance/P2.2-structured-extraction.md` |
+| P2.3 | **INVESTIGATION** | Evidence verification per governing plan; active in `docs/NEXT.md` |
+| P2.4+ | NOT_STARTED | L001 qualification and later gates per governing plan |
 
 P3 and later remain NOT_STARTED.

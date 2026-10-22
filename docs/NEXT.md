@@ -1,13 +1,41 @@
 ﻿# Active ticket
 
-**Phase / Ticket:** P2.1 — Extraction Reader (page-grounded read)
-**Status:** **IMPLEMENTED (repo)** — local pytest **16/16** (with LibreOffice 7.6.7.2) + contracts typecheck; service auth uses `error-envelope@1`; blocked on `apps/worker` / P1.5-processing, Oracle deploy, and LiteLLM alias wiring (2026-10-22)
+**Phase / Ticket:** P2.3 — Evidence verification (investigation)
+**Status:** **INVESTIGATION** — scope and repo touchpoints for candidate → verified evidence; no Canonical Study promotion in this slice until design is approved (2026-10-22)
 
-**Objective:** Oracle Python Reader with `reader-document-read@1`: native PDF, selective local/LiteLLM OCR, images, reproducible DOCX; per-page quality and source hash fidelity; P2.2 schema slot rejected.
+**Objective:** Reject invalid source/page/quote anchors; retain explicit unknowns; verified records carry traceable evidence per governing plan. Builds on P2.2 `reader-candidate-extraction@1` output without promoting untrusted candidate text.
+
+**Evidence (starting points):** `docs/HIVEFORYOU-V3-DEVELOPMENT-PLAN-database-first-PROPOSED.md` (P2.3 row), `docs/acceptance/P2.2-structured-extraction.md` (deferred integration), `packages/contracts` error/study-run stages, Worker verification boundaries in `docs/ERROR-HANDLING-RECOVERY.md`.
+
+**Done when:** Investigation note or scoped implementation plan is reviewed; P2.2 commit remains unchanged; integrated study-run verification still waits on P1.5-processing.
+
+**Blocked on:** P1.5-processing (Inngest + Worker HTTP orchestration), processing SQL migrations, optional `document_pages` persistence; live LiteLLM reasoning alias (P5.3) for non-mocked paths.
+
+---
+
+## P2.2 — Domain-aware structured extraction
+
+**Status:** **ACCEPTED (local, repo)** — committed; Worker/Core/contracts green; Reader P2.1+P2.2 **21 passed, 2 skipped** (LibreOffice not on host — see acceptance doc); integrated acceptance **deferred** (2026-10-22)
+
+**Objective:** One domain-agnostic path: deterministic pack match, LiteLLM classification when that match is inconclusive, dynamic `extraction-schema@1` for partial and generic matches (exact structures may add intent-specific fields), then `reader-candidate-extraction@1` with page/quote anchors and reusable source facts. No hardcoded generic field templates.
+
+**Evidence:** `packages/contracts/src/extraction/v1/`, `packages/contracts/src/domain-packs/v1/`, `domain-packs/iep/1.0.0/`, `packages/core/`, `apps/worker/src/plan/`, `apps/reader/` extract route, `docs/acceptance/P2.2-structured-extraction.md`, `infra/oracle/worker.config.env.example`.
+
+**Done when:** Contract typecheck and Reader/Worker/Core targeted tests pass; P2.1 read route unchanged; no verified-fact promotion (P2.3). Storage-backed and Inngest orchestration wait for P1.5-processing.
+
+**Blocked on:** P1.5-processing (Inngest + Worker HTTP orchestration), processing SQL migrations, production `READER_P2_REASONING_LITELLM_ALIAS` / `WORKER_P2_REASONING_LITELLM_ALIAS`, optional `document_pages` persistence.
+
+---
+
+## P2.1 — Extraction Reader (page-grounded read)
+
+**Status:** **IMPLEMENTED (repo)** — local pytest **16/16** (with LibreOffice 7.6.7.2) + contracts typecheck; service auth uses `error-envelope@1`; Worker/storage integration still blocked on P1.5-processing (2026-10-22)
+
+**Objective:** Oracle Python Reader with `reader-document-read@1`: native PDF, selective local/LiteLLM OCR, images, reproducible DOCX; per-page quality and source hash fidelity; read route still rejects non-null `extraction_schema` (use `POST /v1/extract-candidates` for P2.2).
 
 **Evidence:** `packages/contracts/src/reader/v1/`, `apps/reader/`, `docs/acceptance/P2.1-reader-document-read.md`, `infra/oracle/reader.config.env.example`.
 
-**Done when:** Local tests pass; Worker HTTP caller and storage-backed acceptance run after P1.5-processing; P2.4 L001 qualification not part of this ticket.
+**Done when:** Local tests pass; Worker HTTP caller and storage-backed acceptance run after P1.5-processing; P2.4 L001 qualification not part of P2.1.
 
 **Blocked on:** P1.5-processing (Inngest + Worker), production service auth, `READER_OCR_LITELLM_ALIAS`, optional `document_pages` migration.
 

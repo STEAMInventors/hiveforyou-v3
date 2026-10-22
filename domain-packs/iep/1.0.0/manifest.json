@@ -1,0 +1,141 @@
+{
+  "contract_version": "domain-pack-manifest@1",
+  "pack_id": "iep",
+  "pack_version": "1.0.0",
+  "review_status": "reviewed",
+  "domains": [
+    {
+      "domain_id": "iep",
+      "label": "Special Education / IEP",
+      "vocabulary_fields": [
+        {
+          "field_key": "student_name",
+          "title": "Student name",
+          "value_type": "string",
+          "reusable": true,
+          "evidence_required": true
+        },
+        {
+          "field_key": "school_district",
+          "title": "School district",
+          "value_type": "string",
+          "reusable": true,
+          "evidence_required": true
+        }
+      ]
+    }
+  ],
+  "document_types": [
+    {
+      "document_type_id": "iep_initial",
+      "domain_id": "iep",
+      "label": "Initial / annual IEP",
+      "match": {
+        "title_patterns": ["individualized education program", "annual iep", "iep meeting"],
+        "keywords": ["annual goal", "special education", "related services", "present levels"],
+        "section_headers": ["annual goals", "related services", "present levels of performance"],
+        "min_pages": 2
+      },
+      "structure": {
+        "fields": [
+          {
+            "field_key": "student_name",
+            "title": "Student name",
+            "value_type": "string",
+            "required": true,
+            "reusable": true,
+            "evidence_required": true
+          },
+          {
+            "field_key": "iep_meeting_date",
+            "title": "IEP meeting date",
+            "value_type": "date",
+            "required": true,
+            "evidence_required": true
+          },
+          {
+            "field_key": "effective_date",
+            "title": "IEP effective date",
+            "value_type": "date",
+            "evidence_required": true
+          },
+          {
+            "field_key": "disability_category",
+            "title": "Disability category",
+            "value_type": "string",
+            "evidence_required": true
+          },
+          {
+            "field_key": "annual_goals",
+            "title": "Annual IEP goals",
+            "description": "Measurable annual goals",
+            "value_type": "array",
+            "required": true,
+            "evidence_required": true
+          },
+          {
+            "field_key": "related_services",
+            "title": "Related services",
+            "value_type": "array",
+            "evidence_required": true
+          },
+          {
+            "field_key": "accommodations",
+            "title": "Accommodations and modifications",
+            "value_type": "array",
+            "evidence_required": true
+          }
+        ]
+      }
+    },
+    {
+      "document_type_id": "iep_progress_report",
+      "domain_id": "iep",
+      "label": "IEP progress report",
+      "match": {
+        "title_patterns": ["progress report", "progress on iep", "goal progress"],
+        "keywords": ["progress toward", "reporting period", "goal status", "services delivered"],
+        "section_headers": ["progress on goals", "services provided", "reporting period"]
+      },
+      "structure": {
+        "fields": [
+          {
+            "field_key": "student_name",
+            "title": "Student name",
+            "value_type": "string",
+            "required": true,
+            "reusable": true,
+            "evidence_required": true
+          },
+          {
+            "field_key": "reporting_period_start",
+            "title": "Reporting period start",
+            "value_type": "date",
+            "required": true,
+            "evidence_required": true
+          },
+          {
+            "field_key": "reporting_period_end",
+            "title": "Reporting period end",
+            "value_type": "date",
+            "required": true,
+            "evidence_required": true
+          },
+          {
+            "field_key": "goal_progress",
+            "title": "Goal progress summaries",
+            "value_type": "array",
+            "required": true,
+            "evidence_required": true
+          },
+          {
+            "field_key": "services_delivered",
+            "title": "Services delivered in period",
+            "value_type": "array",
+            "evidence_required": true
+          }
+        ]
+      }
+    }
+  ]
+}

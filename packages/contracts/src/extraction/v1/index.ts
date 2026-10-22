@@ -1,0 +1,17 @@
+export {
+  DOCUMENT_CLASSIFICATION_VERSION,
+  EXTRACTION_SCHEMA_VERSION,
+  READER_CANDIDATE_EXTRACTION_VERSION,
+  type CandidateEvidenceV1,
+  type CandidateFieldStatusV1,
+  type CandidateFieldV1,
+  type ClassificationCandidateV1,
+  type DocumentClassificationV1,
+  type ExtractionSchemaFieldV1,
+  type ExtractionSchemaProvenanceV1,
+  type ExtractionSchemaV1,
+  type FieldCoverageV1,
+  type MatchTierV1,
+  type ReaderCandidateExtractionV1,
+  type ReusableSourceFactV1,
+} from "./types.js";

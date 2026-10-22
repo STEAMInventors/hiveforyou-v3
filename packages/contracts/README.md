@@ -15,3 +15,9 @@ Do not import Worker or Reader implementation code from other apps; depend on th
 
 - TypeScript: `src/reader/v1`
 - Worker → Reader internal `POST /v1/read-document` (see `docs/acceptance/P2.1-reader-document-read.md`)
+
+## reader-extract-candidates@1 (P2.2)
+
+- TypeScript: `src/reader/v1/extract-candidates.ts`
+- Worker → Reader `POST /v1/extract-candidates` after page-grounded read
+- Related: `extraction/v1`, `domain-packs/v1`

@@ -1,0 +1,19 @@
+{
+  "name": "@hiveforyou/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hiveforyou/contracts": "file:../../packages/contracts",
+    "@hiveforyou/core": "file:../../packages/core"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

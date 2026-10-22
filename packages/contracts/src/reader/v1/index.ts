@@ -16,3 +16,8 @@ export {
   type ReaderReadDocumentResponseV1,
   type ReaderReadDocumentSourceV1,
 } from "./types.js";
+export {
+  READER_EXTRACT_CANDIDATES_VERSION,
+  type ReaderExtractCandidatesRequestV1,
+  type ReaderExtractCandidatesResponseV1,
+} from "./extract-candidates.js";

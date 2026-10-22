@@ -9,7 +9,9 @@
     "./errors/v1": "./src/errors/v1/index.ts",
     "./hives/v1": "./src/hives/v1/index.ts",
     "./documents/v1": "./src/documents/v1/index.ts",
-    "./reader/v1": "./src/reader/v1/index.ts"
+    "./reader/v1": "./src/reader/v1/index.ts",
+    "./extraction/v1": "./src/extraction/v1/index.ts",
+    "./domain-packs/v1": "./src/domain-packs/v1/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

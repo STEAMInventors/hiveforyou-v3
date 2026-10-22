@@ -1,0 +1,4 @@
+export const EXACT_MATCH_THRESHOLD = 0.55;
+export const PARTIAL_DOMAIN_THRESHOLD = 0.28;
+export const DOMAIN_AMBIGUITY_MARGIN = 0.12;
+export const RECEIPT_LIKE_THRESHOLD = 0.42;
