@@ -1,6 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 import {
+  runReplacementStorageCleanup,
+  supersededStoragePathForCleanup,
+} from "../_shared/document-replacement-cleanup.ts";
+import {
   removeStorageObjects,
   verifyStorageObjectAbsent,
 } from "../_shared/hive-source-storage.ts";
@@ -19,6 +23,12 @@ type Operation =
       filename: string;
       mime_type: string;
       byte_size: number;
+      supersedes_document_id?: string;
+    }
+  | {
+      op: "delete";
+      hive_id: string;
+      client_request_id: string;
     }
   | {
       op: "complete";
@@ -62,6 +72,10 @@ function parseOperation(body: unknown): Operation | null {
     typeof record.byte_size === "number" &&
     Number.isFinite(record.byte_size)
   ) {
+    const supersedes =
+      typeof record.supersedes_document_id === "string" && record.supersedes_document_id.trim()
+        ? record.supersedes_document_id.trim()
+        : undefined;
     return {
       op: "prepare",
       hive_id: record.hive_id.trim(),
@@ -69,6 +83,20 @@ function parseOperation(body: unknown): Operation | null {
       filename: record.filename,
       mime_type: record.mime_type,
       byte_size: record.byte_size,
+      supersedes_document_id: supersedes,
+    };
+  }
+  if (
+    op === "delete" &&
+    typeof record.hive_id === "string" &&
+    record.hive_id.trim() &&
+    typeof record.client_request_id === "string" &&
+    record.client_request_id.trim()
+  ) {
+    return {
+      op: "delete",
+      hive_id: record.hive_id.trim(),
+      client_request_id: record.client_request_id.trim(),
     };
   }
   if (
@@ -192,10 +220,31 @@ function mapRpcError(message: string): { error_code: string; message_safe: strin
       retryable: false,
     };
   }
+  if (/study_source_locked/i.test(message)) {
+    return {
+      error_code: "STUDY_SOURCE_LOCKED",
+      message_safe: "This document is part of your study and cannot be changed.",
+      retryable: false,
+    };
+  }
+  if (/deletion_in_progress/i.test(message)) {
+    return {
+      error_code: "INVALID_REQUEST",
+      message_safe: "A document deletion is still in progress. Try again shortly.",
+      retryable: true,
+    };
+  }
+  if (/replacement_in_progress/i.test(message)) {
+    return {
+      error_code: "INVALID_REQUEST",
+      message_safe: "A replacement is already in progress for this document.",
+      retryable: false,
+    };
+  }
   if (/invalid_status/i.test(message)) {
     return {
       error_code: "INVALID_REQUEST",
-      message_safe: "Only failed uploads can be dismissed.",
+      message_safe: "This document cannot be changed in its current state.",
       retryable: false,
     };
   }
@@ -338,6 +387,7 @@ Deno.serve(async (req) => {
           p_filename: operation.filename,
           p_mime_type: operation.mime_type,
           p_byte_size: operation.byte_size,
+          p_supersedes_document_id: operation.supersedes_document_id ?? null,
         }),
       );
       if (error) {
@@ -416,7 +466,86 @@ Deno.serve(async (req) => {
       if (error) {
         throw error;
       }
+      const completeRow = data as Record<string, unknown>;
+      const supersededPath = supersededStoragePathForCleanup(completeRow, storagePath);
+      if (supersededPath) {
+        const admin = createServiceClient();
+        const cleanup = await runReplacementStorageCleanup(supersededPath, {
+          removeStorageObjects: async (paths) => {
+            await removeStorageObjects(admin, STORAGE_BUCKET, paths);
+          },
+          verifyStorageObjectAbsent: async (path) =>
+            verifyStorageObjectAbsent(admin, STORAGE_BUCKET, path),
+        });
+        if (!cleanup.ok) {
+          return jsonResponse(
+            {
+              error_code: cleanup.error_code,
+              message_safe: cleanup.message_safe,
+              retryable: cleanup.retryable,
+            },
+            503,
+          );
+        }
+      }
       return jsonResponse({ complete: data });
+    }
+
+    if (operation.op === "delete") {
+      const { data: beginData, error: beginError } = await withTimeout(
+        supabase.rpc("hive3_m1_begin_registered_source_document_deletion", {
+          p_hive_id: operation.hive_id,
+          p_client_request_id: operation.client_request_id,
+        }),
+      );
+      if (beginError) {
+        throw beginError;
+      }
+      const begin = beginData as Record<string, unknown>;
+      const deletionStage =
+        typeof begin.deletion_stage === "string" ? begin.deletion_stage : "marked";
+      if (deletionStage === "finalized") {
+        return jsonResponse({
+          delete: { document_id: begin.document_id, deleted: true },
+        });
+      }
+      const storagePath =
+        typeof begin.storage_path === "string" ? begin.storage_path : null;
+      if (!storagePath) {
+        throw new Error("document_not_found");
+      }
+      const admin = createServiceClient();
+      const stillPresent = !(await verifyStorageObjectAbsent(admin, STORAGE_BUCKET, storagePath));
+      if (stillPresent) {
+        await removeStorageObjects(admin, STORAGE_BUCKET, [storagePath]);
+        const absent = await verifyStorageObjectAbsent(admin, STORAGE_BUCKET, storagePath);
+        if (!absent) {
+          return jsonResponse(
+            {
+              error_code: "STORAGE_UNAVAILABLE",
+              message_safe: "We could not remove this document file. Try again.",
+              retryable: true,
+            },
+            503,
+          );
+        }
+      }
+      const { data: finalizeData, error: finalizeError } = await withTimeout(
+        supabase.rpc("hive3_m1_finalize_registered_source_document_deletion", {
+          p_hive_id: operation.hive_id,
+          p_client_request_id: operation.client_request_id,
+        }),
+      );
+      if (finalizeError) {
+        throw finalizeError;
+      }
+      const finalized = finalizeData as Record<string, unknown>;
+      return jsonResponse({
+        delete: {
+          document_id: finalized.document_id,
+          deleted: finalized.deleted === true,
+        },
+      });
     }
 
     if (operation.op === "abort") {
@@ -431,6 +560,10 @@ Deno.serve(async (req) => {
         throw error;
       }
       return jsonResponse({ abort: data });
+    }
+
+    if (operation.op !== "dismiss") {
+      throw new Error("invalid_operation");
     }
 
     const { data: targetRow, error: targetError } = await withTimeout(
@@ -487,6 +620,10 @@ Deno.serve(async (req) => {
       retryable: mapped.retryable,
       diagnostic_detail: message.slice(0, 200),
     });
-    return jsonResponse(mapped, mapped.error_code === "INVALID_REQUEST" ? 400 : 503);
+    const status =
+      mapped.error_code === "INVALID_REQUEST" || mapped.error_code === "STUDY_SOURCE_LOCKED"
+        ? 400
+        : 503;
+    return jsonResponse(mapped, status);
   }
 });

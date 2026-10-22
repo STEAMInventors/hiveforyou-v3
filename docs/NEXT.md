@@ -1,6 +1,34 @@
 ﻿# Active ticket
 
-**Phase / Ticket:** P1.7-A — My Hives card summary and Delete Hive from cards
+**Phase / Ticket:** P1.7-B — Pre-study document delete and replace
+**Status:** **IMPLEMENTED (repo)** — blocked on Supabase apply of `20261021200000_hive3_m1_document_delete_replace_study_lock.sql` + redeploy Edge `v1-documents` + web deploy; live acceptance rows 26–36 in `docs/acceptance/P1.7-document-workspace-hive-delete.md` (2026-10-21)
+
+**Objective:** Owner delete/replace for registered sources before study lock; begin/finalize deletion with `deleting_at`; replacement via new row/path without extra quota; `study_locked_at` + study enqueue contract RPCs (no study-run tables in M1).
+
+**Evidence:** `supabase/migrations/20261021200000_hive3_m1_document_delete_replace_study_lock.sql`, `supabase/qualification/p1.7_b_document_delete_replace_assertions_readonly.sql`, `supabase/functions/v1-documents/index.ts`, `apps/web/src/components/workspace/HiveDocumentsPanel.tsx`, `DeleteDocumentModal.tsx`, `POST .../documents/delete`.
+
+**Done when:** After SQL + Edge + web deploy, acceptance rows 26–36 pass; P1.7 upload recovery (rows 19–25) and card summary (13–18) unchanged.
+
+**Blocked on:** Operator applies P1.7-B SQL after `20261021190000`; redeploy `v1-documents`; deploy web app.
+
+---
+
+## P1.7 — Upload count and failed attempt recovery
+
+**Status:** **IMPLEMENTED (repo)** — blocked on Supabase apply of `20261021190000_hive3_m1_upload_prepare_quota_dismiss.sql` + redeploy Edge `v1-documents` + web deploy; live acceptance rows 19–25 in `docs/acceptance/P1.7-document-workspace-hive-delete.md` (2026-10-21)
+
+**Objective:** Document workspace counts only registered uploads; failed attempts listed separately with dismiss (storage cleanup first); new upload prepare blocked when monthly quota is exhausted (registration-time check unchanged).
+
+**Evidence:** `supabase/migrations/20261021190000_hive3_m1_upload_prepare_quota_dismiss.sql`, `supabase/qualification/p1.7_upload_count_recovery_assertions_readonly.sql`, `supabase/functions/v1-documents/index.ts`, `apps/web/src/components/workspace/HiveDocumentsPanel.tsx`, `apps/web/src/lib/documents/document-workspace-lists.ts`.
+
+**Done when:** After SQL + Edge + web deploy, acceptance rows 19–25 pass; P1.7-A card summary (rows 13–18) remains as previously specified.
+
+**Blocked on:** Operator applies P1.7 recovery SQL after P1.7-A `20261021180000`; redeploy `v1-documents`; deploy web app.
+
+---
+
+## P1.7-A — My Hives card summary and Delete Hive from cards
+
 **Status:** **IMPLEMENTED (repo)** — blocked on Supabase apply of `20261021180000_hive3_m1_hive_card_summary.sql` + web deploy; live acceptance per `docs/acceptance/P1.7-document-workspace-hive-delete.md` (2026-10-21)
 
 **Objective:** My Hives cards show persisted document count and filename preview (one list RPC), domain placeholder **Not identified yet.**, and **Open Hive** / **Delete Hive** actions reusing the existing typed `delete` modal and Edge deletion flow.

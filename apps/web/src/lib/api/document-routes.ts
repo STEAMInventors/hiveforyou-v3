@@ -7,6 +7,7 @@ import { createServerSupabaseClient, requireAuthenticatedUser } from "@/lib/supa
 import {
   abortHiveDocumentUploadForUser,
   completeHiveDocumentUploadForUser,
+  deleteRegisteredHiveDocumentForUser,
   dismissFailedHiveDocumentForUser,
   getUploadQuotaForUser,
   listHiveDocumentsForUser,
@@ -33,6 +34,7 @@ function categoryForCode(code: string): (typeof ErrorCategory)[keyof typeof Erro
   if (code === "ACCESS_DENIED") return ErrorCategory.AUTHORIZATION;
   if (code === "NOT_FOUND") return ErrorCategory.NOT_FOUND;
   if (code === "QUOTA_EXCEEDED") return ErrorCategory.VALIDATION;
+  if (code === "STUDY_SOURCE_LOCKED") return ErrorCategory.VALIDATION;
   if (code === "INVALID_REQUEST") return ErrorCategory.VALIDATION;
   if (code.startsWith("STORAGE_")) return ErrorCategory.STORAGE;
   if (code.startsWith("DB_") || code === "DEPENDENCY_UNAVAILABLE") {
@@ -203,11 +205,17 @@ export async function handlePrepareDocumentUpload(
     });
   }
 
+  const supersedesDocumentId =
+    typeof record.supersedes_document_id === "string" && record.supersedes_document_id.trim()
+      ? record.supersedes_document_id.trim()
+      : undefined;
+
   const result = await prepareHiveDocumentUploadForUser(supabase, hiveId, correlationId, {
     client_request_id: clientRequestId,
     filename,
     mime_type: mimeType,
     byte_size: byteSize,
+    supersedes_document_id: supersedesDocumentId,
   });
   if (!result.ok) {
     logFailure(correlationId, "POST /api/v1/hives/[hiveId]/documents/prepare", started, result.error);
@@ -331,6 +339,59 @@ export async function handleAbortDocumentUpload(
     });
   }
   return jsonSuccess(correlationId, { aborted: true });
+}
+
+export async function handleDeleteRegisteredDocumentUpload(
+  correlationId: string,
+  hiveId: string,
+  body: unknown,
+) {
+  const started = Date.now();
+  if (!parseHiveIdParam(hiveId)) {
+    return jsonError(correlationId, {
+      error_code: ErrorCode.INVALID_REQUEST,
+      category: ErrorCategory.VALIDATION,
+      message_safe: "Invalid Hive id.",
+    });
+  }
+  if (!body || typeof body !== "object") {
+    return jsonError(correlationId, {
+      error_code: ErrorCode.INVALID_REQUEST,
+      category: ErrorCategory.VALIDATION,
+      message_safe: "Request body must be a JSON object.",
+    });
+  }
+  const record = body as Record<string, unknown>;
+  const clientRequestId = parseClientRequestId(record.client_request_id);
+  if (!clientRequestId) {
+    return jsonError(correlationId, {
+      error_code: ErrorCode.INVALID_REQUEST,
+      category: ErrorCategory.VALIDATION,
+      message_safe: "Missing client_request_id.",
+    });
+  }
+
+  const supabase = await withAuth(correlationId, "POST /api/v1/hives/[hiveId]/documents/delete");
+  if (!supabase) {
+    return jsonError(correlationId, {
+      error_code: ErrorCode.AUTH_FAILED,
+      category: ErrorCategory.AUTH,
+      message_safe: "Sign in to manage documents.",
+    });
+  }
+  const result = await deleteRegisteredHiveDocumentForUser(supabase, hiveId, correlationId, {
+    client_request_id: clientRequestId,
+  });
+  if (!result.ok) {
+    logFailure(correlationId, "POST /api/v1/hives/[hiveId]/documents/delete", started, result.error);
+    return jsonError(correlationId, {
+      error_code: envelopeCode(result.error.error_code),
+      category: categoryForCode(result.error.error_code),
+      message_safe: result.error.message_safe,
+      retryable: result.error.retryable,
+    });
+  }
+  return jsonSuccess(correlationId, result.body);
 }
 
 export async function handleDismissFailedDocumentUpload(

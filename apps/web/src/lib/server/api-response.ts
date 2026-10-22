@@ -24,6 +24,7 @@ const STATUS_BY_CODE: Record<ErrorCode, number> = {
   DB_TRANSIENT: 503,
   DB_OUTCOME_UNKNOWN: 503,
   DEPENDENCY_UNAVAILABLE: 503,
+  STUDY_SOURCE_LOCKED: 400,
 };
 
 export function jsonSuccess<T>(

@@ -22,6 +22,9 @@ export type SourceDocumentV1 = {
   status: "pending" | "registered" | "abandoned" | "failed";
   created_at: string;
   registered_at: string | null;
+  study_locked?: boolean;
+  can_delete?: boolean;
+  can_replace?: boolean;
 };
 
 export type UploadQuotaV1 = {
@@ -60,6 +63,7 @@ export type PrepareDocumentUploadRequestV1 = {
   filename: string;
   mime_type: string;
   byte_size: number;
+  supersedes_document_id?: string;
 };
 
 export type PrepareDocumentUploadResponseV1 = {
@@ -108,5 +112,16 @@ export type DismissFailedDocumentUploadResponseV1 = {
   dismiss: {
     document_id: string;
     dismissed: boolean;
+  };
+};
+
+export type DeleteRegisteredDocumentUploadRequestV1 = {
+  client_request_id: string;
+};
+
+export type DeleteRegisteredDocumentUploadResponseV1 = {
+  delete: {
+    document_id: string;
+    deleted: boolean;
   };
 };

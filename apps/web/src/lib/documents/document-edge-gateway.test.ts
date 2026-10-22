@@ -162,6 +162,70 @@ describe("document edge gateway invoke errors", () => {
     );
   });
 
+  it("preserves STUDY_SOURCE_LOCKED from edge delete", async () => {
+    const client = clientWithSession();
+    invoke.mockResolvedValue({
+      data: null,
+      error: functionsHttpError(
+        new Response(
+          JSON.stringify({
+            error_code: "STUDY_SOURCE_LOCKED",
+            message_safe: "This document is part of your study and cannot be changed.",
+            retryable: false,
+          }),
+          { status: 400, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    });
+
+    const { edgeDeleteRegisteredDocumentUpload } = await import("./document-edge-gateway");
+    const result = await edgeDeleteRegisteredDocumentUpload(client as never, "corr-lock", hiveId, {
+      client_request_id: "req-lock",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.error_code).toBe("STUDY_SOURCE_LOCKED");
+      expect(result.error.retryable).toBe(false);
+    }
+  });
+
+  it("parses list document action flags from edge", async () => {
+    const client = clientWithSession();
+    invoke.mockResolvedValue({
+      data: {
+        documents: [
+          {
+            id: "doc-1",
+            hive_id: hiveId,
+            client_request_id: "req-1",
+            filename: "a.pdf",
+            mime_type: "application/pdf",
+            byte_size: 100,
+            sha256: "abc",
+            status: "registered",
+            created_at: "2026-01-01T00:00:00.000Z",
+            registered_at: "2026-01-01T00:00:00.000Z",
+            study_locked: false,
+            can_delete: true,
+            can_replace: true,
+          },
+        ],
+      },
+      error: null,
+    });
+
+    const { edgeListDocuments } = await import("./document-edge-gateway");
+    const result = await edgeListDocuments(client as never, "corr-list", hiveId);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.documents[0]?.can_delete).toBe(true);
+      expect(result.data.documents[0]?.can_replace).toBe(true);
+      expect(result.data.documents[0]?.study_locked).toBe(false);
+    }
+  });
+
   it("falls back to DEPENDENCY_UNAVAILABLE when response body is not structured JSON", async () => {
     const client = clientWithSession();
     invoke.mockResolvedValue({

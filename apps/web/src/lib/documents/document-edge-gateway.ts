@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type {
   CompleteDocumentUploadResponseV1,
+  DeleteRegisteredDocumentUploadResponseV1,
   DismissFailedDocumentUploadResponseV1,
   ListDocumentsResponseV1,
   PrepareDocumentUploadResponseV1,
@@ -127,6 +128,9 @@ function parseDocument(value: unknown): SourceDocumentV1 | null {
       row.registered_at === null || typeof row.registered_at === "string"
         ? row.registered_at
         : null,
+    study_locked: row.study_locked === true,
+    can_delete: row.can_delete === true,
+    can_replace: row.can_replace === true,
   };
 }
 
@@ -289,19 +293,24 @@ export async function edgePrepareDocumentUpload(
     filename: string;
     mime_type: string;
     byte_size: number;
+    supersedes_document_id?: string;
   },
 ): Promise<DocumentEdgeResult<PrepareDocumentUploadResponseV1>> {
+  const body: Record<string, unknown> = {
+    op: "prepare",
+    hive_id: hiveId,
+    client_request_id: input.client_request_id,
+    filename: input.filename,
+    mime_type: input.mime_type,
+    byte_size: input.byte_size,
+  };
+  if (input.supersedes_document_id) {
+    body.supersedes_document_id = input.supersedes_document_id;
+  }
   return invoke(
     client,
     correlationId,
-    {
-      op: "prepare",
-      hive_id: hiveId,
-      client_request_id: input.client_request_id,
-      filename: input.filename,
-      mime_type: input.mime_type,
-      byte_size: input.byte_size,
-    },
+    body,
     (record) => {
       const prepare = record.prepare;
       const upload = record.upload;
@@ -384,6 +393,39 @@ export async function edgeCompleteDocumentUpload(
               ? c.registered_at
               : null,
           replayed: c.replayed,
+        },
+      };
+    },
+  );
+}
+
+export async function edgeDeleteRegisteredDocumentUpload(
+  client: SupabaseClient,
+  correlationId: string,
+  hiveId: string,
+  input: { client_request_id: string },
+): Promise<DocumentEdgeResult<DeleteRegisteredDocumentUploadResponseV1>> {
+  return invoke(
+    client,
+    correlationId,
+    {
+      op: "delete",
+      hive_id: hiveId,
+      client_request_id: input.client_request_id,
+    },
+    (record) => {
+      const del = record.delete;
+      if (!del || typeof del !== "object") {
+        return null;
+      }
+      const d = del as Record<string, unknown>;
+      if (typeof d.document_id !== "string" || d.deleted !== true) {
+        return null;
+      }
+      return {
+        delete: {
+          document_id: d.document_id,
+          deleted: true,
         },
       };
     },

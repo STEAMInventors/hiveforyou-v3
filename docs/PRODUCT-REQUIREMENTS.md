@@ -154,7 +154,7 @@ Record matches `docs/NEXT.md`. **Do not implement conflicting defaults.**
 
 | Topic | State | Owner |
 |-------|--------|--------|
-| Failed-run artifact retention **duration** (OD-06) and document-level delete vs physical storage cleanup | Open (DB design §6.5) | Later schema/processing tickets |
+| Failed-run artifact retention **duration** (OD-06) beyond pre-study delete/replace | Partially closed P1.7-B | Pre-study registered delete/replace + `study_locked_at`; post-study retention still open |
 | Numeric file-size caps, concurrency caps, spend guards | Open (implementation config) | P1.3, P1.5, P5.3 |
 | Professional sharing / `hive_members` beyond M1 owner-only | Deferred | Post-MVP requirements |
 | Exact “eligible document” rules for full Study (e.g. soft-deleted, archived) | Refine at schema/API design | P1.2, P1.5 |

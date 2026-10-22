@@ -83,8 +83,11 @@ stage?: string
 | `DB_TRANSIENT` | dependency | true |
 | `DB_OUTCOME_UNKNOWN` | dependency | true |
 | `DEPENDENCY_UNAVAILABLE` | dependency | true |
+| `STUDY_SOURCE_LOCKED` | validation | false |
 
 Extend codes only via ADR and contract version bump.
+
+**P1.7-B:** `STUDY_SOURCE_LOCKED` is returned when a registered source is immutable (`study_locked_at` set) or otherwise not eligible for delete/replace (including deletion already in progress where the RPC surfaces this code). HTTP **400**, not retryable.
 
 ### 5.2 Inngest and HTTP semantics
 

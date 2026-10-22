@@ -6,6 +6,8 @@ export {
   type AllowedUploadMimeType,
   type CompleteDocumentUploadRequestV1,
   type CompleteDocumentUploadResponseV1,
+  type DeleteRegisteredDocumentUploadRequestV1,
+  type DeleteRegisteredDocumentUploadResponseV1,
   type DismissFailedDocumentUploadRequestV1,
   type DismissFailedDocumentUploadResponseV1,
   type ListDocumentsResponseV1,

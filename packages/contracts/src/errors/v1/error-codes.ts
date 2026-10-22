@@ -21,6 +21,7 @@ export const ErrorCode = {
   DB_TRANSIENT: "DB_TRANSIENT",
   DB_OUTCOME_UNKNOWN: "DB_OUTCOME_UNKNOWN",
   DEPENDENCY_UNAVAILABLE: "DEPENDENCY_UNAVAILABLE",
+  STUDY_SOURCE_LOCKED: "STUDY_SOURCE_LOCKED",
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -56,4 +57,5 @@ export const DEFAULT_RETRYABLE: Record<ErrorCode, boolean> = {
   [ErrorCode.DB_TRANSIENT]: true,
   [ErrorCode.DB_OUTCOME_UNKNOWN]: true,
   [ErrorCode.DEPENDENCY_UNAVAILABLE]: true,
+  [ErrorCode.STUDY_SOURCE_LOCKED]: false,
 };

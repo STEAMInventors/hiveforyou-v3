@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Plus, RotateCcw, Upload, X } from "lucide-react";
+import { FileText, Plus, RotateCcw, Trash2, Upload, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import type {
@@ -9,15 +9,21 @@ import type {
   UploadQuotaV1,
 } from "@hiveforyou/contracts/documents/v1";
 
+import { DeleteDocumentModal } from "@/components/workspace/DeleteDocumentModal";
 import { hfyDocKindLabel, inferHfyDocKind } from "@/lib/brand/hfy-doc-kind";
-import { dismissFailedDocumentUpload, fetchHiveDocuments, fetchUploadQuota } from "@/lib/documents/client";
+import {
+  deleteRegisteredDocumentUpload,
+  dismissFailedDocumentUpload,
+  fetchHiveDocuments,
+  fetchUploadQuota,
+} from "@/lib/documents/client";
 import { partitionDocumentWorkspaceLists } from "@/lib/documents/document-workspace-lists";
 import {
   documentUploadStatusLabel,
   documentUploadUiStatus,
   formatDocumentUploadDate,
 } from "@/lib/documents/document-upload-status";
-import { uploadDocumentBatch } from "@/lib/documents/upload-batch";
+import { replaceRegisteredDocument, uploadDocumentBatch } from "@/lib/documents/upload-batch";
 import {
   buildUploadAcceptAttribute,
   uploadTypeGuidanceLabel,
@@ -54,9 +60,12 @@ export function HiveDocumentsPanel({
 }: HiveDocumentsPanelProps) {
   const inputId = useId();
   const retryInputId = useId();
+  const replaceInputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const retryInputRef = useRef<HTMLInputElement>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
   const retryClientRequestIdRef = useRef<string | null>(null);
+  const replaceTargetDocumentIdRef = useRef<string | null>(null);
   const [documents, setDocuments] = useState<SourceDocumentV1[]>([]);
   const [quota, setQuota] = useState<UploadQuotaV1 | null>(null);
   const [policy, setPolicy] = useState<UploadProductPolicyV1 | null>(null);
@@ -66,6 +75,9 @@ export function HiveDocumentsPanel({
   const [error, setError] = useState<string | null>(null);
   const [progressLabel, setProgressLabel] = useState<string | null>(null);
   const [dismissBusyId, setDismissBusyId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SourceDocumentV1 | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const pendingStarted = useRef(false);
 
   const { registeredDocuments, inProgressDocuments, failedAttempts } =
@@ -193,6 +205,71 @@ export function HiveDocumentsPanel({
     retryInputRef.current?.click();
   };
 
+  const confirmDelete = async () => {
+    if (!deleteTarget || deleteBusy || uploadBusy) {
+      return;
+    }
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      await deleteRegisteredDocumentUpload(hiveId, deleteTarget.client_request_id);
+      setDeleteTarget(null);
+      await refresh();
+      setUploadMessage("Document deleted.");
+    } catch (deleteErr) {
+      setDeleteError(
+        deleteErr instanceof Error ? deleteErr.message : "Could not delete this document. Try again.",
+      );
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
+  const openReplacePicker = (documentId: string) => {
+    replaceTargetDocumentIdRef.current = documentId;
+    replaceInputRef.current?.click();
+  };
+
+  const onReplaceSelected = (fileList: FileList | null) => {
+    const supersedesDocumentId = replaceTargetDocumentIdRef.current;
+    replaceTargetDocumentIdRef.current = null;
+    if (!fileList || !supersedesDocumentId || uploadBusy || !policy) {
+      return;
+    }
+    const file = fileList[0];
+    if (!file) {
+      return;
+    }
+    void (async () => {
+      setUploadBusy(true);
+      setUploadMessage(null);
+      setError(null);
+      setProgressLabel(`Replacing with ${file.name}…`);
+      try {
+        await replaceRegisteredDocument({
+          hiveId,
+          file,
+          supersedesDocumentId,
+          policy,
+        });
+        setUploadMessage("Document replaced.");
+        await refresh();
+      } catch (replaceErr) {
+        setError(
+          replaceErr instanceof Error
+            ? replaceErr.message
+            : "Could not replace this document. Try again.",
+        );
+      } finally {
+        setUploadBusy(false);
+        setProgressLabel(null);
+        if (replaceInputRef.current) {
+          replaceInputRef.current.value = "";
+        }
+      }
+    })();
+  };
+
   const dismissFailed = async (clientRequestId: string, documentId: string) => {
     if (dismissBusyId || uploadBusy) {
       return;
@@ -215,7 +292,7 @@ export function HiveDocumentsPanel({
 
   const renderDocumentRow = (
     doc: SourceDocumentV1,
-    options: { showRetry?: boolean; showDismiss?: boolean },
+    options: { showRetry?: boolean; showDismiss?: boolean; showRegisteredActions?: boolean },
   ) => {
     const uiStatus = documentUploadUiStatus(doc.status);
     if (!uiStatus) {
@@ -278,6 +355,30 @@ export function HiveDocumentsPanel({
               {dismissBusy ? "Removing…" : "Dismiss"}
             </button>
           ) : null}
+          {options.showRegisteredActions && uiStatus === "uploaded" && doc.can_replace ? (
+            <button
+              type="button"
+              disabled={uploadBusy || deleteBusy}
+              onClick={() => openReplacePicker(doc.id)}
+              className="inline-flex h-[34px] items-center gap-1.5 rounded-[9px] border border-[#D9DDE3] bg-white px-3 text-sm font-semibold text-[#1F2328] hover:bg-[#F4F6F8] disabled:opacity-60"
+            >
+              Replace
+            </button>
+          ) : null}
+          {options.showRegisteredActions && uiStatus === "uploaded" && doc.can_delete ? (
+            <button
+              type="button"
+              disabled={uploadBusy || deleteBusy}
+              onClick={() => {
+                setDeleteError(null);
+                setDeleteTarget(doc);
+              }}
+              className="inline-flex h-[34px] items-center gap-1.5 rounded-[9px] border border-transparent bg-transparent px-3 text-sm font-semibold text-[#B4352A] hover:bg-[#FDEDEB] disabled:opacity-60"
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden />
+              Delete
+            </button>
+          ) : null}
         </div>
         {uiStatus === "upload_failed" ? (
           <p className="m-0 border-t border-[#EEF0F3] px-5 py-3 pl-[78px] text-sm text-[#B4352A]">
@@ -299,6 +400,29 @@ export function HiveDocumentsPanel({
         accept={policy ? buildUploadAcceptAttribute(policy) : undefined}
         onChange={(event) => onRetrySelected(event.target.files)}
         disabled={uploadBusy || !policy}
+      />
+      <input
+        ref={replaceInputRef}
+        id={replaceInputId}
+        type="file"
+        className="sr-only"
+        accept={policy ? buildUploadAcceptAttribute(policy) : undefined}
+        onChange={(event) => onReplaceSelected(event.target.files)}
+        disabled={uploadBusy || !policy}
+      />
+
+      <DeleteDocumentModal
+        filename={deleteTarget?.filename ?? ""}
+        open={deleteTarget !== null}
+        busy={deleteBusy}
+        errorMessage={deleteError}
+        onCancel={() => {
+          if (!deleteBusy) {
+            setDeleteTarget(null);
+            setDeleteError(null);
+          }
+        }}
+        onConfirm={() => void confirmDelete()}
       />
 
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -433,7 +557,9 @@ export function HiveDocumentsPanel({
           {loading ? (
             <p className="text-sm text-[#4A525C]">Loading…</p>
           ) : (
-            workspaceDocuments.map((doc) => renderDocumentRow(doc, { showRetry: false }))
+            workspaceDocuments.map((doc) =>
+              renderDocumentRow(doc, { showRetry: false, showRegisteredActions: true }),
+            )
           )}
         </div>
       ) : loading && !hasFailedAttempts ? (

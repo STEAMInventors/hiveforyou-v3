@@ -32,7 +32,8 @@
         "MERGE_FAILED",
         "DB_TRANSIENT",
         "DB_OUTCOME_UNKNOWN",
-        "DEPENDENCY_UNAVAILABLE"
+        "DEPENDENCY_UNAVAILABLE",
+        "STUDY_SOURCE_LOCKED"
       ]
     },
     "category": {

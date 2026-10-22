@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type {
   CompleteDocumentUploadResponseV1,
+  DeleteRegisteredDocumentUploadResponseV1,
   DismissFailedDocumentUploadResponseV1,
   ListDocumentsResponseV1,
   PrepareDocumentUploadResponseV1,
@@ -12,6 +13,7 @@ import {
   type DocumentEdgeFailure,
   edgeAbortDocumentUpload,
   edgeCompleteDocumentUpload,
+  edgeDeleteRegisteredDocumentUpload,
   edgeDismissFailedDocumentUpload,
   edgeGetUploadQuota,
   edgeListDocuments,
@@ -59,6 +61,7 @@ export async function prepareDocumentUpload(
     filename: string;
     mime_type: string;
     byte_size: number;
+    supersedes_document_id?: string;
   },
 ): Promise<PrepareDocumentUploadResponseV1> {
   return unwrap(await edgePrepareDocumentUpload(client, correlationId, hiveId, input));
@@ -80,6 +83,15 @@ export async function abortDocumentUpload(
   input: { client_request_id: string; reason?: "abandoned" | "failed" },
 ): Promise<void> {
   await unwrap(await edgeAbortDocumentUpload(client, correlationId, hiveId, input));
+}
+
+export async function deleteRegisteredDocumentUpload(
+  client: SupabaseClient,
+  hiveId: string,
+  correlationId: string,
+  input: { client_request_id: string },
+): Promise<DeleteRegisteredDocumentUploadResponseV1> {
+  return unwrap(await edgeDeleteRegisteredDocumentUpload(client, correlationId, hiveId, input));
 }
 
 export async function dismissFailedDocumentUpload(

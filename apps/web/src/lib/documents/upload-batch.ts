@@ -15,6 +15,7 @@ import { validateUploadFile } from "@/lib/documents/validation";
 export type UploadBatchItem = {
   file: File;
   client_request_id: string;
+  supersedes_document_id?: string;
 };
 
 export type UploadBatchProgress = {
@@ -112,14 +113,18 @@ async function uploadOne(
     throw new Error(validation.message);
   }
 
+  const prepareBody: Record<string, unknown> = {
+    client_request_id: item.client_request_id,
+    filename: item.file.name,
+    mime_type: validation.mime_type,
+    byte_size: item.file.size,
+  };
+  if (item.supersedes_document_id) {
+    prepareBody.supersedes_document_id = item.supersedes_document_id;
+  }
   const prepared = await postJson<PrepareDocumentUploadResponseV1>(
     `/api/v1/hives/${hiveId}/documents/prepare`,
-    {
-      client_request_id: item.client_request_id,
-      filename: item.file.name,
-      mime_type: validation.mime_type,
-      byte_size: item.file.size,
-    },
+    prepareBody,
   );
 
   if (prepared.prepare.status === "pending") {
@@ -203,4 +208,21 @@ export async function uploadDocumentBatch(options: {
   });
 
   return { succeeded, failed };
+}
+
+export async function replaceRegisteredDocument(options: {
+  hiveId: string;
+  file: File;
+  supersedesDocumentId: string;
+  policy: UploadProductPolicyV1;
+}): Promise<void> {
+  await uploadOne(
+    options.hiveId,
+    {
+      file: options.file,
+      client_request_id: crypto.randomUUID(),
+      supersedes_document_id: options.supersedesDocumentId,
+    },
+    options.policy,
+  );
 }
