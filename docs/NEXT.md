@@ -1,7 +1,21 @@
 ﻿# Active ticket
 
-**Phase / Ticket:** P1.7-B — Pre-study document delete and replace
-**Status:** **IMPLEMENTED (repo)** — blocked on Supabase apply of `20261021200000_hive3_m1_document_delete_replace_study_lock.sql` + redeploy Edge `v1-documents` + web deploy; live acceptance rows 26–36 in `docs/acceptance/P1.7-document-workspace-hive-delete.md` (2026-10-21)
+**Phase / Ticket:** P2.1 — Extraction Reader (page-grounded read)
+**Status:** **IMPLEMENTED (repo)** — local pytest **16/16** (with LibreOffice 7.6.7.2) + contracts typecheck; service auth uses `error-envelope@1`; blocked on `apps/worker` / P1.5-processing, Oracle deploy, and LiteLLM alias wiring (2026-10-22)
+
+**Objective:** Oracle Python Reader with `reader-document-read@1`: native PDF, selective local/LiteLLM OCR, images, reproducible DOCX; per-page quality and source hash fidelity; P2.2 schema slot rejected.
+
+**Evidence:** `packages/contracts/src/reader/v1/`, `apps/reader/`, `docs/acceptance/P2.1-reader-document-read.md`, `infra/oracle/reader.config.env.example`.
+
+**Done when:** Local tests pass; Worker HTTP caller and storage-backed acceptance run after P1.5-processing; P2.4 L001 qualification not part of this ticket.
+
+**Blocked on:** P1.5-processing (Inngest + Worker), production service auth, `READER_OCR_LITELLM_ALIAS`, optional `document_pages` migration.
+
+---
+
+## P1.7-B — Pre-study document delete and replace
+
+**Status:** **IMPLEMENTED (repo)** — user accepted; operator may still owe Supabase apply of `20261021200000_hive3_m1_document_delete_replace_study_lock.sql` + redeploy Edge `v1-documents` + web deploy; live acceptance rows 26–36 in `docs/acceptance/P1.7-document-workspace-hive-delete.md` (2026-10-21)
 
 **Objective:** Owner delete/replace for registered sources before study lock; begin/finalize deletion with `deleting_at`; replacement via new row/path without extra quota; `study_locked_at` + study enqueue contract RPCs (no study-run tables in M1).
 

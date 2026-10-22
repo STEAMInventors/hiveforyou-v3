@@ -55,6 +55,9 @@
 **/htmlcov/
 **/*.egg-info/
 
+# Reader local toolchain (LibreOffice MSI/admin extracts for qualification)
+apps/reader/.tools/
+
 # Local runtime, traces, dumps, private uploads and extracted data
 *.log
 *.log.*

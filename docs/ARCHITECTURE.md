@@ -10,7 +10,7 @@
 | `apps/web` | Vercel | UI, auth, enqueue, status read |
 | Inngest | Managed | Orchestration and **only** workflow retries |
 | `apps/worker` | Oracle | Validation, merge, persistence, agents, Writer |
-| `apps/reader` | Oracle | Document extraction candidates via LiteLLM |
+| `apps/reader` | Oracle | Page-grounded document read (P2.1); selective LiteLLM OCR; P2.2+ schema extraction |
 | LiteLLM | Oracle | Exclusive model gateway |
 | Supabase | Managed | Shared **`hive3`** schema, RLS, private storage (OD-02) |
 

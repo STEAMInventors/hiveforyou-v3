@@ -1,0 +1,30 @@
+[project]
+name = "hive-reader"
+version = "0.1.0"
+description = "HiveForYou V3 Oracle document Reader (P2.1 page-grounded read)"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.32,<1",
+  "pydantic>=2,<3",
+  "pydantic-settings>=2,<3",
+  "httpx>=0.27,<1",
+  "pymupdf>=1.24,<2",
+  "pillow>=10,<12",
+  "litellm>=1.50,<2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9", "pytest-asyncio>=0.24,<1", "python-docx>=1.1,<2"]
+ocr = ["pytesseract>=0.3,<1"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hive_reader"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

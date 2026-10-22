@@ -2,7 +2,7 @@
 
 **Governing plan:** [`HIVEFORYOU-V3-DEVELOPMENT-PLAN-database-first-PROPOSED.md`](./HIVEFORYOU-V3-DEVELOPMENT-PLAN-database-first-PROPOSED.md) (version 0.1, **approved** 2026-10-20). The filename still contains `PROPOSED` so history and links stay stable. Ticket gates live in that document. Superseded connectivity-first P1 IDs are in its §4.1 only.
 
-**Active ticket:** [`docs/NEXT.md`](./NEXT.md) — **P1.7-B** pre-study document delete/replace + study source lock (implemented in repo; blocked on P1.7-B SQL apply + `v1-documents` redeploy + web deploy).
+**Active ticket:** [`docs/NEXT.md`](./NEXT.md) — **P2.1** Oracle Reader page-grounded read (`reader-document-read@1`; implemented in repo; blocked on Worker integration and Oracle deploy).
 
 ## P0 — Design freeze (status)
 
@@ -35,4 +35,11 @@ Implementation-time decisions from P0.2 (LiteLLM aliases, Worker–Reader HTTP, 
 | P1.7-B | **IMPLEMENTED (repo)** (blocked on `20261021200000` SQL + `v1-documents` + web deploy) | Pre-study document delete/replace; study lock contract RPCs |
 | P1.5-processing | NOT_STARTED | UI → Inngest → Oracle integration (deferred; not upload ticket) |
 
-P2 and later remain NOT_STARTED. Their definitions are in the governing plan.
+## P2 — Reader / evidence (status)
+
+| Ticket | Status | Notes |
+|--------|--------|--------|
+| P2.1 | **IMPLEMENTED (repo)** | `apps/reader`, `packages/contracts` `reader/v1`; see `docs/acceptance/P2.1-reader-document-read.md` |
+| P2.2+ | NOT_STARTED | Intent/schema extraction, verification, L001 qualification per governing plan |
+
+P3 and later remain NOT_STARTED.
