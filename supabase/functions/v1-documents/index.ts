@@ -163,10 +163,17 @@ function mapRpcError(message: string): { error_code: string; message_safe: strin
       retryable: false,
     };
   }
+  if (/upload_policy_unconfigured|upload_policy_invalid/i.test(message)) {
+    return {
+      error_code: "DEPENDENCY_UNAVAILABLE",
+      message_safe: "Uploads are temporarily unavailable. Please try again later.",
+      retryable: false,
+    };
+  }
   if (/invalid_|byte_size_mismatch/i.test(message)) {
     return {
       error_code: "INVALID_REQUEST",
-      message_safe: "This file cannot be uploaded. Check type and size (max 25 MB).",
+      message_safe: "This file cannot be uploaded. Check type and size limits.",
       retryable: false,
     };
   }
@@ -264,7 +271,17 @@ Deno.serve(async (req) => {
       if (error) {
         throw error;
       }
-      return jsonResponse({ quota: data });
+      const row = data as Record<string, unknown>;
+      return jsonResponse({
+        quota: {
+          used: row.used,
+          limit: row.limit,
+          remaining: row.remaining,
+          month_start_utc: row.month_start_utc,
+          month_end_utc: row.month_end_utc,
+        },
+        policy: row.policy,
+      });
     }
 
     if (operation.op === "list") {
