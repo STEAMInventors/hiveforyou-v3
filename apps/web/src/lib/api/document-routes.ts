@@ -1,3 +1,4 @@
+import type { UploadProductPolicyV1 } from "@hiveforyou/contracts/documents/v1";
 import { ErrorCategory, ErrorCode } from "@hiveforyou/contracts/errors/v1";
 
 import { jsonError, jsonSuccess } from "@/lib/server/api-response";
@@ -14,7 +15,7 @@ import {
 import {
   parseClientRequestId,
   parseSha256,
-  readUploadMaxBytes,
+  validateUploadFieldsAgainstPolicy,
   validateUploadFile,
 } from "@/lib/documents/validation";
 import { parseHiveIdParam } from "@/lib/hives/validation";
@@ -164,15 +165,6 @@ export async function handlePrepareDocumentUpload(
       message_safe: "Missing or invalid upload fields.",
     });
   }
-  const maxBytes = readUploadMaxBytes();
-  if (byteSize <= 0 || byteSize > maxBytes) {
-    return jsonError(correlationId, {
-      error_code: ErrorCode.INVALID_REQUEST,
-      category: ErrorCategory.VALIDATION,
-      message_safe: "File size is outside the allowed limit.",
-    });
-  }
-
   const supabase = await withAuth(correlationId, "POST /api/v1/hives/[hiveId]/documents/prepare");
   if (!supabase) {
     return jsonError(correlationId, {
@@ -181,6 +173,35 @@ export async function handlePrepareDocumentUpload(
       message_safe: "Sign in to upload documents.",
     });
   }
+
+  const quotaResult = await getUploadQuotaForUser(supabase, correlationId);
+  if (!quotaResult.ok) {
+    logFailure(
+      correlationId,
+      "POST /api/v1/hives/[hiveId]/documents/prepare",
+      started,
+      quotaResult.error,
+    );
+    return jsonError(correlationId, {
+      error_code: envelopeCode(quotaResult.error.error_code),
+      category: categoryForCode(quotaResult.error.error_code),
+      message_safe: quotaResult.error.message_safe,
+      retryable: quotaResult.error.retryable,
+    });
+  }
+  const policyCheck = validateUploadFieldsAgainstPolicy(
+    quotaResult.body.policy,
+    mimeType,
+    byteSize,
+  );
+  if (!policyCheck.ok) {
+    return jsonError(correlationId, {
+      error_code: ErrorCode.INVALID_REQUEST,
+      category: ErrorCategory.VALIDATION,
+      message_safe: policyCheck.message,
+    });
+  }
+
   const result = await prepareHiveDocumentUploadForUser(supabase, hiveId, correlationId, {
     client_request_id: clientRequestId,
     filename,
@@ -311,6 +332,6 @@ export async function handleAbortDocumentUpload(
   return jsonSuccess(correlationId, { aborted: true });
 }
 
-export function validateClientUploadFile(file: File) {
-  return validateUploadFile(file, readUploadMaxBytes());
+export function validateClientUploadFile(file: File, policy: UploadProductPolicyV1) {
+  return validateUploadFile(file, policy);
 }

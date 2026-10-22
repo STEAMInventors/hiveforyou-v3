@@ -1,3 +1,4 @@
+/** Bootstrap defaults matching seeded `hive3.upload_product_policy`; runtime values come from the quota API. */
 export const UPLOAD_MAX_BYTES_DEFAULT = 26_214_400;
 export const FREE_TIER_UPLOADS_PER_UTC_MONTH = 10;
 
@@ -13,6 +14,7 @@ export type AllowedUploadMimeType = (typeof ALLOWED_UPLOAD_MIME_TYPES)[number];
 export type SourceDocumentV1 = {
   id: string;
   hive_id: string;
+  client_request_id: string;
   filename: string;
   mime_type: string;
   byte_size: number;
@@ -30,12 +32,27 @@ export type UploadQuotaV1 = {
   month_end_utc: string;
 };
 
+export type UploadCommercialOfferV1 = {
+  upload_count: number;
+  price_cents: number;
+  currency: string;
+  payments_enabled: boolean;
+};
+
+export type UploadProductPolicyV1 = {
+  max_file_bytes: number;
+  allowed_mime_types: AllowedUploadMimeType[];
+  free_uploads_per_utc_month: number;
+  commercial_offer: UploadCommercialOfferV1;
+};
+
 export type ListDocumentsResponseV1 = {
   documents: SourceDocumentV1[];
 };
 
 export type UploadQuotaResponseV1 = {
   quota: UploadQuotaV1;
+  policy: UploadProductPolicyV1;
 };
 
 export type PrepareDocumentUploadRequestV1 = {

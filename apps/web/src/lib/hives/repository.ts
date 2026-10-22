@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { HiveV1 } from "@hiveforyou/contracts/hives/v1";
 
 import {
+  edgeDeleteHive,
   edgeGetHive,
   edgeGetHiveByClientRequestId,
   edgeInsertHive,
@@ -31,6 +32,9 @@ function toHiveV1(row: HiveRowPayload): HiveV1 {
     client_request_id: row.client_request_id,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    deleting_at: row.deleting_at,
+    registered_document_count: row.registered_document_count,
+    preview_filenames: row.preview_filenames,
   };
 }
 
@@ -109,4 +113,23 @@ export async function insertHive(
     });
   }
   return toHiveV1(result.data.hive);
+}
+
+export async function deleteOwnedHive(
+  client: SupabaseClient,
+  hiveId: string,
+  correlationId = correlationIdForRequest(),
+): Promise<void> {
+  const result = await edgeDeleteHive(client, correlationId, hiveId);
+  if (!result.ok) {
+    throw new HiveRepositoryError(result.error);
+  }
+  if (result.data.kind !== "deleted") {
+    throw new HiveRepositoryError({
+      error_code: "DB_OUTCOME_UNKNOWN",
+      message_safe: "We could not confirm whether your Hive was deleted. Try again.",
+      retryable: true,
+      diagnostic_detail: "delete_without_confirmation",
+    });
+  }
 }

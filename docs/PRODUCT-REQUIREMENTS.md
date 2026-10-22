@@ -111,7 +111,7 @@ The account owner can request deletion. The product then:
 2. **Retains** the auth user, owned Hive rows, and private storage objects for **30 days**. During that window the owner can **recover** the account. `auth.users` stays in place, so `hive3.hives.owner_user_id` does not cascade.
 3. After 30 days without recovery, **permanently deletes** the auth user, owned `hive3` rows, and private storage objects, and writes a **deletion audit**.
 
-`hive3.hives.owner_user_id` references `auth.users` with **`ON DELETE CASCADE`**, matching the reported live foreign key. Cascade is the database result of removing the auth user at the end of the recovery window. Hive archive (`archived_at`) is a separate Milestone 1 action. Milestone 1 grants no `DELETE` on `hives` to `authenticated`.
+`hive3.hives.owner_user_id` references `auth.users` with **`ON DELETE CASCADE`**, matching the reported live foreign key. Cascade is the database result of removing the auth user at the end of the recovery window. Hive **archive** (`archived_at`) remains a separate action from **owner-initiated permanent Hive deletion** (approved P1.7): the owner confirms in UI, the system marks `deleting_at`, removes private storage under service credentials, then finalizes via restricted RPC — **`authenticated` still has no direct `DELETE` on `hive3.hives`.**
 
 **Future ticket (required before any deletion job ships):**
 

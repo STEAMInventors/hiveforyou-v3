@@ -21,7 +21,7 @@
 
 | Table | Why it exists | Key columns / constraints |
 |---|---|---|
-| `hives` | Workspace boundary | `id uuid PK`, `owner_user_id uuid FK auth.users ON DELETE CASCADE` (OD-12; matches reported live FK), `name text NOT NULL`, `description text NULL`, `client_request_id text NOT NULL`, `created_at`, `updated_at`, `archived_at`; **`UNIQUE (owner_user_id, client_request_id)`** (create-Hive idempotency, P0.1 MD-01); index on `owner_user_id` |
+| `hives` | Workspace boundary | `id uuid PK`, `owner_user_id uuid FK auth.users ON DELETE CASCADE` (OD-12; matches reported live FK), `name text NOT NULL`, `description text NULL`, `client_request_id text NOT NULL`, `created_at`, `updated_at`, `archived_at`, **`deleting_at`** (P1.7 permanent owner delete in progress); **`UNIQUE (owner_user_id, client_request_id)`** (create-Hive idempotency, P0.1 MD-01); index on `owner_user_id` |
 | `hive_members` | User/pro collaboration, **only when sharing is in MVP scope** | `hive_id FK`, `user_id FK auth.users`, `role enum/text CHECK(owner,editor,viewer,professional)`, `created_at`, composite PK; defer table creation until role policy approved |
 | `source_documents` | Registered uploads and immutable file identity | `id uuid PK`, `hive_id FK`, `uploaded_by uuid`, `filename`, `mime_type` (**OD-01:** PDF, PNG, JPG, DOCX initially), `byte_size`, `sha256`, `storage_path`, `status`, `created_at`, `deleted_at`; unique `(hive_id, sha256)` decision **open** (duplicate uploads may be legitimate) |
 | `document_pages` | Page-level text/OCR and stable evidence locators | `id uuid PK`, `source_document_id FK`, `page_number int`, `text_storage_path` (or bounded text, decision pending), `extraction_status`, `created_at`; unique `(source_document_id,page_number)` |
@@ -94,7 +94,7 @@ Approved 2026-10-20. The Milestone 1 migration does not implement this lifecycle
 
 Future cleanup requirements: partial failure is recoverable; retries are idempotent; terminal states are explicit (recovered, permanently deleted, retries exhausted). Traces include correlation id, account id, step, and state only.
 
-Hive archive (`archived_at`) and the Milestone 1 ban on `authenticated` DELETE are separate from account deletion.
+Hive archive (`archived_at`), **owner permanent deletion** (`deleting_at` + service storage cleanup + `SECURITY DEFINER` finalize — P1.7), and the Milestone 1 ban on `authenticated` DELETE are separate from account deletion (OD-12).
 
 ## 4. Non-table database objects and invariants
 

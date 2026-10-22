@@ -44,9 +44,8 @@ export async function listDocumentsForHive(
 export async function getUploadQuota(
   client: SupabaseClient,
   correlationId: string,
-): Promise<UploadQuotaResponseV1["quota"]> {
-  const data = await unwrap(await edgeGetUploadQuota(client, correlationId));
-  return data.quota;
+): Promise<UploadQuotaResponseV1> {
+  return unwrap(await edgeGetUploadQuota(client, correlationId));
 }
 
 export async function prepareDocumentUpload(

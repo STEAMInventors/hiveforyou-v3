@@ -10,11 +10,15 @@ export type HiveRowPayload = {
   client_request_id: string;
   created_at: string;
   updated_at: string;
+  deleting_at: string | null;
+  registered_document_count?: number;
+  preview_filenames?: string[];
 };
 
 export type HiveEdgeSuccess =
   | { kind: "list"; hives: HiveRowPayload[] }
-  | { kind: "hive"; hive: HiveRowPayload | null };
+  | { kind: "hive"; hive: HiveRowPayload | null }
+  | { kind: "deleted" };
 
 export type HiveEdgeFailure = {
   error_code: string;
@@ -39,14 +43,14 @@ async function accessToken(client: SupabaseClient): Promise<string | null> {
   return data.session.access_token;
 }
 
-async function withTimeout<T>(promise: PromiseLike<T>): Promise<T> {
+async function withTimeout<T>(promise: PromiseLike<T>, timeoutMs = INVOKE_TIMEOUT_MS): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
       const err = new Error("edge_invoke_timeout");
       err.name = "AbortError";
       reject(err);
-    }, INVOKE_TIMEOUT_MS);
+    }, timeoutMs);
   });
   try {
     return await Promise.race([Promise.resolve(promise), timeout]);
@@ -92,6 +96,24 @@ function parseHiveRow(value: unknown): HiveRowPayload | null {
   }
   const description =
     row.description === null || typeof row.description === "string" ? row.description : null;
+  const deleting_at =
+    row.deleting_at === undefined || row.deleting_at === null
+      ? null
+      : typeof row.deleting_at === "string"
+        ? row.deleting_at
+        : null;
+
+  let registered_document_count: number | undefined;
+  if (typeof row.registered_document_count === "number" && Number.isFinite(row.registered_document_count)) {
+    registered_document_count = Math.max(0, Math.trunc(row.registered_document_count));
+  }
+
+  let preview_filenames: string[] | undefined;
+  if (Array.isArray(row.preview_filenames)) {
+    const names = row.preview_filenames.filter((entry): entry is string => typeof entry === "string");
+    preview_filenames = names;
+  }
+
   return {
     id: row.id,
     name: row.name,
@@ -99,6 +121,9 @@ function parseHiveRow(value: unknown): HiveRowPayload | null {
     client_request_id: row.client_request_id,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    deleting_at,
+    registered_document_count,
+    preview_filenames,
   };
 }
 
@@ -106,6 +131,7 @@ async function invoke(
   client: SupabaseClient,
   correlationId: string,
   body: Record<string, unknown>,
+  timeoutMs = INVOKE_TIMEOUT_MS,
 ): Promise<HiveEdgeResult> {
   const token = await accessToken(client);
   if (!token) {
@@ -129,6 +155,7 @@ async function invoke(
           [CORRELATION_HEADER]: correlationId,
         },
       }),
+      timeoutMs,
     );
 
     if (error) {
@@ -177,6 +204,21 @@ async function invoke(
         ? raw.map(parseHiveRow).filter((row): row is HiveRowPayload => row !== null)
         : [];
       return { ok: true, data: { kind: "list", hives } };
+    }
+
+    if (body.op === "delete") {
+      if (record.deleted === true) {
+        return { ok: true, data: { kind: "deleted" } };
+      }
+      return {
+        ok: false,
+        error: {
+          error_code: "DEPENDENCY_UNAVAILABLE",
+          message_safe: "Something went wrong. Please try again.",
+          retryable: true,
+          diagnostic_detail: "delete_without_flag",
+        },
+      };
     }
 
     const hive = parseHiveRow(record.hive);
@@ -236,4 +278,19 @@ export async function edgeInsertHive(
     description: input.description,
     client_request_id: input.client_request_id,
   });
+}
+
+const HIVE_DELETE_INVOKE_TIMEOUT_MS = 35_000;
+
+export async function edgeDeleteHive(
+  client: SupabaseClient,
+  correlationId: string,
+  hiveId: string,
+): Promise<HiveEdgeResult> {
+  return invoke(
+    client,
+    correlationId,
+    { op: "delete", hive_id: hiveId },
+    HIVE_DELETE_INVOKE_TIMEOUT_MS,
+  );
 }

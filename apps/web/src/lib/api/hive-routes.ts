@@ -5,6 +5,7 @@ import { logServerEvent } from "@/lib/server/log";
 import { createServerSupabaseClient, requireAuthenticatedUser } from "@/lib/supabase/server";
 import {
   createHiveForUser,
+  deleteHiveForUser,
   getHiveForUser,
   listHivesForUser,
 } from "@/lib/hives/service";
@@ -155,6 +156,46 @@ export async function handleGetHive(correlationId: string, hiveId: string) {
         diagnostic_detail: result.error.diagnostic_detail,
       });
     }
+    return jsonError(correlationId, {
+      error_code: result.error.error_code,
+      category: categoryForCode(result.error.error_code),
+      message_safe: result.error.message_safe,
+      retryable: result.error.retryable,
+    });
+  }
+  return jsonSuccess(correlationId, result.body);
+}
+
+export async function handleDeleteHive(correlationId: string, hiveId: string) {
+  const started = Date.now();
+  if (!parseHiveIdParam(hiveId)) {
+    return jsonError(correlationId, {
+      error_code: ErrorCode.INVALID_REQUEST,
+      category: ErrorCategory.VALIDATION,
+      message_safe: "Invalid Hive id.",
+    });
+  }
+  const supabase = await withAuth(correlationId, "DELETE /api/v1/hives/[hiveId]");
+  if (!supabase) {
+    return jsonError(correlationId, {
+      error_code: ErrorCode.AUTH_FAILED,
+      category: ErrorCategory.AUTH,
+      message_safe: "Sign in to delete this Hive.",
+    });
+  }
+  const result = await deleteHiveForUser(supabase, hiveId, correlationId);
+  if (!result.ok) {
+    logServerEvent({
+      level: "error",
+      service: "web",
+      correlation_id: correlationId,
+      route: "DELETE /api/v1/hives/[hiveId]",
+      error_code: result.error.error_code,
+      retryable: result.error.retryable,
+      duration_ms: Date.now() - started,
+      diagnostic_detail: result.error.diagnostic_detail,
+      hive_id: hiveId,
+    });
     return jsonError(correlationId, {
       error_code: result.error.error_code,
       category: categoryForCode(result.error.error_code),

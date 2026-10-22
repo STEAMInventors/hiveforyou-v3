@@ -3,6 +3,7 @@ export {
   HIVE_NAME_MAX_LENGTH,
   type CreateHiveRequestV1,
   type CreateHiveResponseV1,
+  type DeleteHiveResponseV1,
   type GetHiveResponseV1,
   type HiveV1,
   type ListHivesResponseV1,

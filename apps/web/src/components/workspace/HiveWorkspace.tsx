@@ -1,20 +1,47 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { DeleteHiveModal } from "@/components/workspace/DeleteHiveModal";
 import { HiveDocumentsPanel } from "@/components/workspace/HiveDocumentsPanel";
+import { HiveWorkspaceMenu } from "@/components/workspace/HiveWorkspaceMenu";
 import { usePendingLandingUpload } from "@/components/workspace/usePendingLandingUpload";
 import { HiveCustomerShell } from "@/components/shell/HiveCustomerShell";
 import type { HiveV1 } from "@hiveforyou/contracts/hives/v1";
+import { deleteHive, HiveApiError } from "@/lib/hives/client";
 
 const TABS = ["Documents", "Canonical Study", "Reports"] as const;
 
 type Tab = (typeof TABS)[number];
 
 export function HiveWorkspace({ hive }: { hive: HiveV1 }) {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("Documents");
   const pending = usePendingLandingUpload(hive.id);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDeleteConfirm = async () => {
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      await deleteHive(hive.id);
+      setDeleteOpen(false);
+      router.push("/hives");
+      router.refresh();
+    } catch (error) {
+      setDeleteError(
+        error instanceof HiveApiError
+          ? error.message
+          : "Could not delete this Hive. Try again.",
+      );
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
 
   return (
     <HiveCustomerShell>
@@ -27,13 +54,18 @@ export function HiveWorkspace({ hive }: { hive: HiveV1 }) {
           <span>{hive.name}</span>
         </div>
 
-        <div className="mb-6">
-          <h1 className="m-0 font-brand text-[clamp(1.75rem,4vw,2.125rem)] font-semibold text-[#1F2328]">
-            {hive.name}
-          </h1>
-          {hive.description ? (
-            <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-[#4A525C]">{hive.description}</p>
-          ) : null}
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="m-0 font-brand text-[clamp(1.75rem,4vw,2.125rem)] font-semibold text-[#1F2328]">
+              {hive.name}
+            </h1>
+            {hive.description ? (
+              <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-[#4A525C]">
+                {hive.description}
+              </p>
+            ) : null}
+          </div>
+          <HiveWorkspaceMenu onDeleteHive={() => setDeleteOpen(true)} />
         </div>
 
         <div className="mb-8 flex gap-6 border-b border-[#E8EAEE]">
@@ -80,6 +112,20 @@ export function HiveWorkspace({ hive }: { hive: HiveV1 }) {
           </section>
         )}
       </div>
+
+      <DeleteHiveModal
+        hiveName={hive.name}
+        open={deleteOpen}
+        busy={deleteBusy}
+        errorMessage={deleteError}
+        onCancel={() => {
+          if (!deleteBusy) {
+            setDeleteOpen(false);
+            setDeleteError(null);
+          }
+        }}
+        onConfirm={() => void handleDeleteConfirm()}
+      />
     </HiveCustomerShell>
   );
 }

@@ -8,6 +8,7 @@ import type {
   UploadQuotaResponseV1,
 } from "@hiveforyou/contracts/documents/v1";
 
+import { parseUploadProductPolicyV1 } from "@/lib/documents/upload-policy";
 import { CORRELATION_HEADER } from "@/lib/server/correlation";
 
 const INVOKE_TIMEOUT_MS = 12_000;
@@ -102,6 +103,7 @@ function parseDocument(value: unknown): SourceDocumentV1 | null {
   if (
     typeof row.id !== "string" ||
     typeof row.hive_id !== "string" ||
+    typeof row.client_request_id !== "string" ||
     typeof row.filename !== "string" ||
     typeof row.mime_type !== "string" ||
     typeof row.byte_size !== "number" ||
@@ -113,6 +115,7 @@ function parseDocument(value: unknown): SourceDocumentV1 | null {
   return {
     id: row.id,
     hive_id: row.hive_id,
+    client_request_id: row.client_request_id,
     filename: row.filename,
     mime_type: row.mime_type,
     byte_size: row.byte_size,
@@ -243,6 +246,12 @@ export async function edgeGetUploadQuota(
     ) {
       return null;
     }
+    const policy =
+      parseUploadProductPolicyV1(record.policy) ??
+      parseUploadProductPolicyV1((q as Record<string, unknown>).policy);
+    if (!policy) {
+      return null;
+    }
     return {
       quota: {
         used: q.used,
@@ -251,6 +260,7 @@ export async function edgeGetUploadQuota(
         month_start_utc: q.month_start_utc,
         month_end_utc: q.month_end_utc,
       },
+      policy,
     };
   });
 }

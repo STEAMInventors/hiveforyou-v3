@@ -10,6 +10,8 @@ export {
   type PrepareDocumentUploadRequestV1,
   type PrepareDocumentUploadResponseV1,
   type SourceDocumentV1,
+  type UploadCommercialOfferV1,
+  type UploadProductPolicyV1,
   type UploadQuotaResponseV1,
   type UploadQuotaV1,
 } from "./types.js";

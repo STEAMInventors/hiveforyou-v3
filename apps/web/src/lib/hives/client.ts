@@ -3,6 +3,7 @@
 import type {
   CreateHiveRequestV1,
   CreateHiveResponseV1,
+  DeleteHiveResponseV1,
   GetHiveResponseV1,
   ListHivesResponseV1,
 } from "@hiveforyou/contracts/hives/v1";
@@ -115,6 +116,32 @@ export async function createHive(
             category: "dependency",
             retryable: true,
             message_safe: "Could not create your Hive.",
+            correlation_id: cid,
+          },
+      response.status,
+    );
+  }
+  return body;
+}
+
+export async function deleteHive(hiveId: string): Promise<DeleteHiveResponseV1> {
+  const cid = correlationId();
+  const response = await fetch(`/api/v1/hives/${hiveId}`, {
+    method: "DELETE",
+    headers: { [CORRELATION_HEADER]: cid },
+    credentials: "same-origin",
+  });
+  const body = await parseJson<DeleteHiveResponseV1>(response);
+  if (!response.ok || isEnvelope(body)) {
+    throw new HiveApiError(
+      isEnvelope(body)
+        ? body
+        : {
+            contract_version: "error-envelope@1",
+            error_code: "DEPENDENCY_UNAVAILABLE",
+            category: "dependency",
+            retryable: true,
+            message_safe: "Could not delete this Hive.",
             correlation_id: cid,
           },
       response.status,

@@ -52,7 +52,7 @@ This document describes **deployment ownership** and **architecture boundaries**
 | Error handling & recovery | `docs/ERROR-HANDLING-RECOVERY.md` | Approved P0.2 |
 | ADR-001 | `docs/adr/ADR-001-error-handling-recovery.md` | Approved (P0.2 verified) |
 | Cursor standards | `docs/CURSOR-DEVELOPMENT-STANDARDS.md` | In repo (copied 2026-10-20) |
-| Active ticket | `docs/NEXT.md` | **P1.4** first user flow in `apps/web`; blocked on Supabase `hive3` API exposure |
+| Active ticket | `docs/NEXT.md` | **P1.7** document workspace + permanent Hive deletion; blocked on Supabase apply + `v1-hives` redeploy |
 | Source inventory | `docs/PROJECT-SOURCES.md` | In repo (copied 2026-10-20) |
 | Brand (authoritative PDF) | `reference/HiveForYou brand guide.pdf` | In repo (copied from Downloads 2026-10-20) |
 | Brand (short reference) | `reference/HiveForYou-brand-guide.md` | Markdown summary for developers |

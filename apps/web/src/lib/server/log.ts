@@ -11,6 +11,8 @@ type ServerLogFields = {
   retryable?: boolean;
   duration_ms?: number;
   diagnostic_detail?: string;
+  hive_id?: string;
+  deletion_stage?: string;
 };
 
 export function logServerEvent(fields: ServerLogFields): void {

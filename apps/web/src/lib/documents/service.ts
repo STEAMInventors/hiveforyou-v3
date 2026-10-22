@@ -79,8 +79,8 @@ export async function getUploadQuotaForUser(
   correlationId: string,
 ): Promise<{ ok: true; body: UploadQuotaResponseV1 } | { ok: false; error: DocumentServiceError }> {
   try {
-    const quota = await getUploadQuota(client, correlationId);
-    return { ok: true, body: { quota } };
+    const body = await getUploadQuota(client, correlationId);
+    return { ok: true, body };
   } catch (error) {
     if (error instanceof DocumentRepositoryError) {
       return { ok: false, error: mapRepositoryFailure(error.failure) };

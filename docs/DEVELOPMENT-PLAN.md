@@ -2,7 +2,7 @@
 
 **Governing plan:** [`HIVEFORYOU-V3-DEVELOPMENT-PLAN-database-first-PROPOSED.md`](./HIVEFORYOU-V3-DEVELOPMENT-PLAN-database-first-PROPOSED.md) (version 0.1, **approved** 2026-10-20). The filename still contains `PROPOSED` so history and links stay stable. Ticket gates live in that document. Superseded connectivity-first P1 IDs are in its §4.1 only.
 
-**Active ticket:** [`docs/NEXT.md`](./NEXT.md) — **P1.5** reusable document upload (implemented in repo; blocked on upload migration apply + `v1-documents` deploy).
+**Active ticket:** [`docs/NEXT.md`](./NEXT.md) — **P1.7-A** My Hives card summary + Delete Hive from cards (implemented in repo; blocked on P1.7-A SQL apply + web deploy).
 
 ## P0 — Design freeze (status)
 
@@ -29,6 +29,9 @@ Implementation-time decisions from P0.2 (LiteLLM aliases, Worker–Reader HTTP, 
 | P1.3 | PROCEDURE_READY (execution deferred) | Formal SQL qualification; parallel to feature-first P1.4 |
 | P1.4 | **IMPLEMENTED** (blocked on migration apply + `v1-hives` deploy) | Hive list/create; see `docs/acceptance/P1.4-first-user-flow.md` |
 | P1.5 | **IMPLEMENTED (repo)** (blocked on upload SQL + `v1-documents`) | Document upload slice; see `docs/acceptance/P1.5-document-upload.md` |
+| P1.6 | **IMPLEMENTED (repo)** (blocked on policy SQL + `v1-documents`) | Upload product policy; see `docs/acceptance/P1.6-upload-product-policy.md` |
+| P1.7 | **IMPLEMENTED (repo)** (P1.7 SQL applied; Edge at `52cb061`; web acceptance pending) | Document workspace + owner Hive delete; see `docs/acceptance/P1.7-document-workspace-hive-delete.md` |
+| P1.7-A | **IMPLEMENTED (repo)** (blocked on `20261021180000` SQL + web deploy) | My Hives cards: document count/filename preview, card delete menu; no document replace/delete |
 | P1.5-processing | NOT_STARTED | UI → Inngest → Oracle integration (deferred; not upload ticket) |
 
 P2 and later remain NOT_STARTED. Their definitions are in the governing plan.

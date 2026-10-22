@@ -6,6 +6,7 @@ import {
 } from "@hiveforyou/contracts/errors/v1";
 import type {
   CreateHiveResponseV1,
+  DeleteHiveResponseV1,
   GetHiveResponseV1,
   HiveV1,
   ListHivesResponseV1,
@@ -18,6 +19,7 @@ import {
 
 import type { ValidatedCreateHiveInput } from "./validation";
 import {
+  deleteOwnedHive,
   getOwnedHiveByClientRequestId,
   getOwnedHiveById,
   HiveRepositoryError,
@@ -183,6 +185,19 @@ export async function createHiveForUser(
       }
       throw insertError;
     }
+  } catch (error) {
+    return { ok: false, error: mapThrown(error) };
+  }
+}
+
+export async function deleteHiveForUser(
+  client: SupabaseClient,
+  hiveId: string,
+  correlationId: string,
+): Promise<{ ok: true; body: DeleteHiveResponseV1 } | { ok: false; error: HiveServiceError }> {
+  try {
+    await deleteOwnedHive(client, hiveId, correlationId);
+    return { ok: true, body: { deleted: true } };
   } catch (error) {
     return { ok: false, error: mapThrown(error) };
   }

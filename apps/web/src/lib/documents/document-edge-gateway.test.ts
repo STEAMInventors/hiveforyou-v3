@@ -91,6 +91,43 @@ describe("document edge gateway invoke errors", () => {
     }
   });
 
+  it("parses quota and policy from edge payload", async () => {
+    const client = clientWithSession();
+    invoke.mockResolvedValue({
+      data: {
+        quota: {
+          used: 2,
+          limit: 10,
+          remaining: 8,
+          month_start_utc: "2026-10-01T00:00:00.000Z",
+          month_end_utc: "2026-11-01T00:00:00.000Z",
+        },
+        policy: {
+          max_file_bytes: 26214400,
+          free_uploads_per_utc_month: 10,
+          allowed_mime_types: ["application/pdf", "image/png"],
+          commercial_offer: {
+            upload_count: 10,
+            price_cents: 500,
+            currency: "USD",
+            payments_enabled: false,
+          },
+        },
+      },
+      error: null,
+    });
+
+    const { edgeGetUploadQuota } = await import("./document-edge-gateway");
+    const result = await edgeGetUploadQuota(client as never, "corr-policy");
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.quota.remaining).toBe(8);
+      expect(result.data.policy.commercial_offer.price_cents).toBe(500);
+      expect(result.data.policy.max_file_bytes).toBe(26214400);
+    }
+  });
+
   it("falls back to DEPENDENCY_UNAVAILABLE when response body is not structured JSON", async () => {
     const client = clientWithSession();
     invoke.mockResolvedValue({

@@ -5,9 +5,10 @@ import { useEffect, useState } from "react";
 
 import { HiveCardGrid } from "@/components/hives/HiveCardGrid";
 import { useHiveComposerCreateFlow } from "@/components/hives/useHiveComposerCreateFlow";
+import { DeleteHiveModal } from "@/components/workspace/DeleteHiveModal";
 import { HiveCustomerShell } from "@/components/shell/HiveCustomerShell";
 import type { HiveV1 } from "@hiveforyou/contracts/hives/v1";
-import { fetchMyHives, HiveApiError } from "@/lib/hives/client";
+import { deleteHive, fetchMyHives, HiveApiError } from "@/lib/hives/client";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 function greeting(): string {
@@ -23,6 +24,9 @@ export function MyHivesExperience() {
   const [error, setError] = useState<string | null>(null);
   const [hives, setHives] = useState<HiveV1[]>([]);
   const [firstName, setFirstName] = useState("there");
+  const [hivePendingDelete, setHivePendingDelete] = useState<HiveV1 | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const flow = useHiveComposerCreateFlow({
     signedIn: true,
@@ -41,6 +45,24 @@ export function MyHivesExperience() {
       setError(err instanceof HiveApiError ? err.message : "Could not load your Hives.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!hivePendingDelete) {
+      return;
+    }
+    const hiveId = hivePendingDelete.id;
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      await deleteHive(hiveId);
+      setHivePendingDelete(null);
+      setHives((current) => current.filter((hive) => hive.id !== hiveId));
+    } catch (err) {
+      setDeleteError(err instanceof HiveApiError ? err.message : "Could not delete this Hive. Try again.");
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -125,8 +147,34 @@ export function MyHivesExperience() {
           </div>
         ) : null}
 
-        {!loading && !error && hives.length > 0 ? <HiveCardGrid hives={hives} /> : null}
+        {!loading && !error && hives.length > 0 ? (
+          <HiveCardGrid
+            hives={hives}
+            onRetryDeletion={async (hiveId) => {
+              await deleteHive(hiveId);
+              setHives((current) => current.filter((hive) => hive.id !== hiveId));
+            }}
+            onRequestDelete={(hive) => {
+              setDeleteError(null);
+              setHivePendingDelete(hive);
+            }}
+          />
+        ) : null}
       </div>
+
+      <DeleteHiveModal
+        hiveName={hivePendingDelete?.name ?? ""}
+        open={hivePendingDelete !== null}
+        busy={deleteBusy}
+        errorMessage={deleteError}
+        onCancel={() => {
+          if (!deleteBusy) {
+            setHivePendingDelete(null);
+            setDeleteError(null);
+          }
+        }}
+        onConfirm={() => void handleDeleteConfirm()}
+      />
 
       {flow.modal}
       {flow.submitErrorAlert ? (

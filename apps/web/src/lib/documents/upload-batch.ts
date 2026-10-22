@@ -4,6 +4,7 @@ import type {
   CompleteDocumentUploadResponseV1,
   PrepareDocumentUploadResponseV1,
   SourceDocumentV1,
+  UploadProductPolicyV1,
 } from "@hiveforyou/contracts/documents/v1";
 import type { ErrorEnvelopeV1 } from "@hiveforyou/contracts/errors/v1";
 
@@ -104,8 +105,9 @@ async function putSignedUpload(signedUrl: string, file: File, mimeType: string):
 async function uploadOne(
   hiveId: string,
   item: UploadBatchItem,
+  policy: UploadProductPolicyV1,
 ): Promise<CompleteDocumentUploadResponseV1["complete"]> {
-  const validation = validateUploadFile(item.file);
+  const validation = validateUploadFile(item.file, policy);
   if (!validation.ok) {
     throw new Error(validation.message);
   }
@@ -139,6 +141,7 @@ async function uploadOne(
 export async function uploadDocumentBatch(options: {
   hiveId: string;
   items: UploadBatchItem[];
+  policy: UploadProductPolicyV1;
   onProgress?: (progress: UploadBatchProgress) => void;
   signal?: AbortSignal;
 }): Promise<UploadBatchResult> {
@@ -157,10 +160,11 @@ export async function uploadDocumentBatch(options: {
       currentFilename: item.file.name,
     });
     try {
-      const complete = await uploadOne(options.hiveId, item);
+      const complete = await uploadOne(options.hiveId, item, options.policy);
       succeeded.push({
         id: complete.document_id,
         hive_id: options.hiveId,
+        client_request_id: item.client_request_id,
         filename: item.file.name,
         mime_type: item.file.type || "application/octet-stream",
         byte_size: item.file.size,

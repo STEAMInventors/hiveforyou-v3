@@ -1,13 +1,26 @@
 import { describe, expect, it } from "vitest";
 
-import type { UploadQuotaV1 } from "@hiveforyou/contracts/documents/v1";
+import type { UploadProductPolicyV1, UploadQuotaV1 } from "@hiveforyou/contracts/documents/v1";
 
 import {
+  commercialOfferFootnote,
+  formatCommercialOfferHeadline,
   isFreeUploadQuotaExhausted,
   shouldBlockUploadForQuota,
-  UPLOAD_QUOTA_OFFER_FOOTNOTE,
-  UPLOAD_QUOTA_OFFER_HEADLINE,
+  UPLOAD_QUOTA_OFFER_FOOTNOTE_PAYMENTS_DISABLED,
 } from "./upload-quota-offer";
+
+const samplePolicy = (): UploadProductPolicyV1 => ({
+  max_file_bytes: 26_214_400,
+  free_uploads_per_utc_month: 10,
+  allowed_mime_types: ["application/pdf"],
+  commercial_offer: {
+    upload_count: 10,
+    price_cents: 500,
+    currency: "USD",
+    payments_enabled: false,
+  },
+});
 
 const sampleQuota = (remaining: number): UploadQuotaV1 => ({
   used: 10 - remaining,
@@ -18,11 +31,9 @@ const sampleQuota = (remaining: number): UploadQuotaV1 => ({
 });
 
 describe("upload-quota-offer", () => {
-  it("exports approved offer copy", () => {
-    expect(UPLOAD_QUOTA_OFFER_HEADLINE).toBe("10 additional uploads — $5 one time");
-    expect(UPLOAD_QUOTA_OFFER_FOOTNOTE).toBe(
-      "Payments coming soon. Your free uploads reset next month.",
-    );
+  it("formats commercial offer from policy", () => {
+    expect(formatCommercialOfferHeadline(samplePolicy())).toBe("10 additional uploads — $5 one time");
+    expect(commercialOfferFootnote(samplePolicy())).toBe(UPLOAD_QUOTA_OFFER_FOOTNOTE_PAYMENTS_DISABLED);
   });
 
   it("treats null quota as not exhausted", () => {

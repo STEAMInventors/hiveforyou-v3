@@ -10,6 +10,22 @@ export type HfyDocKind =
   | "statement"
   | "doc";
 
+const HFY_DOC_KIND_LABELS: Record<HfyDocKind, string> = {
+  iep: "IEP",
+  eval: "Evaluation",
+  eligibility: "Eligibility",
+  progress: "Progress report",
+  plan: "Plan",
+  notice: "Notice",
+  letter: "Letter",
+  statement: "Statement",
+  doc: "Document",
+};
+
+export function hfyDocKindLabel(kind: HfyDocKind): string {
+  return HFY_DOC_KIND_LABELS[kind];
+}
+
 export function inferHfyDocKind(text: string): HfyDocKind {
   const s = text.toLowerCase();
   if (/\biep\b/.test(s) || s.includes("individualized education")) {
