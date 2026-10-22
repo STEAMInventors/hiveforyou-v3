@@ -128,6 +128,40 @@ describe("document edge gateway invoke errors", () => {
     }
   });
 
+  it("parses dismiss payload from edge response", async () => {
+    const client = clientWithSession();
+    invoke.mockResolvedValue({
+      data: {
+        dismiss: {
+          document_id: "doc-failed-99",
+          dismissed: true,
+        },
+      },
+      error: null,
+    });
+
+    const { edgeDismissFailedDocumentUpload } = await import("./document-edge-gateway");
+    const result = await edgeDismissFailedDocumentUpload(client as never, "corr-dismiss", hiveId, {
+      client_request_id: "req-dismiss-edge",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.dismiss.document_id).toBe("doc-failed-99");
+      expect(result.data.dismiss.dismissed).toBe(true);
+    }
+    expect(invoke).toHaveBeenCalledWith(
+      "v1-documents",
+      expect.objectContaining({
+        body: expect.objectContaining({
+          op: "dismiss",
+          hive_id: hiveId,
+          client_request_id: "req-dismiss-edge",
+        }),
+      }),
+    );
+  });
+
   it("falls back to DEPENDENCY_UNAVAILABLE when response body is not structured JSON", async () => {
     const client = clientWithSession();
     invoke.mockResolvedValue({

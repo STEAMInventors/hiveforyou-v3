@@ -7,6 +7,7 @@ import { createServerSupabaseClient, requireAuthenticatedUser } from "@/lib/supa
 import {
   abortHiveDocumentUploadForUser,
   completeHiveDocumentUploadForUser,
+  dismissFailedHiveDocumentForUser,
   getUploadQuotaForUser,
   listHiveDocumentsForUser,
   prepareHiveDocumentUploadForUser,
@@ -330,6 +331,59 @@ export async function handleAbortDocumentUpload(
     });
   }
   return jsonSuccess(correlationId, { aborted: true });
+}
+
+export async function handleDismissFailedDocumentUpload(
+  correlationId: string,
+  hiveId: string,
+  body: unknown,
+) {
+  const started = Date.now();
+  if (!parseHiveIdParam(hiveId)) {
+    return jsonError(correlationId, {
+      error_code: ErrorCode.INVALID_REQUEST,
+      category: ErrorCategory.VALIDATION,
+      message_safe: "Invalid Hive id.",
+    });
+  }
+  if (!body || typeof body !== "object") {
+    return jsonError(correlationId, {
+      error_code: ErrorCode.INVALID_REQUEST,
+      category: ErrorCategory.VALIDATION,
+      message_safe: "Request body must be a JSON object.",
+    });
+  }
+  const record = body as Record<string, unknown>;
+  const clientRequestId = parseClientRequestId(record.client_request_id);
+  if (!clientRequestId) {
+    return jsonError(correlationId, {
+      error_code: ErrorCode.INVALID_REQUEST,
+      category: ErrorCategory.VALIDATION,
+      message_safe: "Missing client_request_id.",
+    });
+  }
+
+  const supabase = await withAuth(correlationId, "POST /api/v1/hives/[hiveId]/documents/dismiss");
+  if (!supabase) {
+    return jsonError(correlationId, {
+      error_code: ErrorCode.AUTH_FAILED,
+      category: ErrorCategory.AUTH,
+      message_safe: "Sign in to manage documents.",
+    });
+  }
+  const result = await dismissFailedHiveDocumentForUser(supabase, hiveId, correlationId, {
+    client_request_id: clientRequestId,
+  });
+  if (!result.ok) {
+    logFailure(correlationId, "POST /api/v1/hives/[hiveId]/documents/dismiss", started, result.error);
+    return jsonError(correlationId, {
+      error_code: envelopeCode(result.error.error_code),
+      category: categoryForCode(result.error.error_code),
+      message_safe: result.error.message_safe,
+      retryable: result.error.retryable,
+    });
+  }
+  return jsonSuccess(correlationId, result.body);
 }
 
 export function validateClientUploadFile(file: File, policy: UploadProductPolicyV1) {
