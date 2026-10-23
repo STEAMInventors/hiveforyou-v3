@@ -8,12 +8,8 @@ import { CreateYourHiveModal } from "@/components/landing/CreateYourHiveModal";
 import { useCreateHive } from "@/components/hives/useCreateHive";
 import { markHiveForPendingUpload } from "@/components/workspace/usePendingLandingUpload";
 import { clearDraftFiles, saveDraftFiles } from "@/lib/landing/draft-file-blobs";
-import {
-  clearLandingDraft,
-  createLandingDraftId,
-  readLandingDraft,
-  saveLandingDraft,
-} from "@/lib/landing/draft-storage";
+import { createLandingDraftId, readLandingDraft, saveLandingDraft } from "@/lib/landing/draft-storage";
+import { bindLandingDraftToHive } from "@/lib/landing/hive-intent-draft";
 
 export type UseHiveComposerCreateFlowOptions = {
   signedIn: boolean;
@@ -84,11 +80,9 @@ export function useHiveComposerCreateFlow({
     if (!result) {
       return;
     }
+    bindLandingDraftToHive(result.hiveId);
     if (pendingFiles.length > 0) {
       markHiveForPendingUpload(result.hiveId);
-    } else {
-      clearLandingDraft();
-      void clearDraftFiles(draftIdRef.current);
     }
     setModalOpen(false);
     create.resetForm();

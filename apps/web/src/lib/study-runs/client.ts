@@ -2,6 +2,7 @@
 
 import type { ErrorEnvelopeV1 } from "@hiveforyou/contracts/errors/v1";
 import type {
+  HiveProcessingHandoffV1,
   SubmitStudyProcessingRequestV1,
   SubmitStudyProcessingResponseV1,
 } from "@hiveforyou/contracts/study-runs/v1";
@@ -84,6 +85,31 @@ export async function fetchStudyRunStatus(
   const payload = (await response.json()) as
     | { study_run: StudyRunSafeV1; planning_summary: StudyRunPlanningSummarySafeV1 | null }
     | ErrorEnvelopeV1;
+  if (!response.ok || isEnvelope(payload)) {
+    throw new StudyRunApiError(
+      isEnvelope(payload)
+        ? payload
+        : {
+            contract_version: "error-envelope@1",
+            error_code: "DEPENDENCY_UNAVAILABLE",
+            category: "dependency",
+            retryable: true,
+            message_safe: "Could not load processing status.",
+            correlation_id: cid,
+          },
+      response.status,
+    );
+  }
+  return payload;
+}
+
+export async function fetchHiveProcessingHandoff(hiveId: string): Promise<HiveProcessingHandoffV1> {
+  const cid = correlationId();
+  const response = await fetch(`/api/v1/hives/${encodeURIComponent(hiveId)}/study-runs`, {
+    credentials: "same-origin",
+    headers: { [CORRELATION_HEADER]: cid },
+  });
+  const payload = (await response.json()) as HiveProcessingHandoffV1 | ErrorEnvelopeV1;
   if (!response.ok || isEnvelope(payload)) {
     throw new StudyRunApiError(
       isEnvelope(payload)

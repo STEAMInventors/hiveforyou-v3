@@ -7,6 +7,7 @@ import {
   P15_PROCESSING_RUN_SUMMARY_KIND,
   P15_PROCESSING_SOURCE_SET_KIND,
   RUN_ARTIFACT_CONTRACT_VERSION,
+  domainHintFromClarification,
   type WorkerProcessStudyRunRequestV1,
   type WorkerProcessStudyRunResponseV1,
 } from "@hiveforyou/contracts/study-runs/v1";
@@ -282,7 +283,7 @@ export async function processStudyRun(
             page_number: page.page_number,
             text: page.text,
           })),
-          domain_hint: null,
+          domain_hint: domainHintFromClarification(context.intentClarificationJson),
           packs: packs.map(
             (pack) => pack.manifest as DomainPackManifestV1 | DomainPackManifestV2,
           ),

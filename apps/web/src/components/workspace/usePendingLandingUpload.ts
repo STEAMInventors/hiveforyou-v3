@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 
 import { clearDraftFiles, readDraftFiles } from "@/lib/landing/draft-file-blobs";
-import { clearLandingDraft, readLandingDraft } from "@/lib/landing/draft-storage";
+import { readLandingDraft, releaseLandingDraftFiles } from "@/lib/landing/draft-storage";
+import { saveHiveIntentDraft } from "@/lib/landing/hive-intent-draft";
 
 const PENDING_UPLOAD_KEY = "hive3-pending-upload-hive";
 
@@ -39,11 +40,20 @@ export function usePendingLandingUpload(hiveId: string): {
   }, [hiveId]);
 
   const clearPending = () => {
+    const flaggedHive = sessionStorage.getItem(PENDING_UPLOAD_KEY);
     const draft = readLandingDraft();
+    const hiveId = draft?.hiveId || flaggedHive;
+    if (hiveId && draft && (draft.rawIntent.trim() || draft.selectedDomainId)) {
+      saveHiveIntentDraft({
+        hiveId,
+        rawIntent: draft.rawIntent,
+        selectedDomainId: draft.selectedDomainId,
+      });
+    }
     if (draft?.draftId) {
       void clearDraftFiles(draft.draftId);
     }
-    clearLandingDraft();
+    releaseLandingDraftFiles();
     sessionStorage.removeItem(PENDING_UPLOAD_KEY);
     setPendingFiles([]);
   };

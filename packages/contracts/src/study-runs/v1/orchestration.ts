@@ -1,4 +1,8 @@
-import type { StudyRunSafeV1, StudyRunTriggerV1 } from "./types.js";
+import type {
+  StudyRunPlanningSummarySafeV1,
+  StudyRunSafeV1,
+  StudyRunTriggerV1,
+} from "./types.js";
 
 /** Inngest event: durable enqueue after Supabase submit succeeds. */
 export const STUDY_RUN_QUEUED_EVENT = "hive3/study_run.queued" as const;
@@ -10,12 +14,53 @@ export type StudyRunQueuedEventDataV1 = {
   delivery_idempotency_key: string;
 };
 
+/**
+ * Owner clarification stored on `hive3.intents.clarification_json`.
+ * `domain_hint` is an optional pack domain id. It boosts classification only;
+ * it does not select a pack or force a document type. Omit it for pack-free runs.
+ */
+export type StudyIntentClarificationV1 = {
+  domain_hint?: string | null;
+};
+
+const DOMAIN_HINT_PATTERN = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
+
+export function domainHintFromClarification(value: unknown): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const hint = (value as Record<string, unknown>).domain_hint;
+  if (typeof hint !== "string") {
+    return null;
+  }
+  const trimmed = hint.trim();
+  if (!DOMAIN_HINT_PATTERN.test(trimmed)) {
+    return null;
+  }
+  return trimmed;
+}
+
+export function clarificationJsonForDomainHint(
+  domainId: string | null | undefined,
+): StudyIntentClarificationV1 | null {
+  const hint = domainHintFromClarification(domainId ? { domain_hint: domainId } : null);
+  return hint ? { domain_hint: hint } : null;
+}
+
 export type SubmitStudyProcessingRequestV1 = {
   request_text: string;
   trigger: StudyRunTriggerV1;
   /** Client-generated delivery dedupe key (one per intentional submit). */
   idempotency_key: string;
-  clarification_json?: Record<string, unknown> | null;
+  clarification_json?: StudyIntentClarificationV1 | null;
+};
+
+/** Owner read of the latest processing run and the intent that run stored. */
+export type HiveProcessingHandoffV1 = {
+  study_run: StudyRunSafeV1 | null;
+  intent_request_text: string | null;
+  domain_hint: string | null;
+  planning_summary: StudyRunPlanningSummarySafeV1 | null;
 };
 
 export type SubmitStudyProcessingResponseV1 = {

@@ -90,11 +90,14 @@ export function HiveWorkspace({ hive }: { hive: HiveV1 }) {
         </div>
 
         {tab === "Documents" ? (
-          <HiveDocumentsPanel
-            hiveId={hive.id}
-            initialPendingFiles={pending.pendingFiles}
-            onPendingFilesConsumed={pending.clearPending}
-          />
+          <div className="flex flex-col gap-8">
+            <HiveDocumentsPanel
+              hiveId={hive.id}
+              initialPendingFiles={pending.pendingFiles}
+              onPendingFilesConsumed={pending.clearPending}
+            />
+            <HiveProcessingPanel hiveId={hive.id} />
+          </div>
         ) : tab === "Canonical Study" ? (
           <HiveProcessingPanel hiveId={hive.id} />
         ) : (

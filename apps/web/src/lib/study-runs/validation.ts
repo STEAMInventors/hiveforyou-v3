@@ -1,4 +1,8 @@
-import type { StudyRunTriggerV1 } from "@hiveforyou/contracts/study-runs/v1";
+import {
+  clarificationJsonForDomainHint,
+  type StudyIntentClarificationV1,
+  type StudyRunTriggerV1,
+} from "@hiveforyou/contracts/study-runs/v1";
 
 const TRIGGERS: StudyRunTriggerV1[] = ["generate", "reprocess", "study"];
 
@@ -7,7 +11,7 @@ export type ParsedSubmitBody =
       request_text: string;
       trigger: StudyRunTriggerV1;
       idempotency_key: string;
-      clarification_json: Record<string, unknown> | null;
+      clarification_json: StudyIntentClarificationV1 | null;
     } }
   | { ok: false; message: string };
 
@@ -32,10 +36,9 @@ export function parseSubmitStudyProcessingBody(body: unknown): ParsedSubmitBody 
   if (!idempotencyKey || idempotencyKey.length > 128) {
     return { ok: false, message: "This request could not be submitted." };
   }
-  const clarification =
-    record.clarification_json && typeof record.clarification_json === "object"
-      ? (record.clarification_json as Record<string, unknown>)
-      : null;
+  const clarification = clarificationJsonForDomainHint(
+    domainHintFromRecord(record.clarification_json),
+  );
   return {
     ok: true,
     value: {
@@ -45,6 +48,14 @@ export function parseSubmitStudyProcessingBody(body: unknown): ParsedSubmitBody 
       clarification_json: clarification,
     },
   };
+}
+
+function domainHintFromRecord(value: unknown): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const hint = (value as Record<string, unknown>).domain_hint;
+  return typeof hint === "string" ? hint : null;
 }
 
 export function parseStudyRunIdParam(value: string): string | null {

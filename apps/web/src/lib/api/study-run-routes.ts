@@ -1,14 +1,16 @@
 import { ErrorCategory, ErrorCode } from "@hiveforyou/contracts/errors/v1";
-import type { SubmitStudyProcessingResponseV1 } from "@hiveforyou/contracts/study-runs/v1";
+import type { HiveProcessingHandoffV1, SubmitStudyProcessingResponseV1 } from "@hiveforyou/contracts/study-runs/v1";
 import { STUDY_RUN_QUEUED_EVENT } from "@hiveforyou/contracts/study-runs/v1";
 
 import { jsonError, jsonSuccess } from "@/lib/server/api-response";
 import { logServerEvent } from "@/lib/server/log";
 import {
+  getHiveProcessingHandoff,
   getStudyRunForOwner,
   getStudyRunPlanningSummaryForOwner,
   submitStudyProcessing,
 } from "@/lib/study-runs/repository";
+import { shouldEnqueueStudyRun } from "@/lib/study-runs/handoff";
 import { parseStudyRunIdParam, parseSubmitStudyProcessingBody } from "@/lib/study-runs/validation";
 import { createServerSupabaseClient, requireAuthenticatedUser } from "@/lib/supabase/server";
 import { parseHiveIdParam } from "@/lib/hives/validation";
@@ -87,7 +89,7 @@ export async function handleSubmitStudyProcessing(
   const payload: SubmitStudyProcessingResponseV1 = submitResult.data;
   const run = payload.study_run;
 
-  if (!payload.idempotent_replay) {
+  if (shouldEnqueueStudyRun(payload.idempotent_replay, run.status)) {
     try {
       await sendStudyRunQueuedEvent({
         name: STUDY_RUN_QUEUED_EVENT,
@@ -180,4 +182,40 @@ export async function handleGetStudyRun(
     study_run: result.data,
     planning_summary: planning.ok ? planning.data : null,
   });
+}
+
+export async function handleGetHiveProcessingHandoff(
+  correlationId: string,
+  hiveIdParam: string,
+): Promise<Response> {
+  if (!parseHiveIdParam(hiveIdParam)) {
+    return jsonError(correlationId, {
+      error_code: ErrorCode.INVALID_REQUEST,
+      category: ErrorCategory.VALIDATION,
+      message_safe: "Invalid Hive id.",
+    });
+  }
+
+  const auth = await requireAuthenticatedUser();
+  if (!auth.ok) {
+    return jsonError(correlationId, {
+      error_code: ErrorCode.AUTH_FAILED,
+      category: ErrorCategory.AUTH,
+      message_safe: "Sign in to view processing status.",
+    });
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const result = await getHiveProcessingHandoff(supabase, hiveIdParam);
+  if (!result.ok) {
+    return jsonError(correlationId, {
+      error_code: result.error.error_code,
+      category: categoryForCode(result.error.error_code),
+      message_safe: result.error.message_safe,
+      retryable: result.error.retryable,
+    });
+  }
+
+  const payload: HiveProcessingHandoffV1 = result.data;
+  return jsonSuccess(correlationId, payload);
 }

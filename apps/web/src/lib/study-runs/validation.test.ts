@@ -29,6 +29,38 @@ describe("parseSubmitStudyProcessingBody", () => {
     });
     expect(parsed.ok).toBe(false);
   });
+
+  it("keeps the question wording and stores only a domain hint", () => {
+    const question = "What changed since the last plan?";
+    const parsed = parseSubmitStudyProcessingBody({
+      request_text: `  ${question}  `,
+      trigger: "study",
+      idempotency_key: "delivery-2",
+      clarification_json: {
+        domain_hint: "iep",
+        request_text: "do not keep this",
+        notes: "private",
+      },
+    });
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.request_text).toBe(question);
+      expect(parsed.value.clarification_json).toEqual({ domain_hint: "iep" });
+    }
+  });
+
+  it("drops an invalid domain hint and still accepts a pack-free question", () => {
+    const parsed = parseSubmitStudyProcessingBody({
+      request_text: "List the services and amounts.",
+      idempotency_key: "delivery-3",
+      clarification_json: { domain_hint: "../iep" },
+    });
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.clarification_json).toBeNull();
+      expect(parsed.value.request_text).toBe("List the services and amounts.");
+    }
+  });
 });
 
 describe("parseStudyRunIdParam", () => {
