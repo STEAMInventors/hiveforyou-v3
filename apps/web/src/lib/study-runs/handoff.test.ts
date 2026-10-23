@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAnalyzeSubmitBody, nextDeliveryKey, resolveDisplayedIntent, shouldEnqueueStudyRun } from "./handoff";
+import {
+  buildAnalyzeSubmitBody,
+  capturedQuestionForAnalyze,
+  nextDeliveryKey,
+  resolveDisplayedIntent,
+  shouldEnqueueStudyRun,
+} from "./handoff";
 
 describe("shouldEnqueueStudyRun", () => {
   it("queues a new submit and a replay that is still queued", () => {
@@ -53,6 +59,17 @@ describe("resolveDisplayedIntent", () => {
     expect(shown.rawIntent).toBe("List the services and amounts.");
     expect(shown.selectedDomainId).toBeNull();
     expect(shown.locked).toBe(false);
+  });
+});
+
+describe("capturedQuestionForAnalyze", () => {
+  it("returns the original question and rejects a blank substitute", () => {
+    expect(capturedQuestionForAnalyze("  What changed since the last plan?  ")).toBe(
+      "What changed since the last plan?",
+    );
+    expect(capturedQuestionForAnalyze("")).toBeNull();
+    expect(capturedQuestionForAnalyze("   ")).toBeNull();
+    expect(capturedQuestionForAnalyze(null)).toBeNull();
   });
 });
 

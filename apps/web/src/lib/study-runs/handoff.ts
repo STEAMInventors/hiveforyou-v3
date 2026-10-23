@@ -65,6 +65,12 @@ export function resolveDisplayedIntent(input: {
   };
 }
 
+/** The first-page question to submit. Blank text is missing intent, not a default question. */
+export function capturedQuestionForAnalyze(requestText: string | null | undefined): string | null {
+  const trimmed = requestText?.trim() ?? "";
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export function intentSignature(requestText: string, domainId: string | null): string {
   return `${domainId ?? ""}\n${requestText}`;
 }
