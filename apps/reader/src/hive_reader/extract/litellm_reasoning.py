@@ -5,12 +5,51 @@ from typing import Any, Callable
 
 import httpx
 
+from hive_reader.extract.litellm_completion_json import (
+    LiteLlmJsonExtractErr,
+    extract_json_from_litellm_completion,
+    measure_litellm_message_content_length,
+)
+
+ALLOWED_FINISH_REASONS = frozenset(
+    {"stop", "length", "content_filter", "tool_calls", "function_call"},
+)
+
+ModelOutputDiagnostics = dict[str, str | int | float | bool | None]
+
 
 def reasoning_configured() -> bool:
     base = os.environ.get("LITELLM_BASE_URL", "").strip()
     key = os.environ.get("LITELLM_API_KEY", "").strip()
     alias = os.environ.get("READER_P2_REASONING_LITELLM_ALIAS", "").strip()
     return bool(base and key and alias)
+
+
+def _allowlisted_finish_reason(data: Any) -> str | None:
+    if not isinstance(data, dict):
+        return None
+    choices = data.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        return None
+    finish_reason = choices[0].get("finish_reason")
+    if not isinstance(finish_reason, str) or finish_reason not in ALLOWED_FINISH_REASONS:
+        return None
+    return finish_reason
+
+
+def _model_output_invalid_diagnostics(
+    data: Any,
+    reason: str,
+    alias: str,
+) -> ModelOutputDiagnostics:
+    diagnostics: ModelOutputDiagnostics = {"reason": reason, "alias": alias}
+    finish_reason = _allowlisted_finish_reason(data)
+    if finish_reason:
+        diagnostics["finish_reason"] = finish_reason
+    content_length = measure_litellm_message_content_length(data)
+    if content_length is not None:
+        diagnostics["message_content_length"] = content_length
+    return diagnostics
 
 
 def extract_via_litellm(
@@ -20,9 +59,14 @@ def extract_via_litellm(
     intent_text: str,
     field_guidance: list[dict[str, Any]] | None = None,
     http_client_factory: Callable[[], httpx.Client] | None = None,
-) -> tuple[dict[str, Any] | None, dict | None, str | None]:
+) -> tuple[
+    dict[str, Any] | None,
+    dict | None,
+    str | None,
+    ModelOutputDiagnostics | None,
+]:
     if not reasoning_configured():
-        return None, None, "P2_REASONING_NOT_CONFIGURED"
+        return None, None, "P2_REASONING_NOT_CONFIGURED", None
 
     base = os.environ["LITELLM_BASE_URL"].rstrip("/")
     alias = os.environ["READER_P2_REASONING_LITELLM_ALIAS"]
@@ -82,13 +126,51 @@ def extract_via_litellm(
                 json=payload,
             )
         latency_ms = (time.perf_counter() - started) * 1000.0
-        if response.status_code >= 500:
-            return None, None, "MODEL_UNAVAILABLE"
+        if response.status_code >= 500 or response.status_code == 429:
+            return None, None, "MODEL_UNAVAILABLE", {"reason": "gateway_status", "alias": alias}
         if response.status_code >= 400:
-            return None, None, "MODEL_OUTPUT_INVALID"
-        data = response.json()
-        content = data["choices"][0]["message"]["content"]
-        parsed = json.loads(content) if isinstance(content, str) else content
+            return (
+                None,
+                None,
+                "MODEL_OUTPUT_INVALID",
+                {
+                    "reason": "gateway_rejected",
+                    "alias": alias,
+                    "status": response.status_code,
+                },
+            )
+        try:
+            data = response.json()
+        except json.JSONDecodeError:
+            return (
+                None,
+                None,
+                "MODEL_OUTPUT_INVALID",
+                {"reason": "gateway_response_not_json", "alias": alias},
+            )
+
+        extracted = extract_json_from_litellm_completion(data)
+        if isinstance(extracted, LiteLlmJsonExtractErr):
+            return (
+                None,
+                None,
+                "MODEL_OUTPUT_INVALID",
+                _model_output_invalid_diagnostics(data, extracted.reason, alias),
+            )
+
+        parsed = extracted.parsed
+        if not isinstance(parsed, dict):
+            return (
+                None,
+                None,
+                "MODEL_OUTPUT_INVALID",
+                _model_output_invalid_diagnostics(
+                    data,
+                    "message_content_not_object",
+                    alias,
+                ),
+            )
+
         provenance = {
             "litellm_alias": alias,
             "provider": data.get("provider", "litellm"),
@@ -96,8 +178,17 @@ def extract_via_litellm(
             "page_numbers": [page["page_number"] for page in pages],
             "latency_ms": latency_ms,
         }
-        return parsed, provenance, None
-    except (json.JSONDecodeError, KeyError, TypeError):
-        return None, None, "MODEL_OUTPUT_INVALID"
+        return parsed, provenance, None, None
     except httpx.TimeoutException:
-        return None, None, "MODEL_TIMEOUT"
+        return None, None, "MODEL_TIMEOUT", {"reason": "model_timeout", "alias": alias}
+    except httpx.ConnectError:
+        return None, None, "MODEL_UNAVAILABLE", {"reason": "gateway_connection", "alias": alias}
+    except httpx.RequestError:
+        return None, None, "MODEL_UNAVAILABLE", {"reason": "gateway_request_failed", "alias": alias}
+    except (KeyError, TypeError):
+        return (
+            None,
+            None,
+            "MODEL_OUTPUT_INVALID",
+            {"reason": "gateway_response_invalid_envelope", "alias": alias},
+        )

@@ -203,20 +203,20 @@ async def extract_candidates_route(
             if code == "INVALID_REQUEST"
             else 422
         )
-        logger.warning(
-            "extract_candidates_failed",
-            extra={
-                "correlation_id": correlation_id,
-                "study_run_id": study_run_id,
-                "schema_hash": body.extraction_schema.schema_hash,
-                "match_tier": body.extraction_schema.provenance.match_tier,
-                "pack_digest": body.extraction_schema.provenance.pack_digest,
-                "error_code": code,
-                "retryable": retryable,
-                "message_safe": exc.message,
-                "stage": "extract",
-            },
-        )
+        failure_extra: dict[str, object] = {
+            "correlation_id": correlation_id,
+            "study_run_id": study_run_id,
+            "schema_hash": body.extraction_schema.schema_hash,
+            "match_tier": body.extraction_schema.provenance.match_tier,
+            "pack_digest": body.extraction_schema.provenance.pack_digest,
+            "error_code": code,
+            "retryable": retryable,
+            "message_safe": exc.message,
+            "stage": "extract",
+        }
+        if exc.log_diagnostics:
+            failure_extra.update(exc.log_diagnostics)
+        logger.warning("extract_candidates_failed", extra=failure_extra)
         return error_response(
             status_code=status,
             error_code=code,

@@ -137,7 +137,7 @@ async def extract_candidates(
             if schema.field_guidance
             else None
         )
-        parsed, provenance, error_code = extract_via_litellm(
+        parsed, provenance, error_code, diagnostics = extract_via_litellm(
             pages=page_payload,
             schema_fields=schema_fields,
             intent_text=schema.intent_text,
@@ -149,9 +149,17 @@ async def extract_candidates(
                 "P2 reasoning alias is not configured.",
             )
         if error_code in {"MODEL_UNAVAILABLE", "MODEL_TIMEOUT"}:
-            raise ExtractionError(error_code, "Model call failed.")
+            raise ExtractionError(
+                error_code,
+                "Model call failed.",
+                log_diagnostics=diagnostics,
+            )
         if error_code or parsed is None:
-            raise ExtractionError("MODEL_OUTPUT_INVALID", "Model returned invalid extraction JSON.")
+            raise ExtractionError(
+                "MODEL_OUTPUT_INVALID",
+                "Model returned invalid extraction JSON.",
+                log_diagnostics=diagnostics,
+            )
         candidates = _parse_model_candidates(parsed, schema_fields, page_count)
         if provenance:
             model_calls.append(ReaderModelCallProvenance(**provenance))

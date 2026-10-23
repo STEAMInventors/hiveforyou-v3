@@ -233,7 +233,7 @@ def test_invalid_model_json(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.delenv("READER_EXTRACT_DETERMINISTIC", raising=False)
 
-    def _bad_model(**_: object) -> tuple[dict | None, dict | None, str | None]:
+    def _bad_model(**_: object) -> tuple[dict | None, dict | None, str | None, dict | None]:
         return (
             {"not_candidates": True},
             {
@@ -243,6 +243,7 @@ def test_invalid_model_json(monkeypatch: pytest.MonkeyPatch) -> None:
                 "page_numbers": [1],
                 "latency_ms": 1.0,
             },
+            None,
             None,
         )
 
@@ -295,6 +296,69 @@ def test_invalid_model_json(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(ExtractionError) as exc:
         asyncio.run(extract_service.extract_candidates(request))
     assert exc.value.code == "MODEL_OUTPUT_INVALID"
+    assert exc.value.log_diagnostics is None
+
+
+def test_extract_candidates_model_json_failure_returns_422(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("READER_EXTRACT_DETERMINISTIC", raising=False)
+    monkeypatch.setenv("READER_P2_REASONING_LITELLM_ALIAS", "reader-p2")
+    monkeypatch.setenv("LITELLM_BASE_URL", "http://litellm.test")
+    monkeypatch.setenv("LITELLM_API_KEY", "test-key")
+
+    from hive_reader.extract import service as extract_service
+
+    def _invalid(**_: object) -> tuple[dict | None, dict | None, str | None, dict | None]:
+        return (
+            None,
+            None,
+            "MODEL_OUTPUT_INVALID",
+            {
+                "reason": "message_content_invalid_json",
+                "alias": "reader-p2",
+                "finish_reason": "length",
+                "message_content_length": 12,
+            },
+        )
+
+    monkeypatch.setattr(extract_service, "extract_via_litellm", _invalid)
+
+    path = "33333333-3333-3333-3333-333333333333/22222222-2222-2222-2222-222222222222/doc/x.pdf"
+    body = {
+        "contract_version": "reader-extract-candidates@1",
+        "source": _source(path, "application/pdf", b"x", "x.pdf"),
+        "pages": [
+            {
+                "page_number": 1,
+                "text": "Student: Alex Rivera",
+                "extraction_method": "pdf_native",
+                "quality": {
+                    "character_count": 20,
+                    "identity_text_sufficient": True,
+                    "issues": [],
+                },
+            }
+        ],
+        "read_fingerprint": "read-fp-json-fail",
+        "extraction_schema": _schema(field_keys=["student_name"]),
+    }
+    response = client.post(
+        "/v1/extract-candidates",
+        json=body,
+        headers={
+            "Authorization": "Bearer test-service-token",
+            "x-correlation-id": "corr-json-fail",
+            "x-study-run-id": "55555555-5555-5555-5555-555555555555",
+        },
+    )
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["error_code"] == "MODEL_OUTPUT_INVALID"
+    assert payload["correlation_id"] == "corr-json-fail"
+    assert "reason" not in payload
+    assert "message_content_length" not in payload
 
 
 def test_validate_flags_unsupported_page_reference() -> None:

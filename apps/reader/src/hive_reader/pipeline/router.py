@@ -11,10 +11,17 @@ DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.docu
 
 
 class ExtractionError(Exception):
-    def __init__(self, code: str, message: str) -> None:
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        *,
+        log_diagnostics: dict[str, str | int | float | bool | None] | None = None,
+    ) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
+        self.log_diagnostics = log_diagnostics
 
 
 def _tool_versions() -> dict[str, str]:
