@@ -19,6 +19,7 @@ import {
 } from "./classify.js";
 import { PlanningError } from "./errors.js";
 import { resolveDocumentClassification } from "./model-classify.js";
+import { parseGeneratedFields } from "./model-schema.js";
 import { planExtractionSchema, prepareExtractionPlan } from "./schema-plan.js";
 import { assertPlannedSchema } from "./schema-validate.js";
 import { L001_CORPUS } from "./l001-corpus.fixture.js";
@@ -51,6 +52,14 @@ function generatedField(
     required_for_intent: false,
     ...overrides,
   };
+}
+
+function generatedFieldPayload(
+  overrides: Record<string, unknown>,
+): Record<string, unknown> {
+  const field = generatedField(overrides);
+  delete field.evidence_required;
+  return field;
 }
 
 function scriptedClient(
@@ -225,6 +234,42 @@ describe("P2.2 schema planning", () => {
         diagnostics: { reason: "schema_hash" },
       }),
     );
+  });
+
+  it("normalizes omitted evidence on IEP v2 iep.referral supplemental fields", async () => {
+    const pack = loadIepV2Pack();
+    const referralDoc = L001_CORPUS.find(
+      (doc) => doc.expected_document_type_id === "iep.referral",
+    );
+    expect(referralDoc).toBeDefined();
+    const { schema } = await prepareExtractionPlan({
+      classificationInput: {
+        source_document_id: referralDoc!.source_document_id,
+        filename: referralDoc!.filename,
+        pages: referralDoc!.pages,
+        domain_hint: "iep",
+        packs: [pack.manifest],
+      },
+      intent_text: "What is the reason for referral and evaluation request?",
+      packs: [pack],
+      reasoning: scriptedClient((request) => {
+        expect(request.task).toBe("supplement_schema");
+        return {
+          fields: [
+            generatedFieldPayload({
+              field_key: "evaluation_request",
+              title: "Evaluation request",
+              required_for_intent: true,
+            }),
+          ],
+        };
+      }),
+    });
+    expect(schema.provenance.match_tier).toBe("exact");
+    expect(schema.provenance.document_type_id).toBe("iep.referral");
+    const supplemental = schema.fields.find((field) => field.field_key === "evaluation_request");
+    expect(supplemental?.evidence_required).toBe(true);
+    assertPlannedSchema(schema);
   });
 
   it("exact-match IEP progress report structure", async () => {
@@ -883,7 +928,65 @@ describe("P2.2 schema planning", () => {
           ],
         })),
       }),
-    ).rejects.toBeInstanceOf(PlanningError);
+    ).rejects.toMatchObject({
+      errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
+      diagnostics: { reason: "evidence_required" },
+    });
+  });
+
+  it("normalizes omitted, null, and true evidence_required on generated fields", () => {
+    for (const field of [
+      generatedFieldPayload({
+        field_key: "omitted_flag",
+        title: "Omitted flag",
+        required_for_intent: true,
+      }),
+      generatedField({
+        field_key: "null_flag",
+        title: "Null flag",
+        evidence_required: null,
+        required_for_intent: true,
+      }),
+      generatedField({
+        field_key: "true_flag",
+        title: "True flag",
+        evidence_required: true,
+        required_for_intent: true,
+      }),
+    ]) {
+      const [parsed] = parseGeneratedFields({ fields: [field] });
+      expect(parsed?.evidence_required).toBe(true);
+    }
+  });
+
+  it("rejects false and malformed evidence_required on generated fields", () => {
+    for (const field of [
+      generatedField({
+        field_key: "false_flag",
+        title: "False flag",
+        evidence_required: false,
+        required_for_intent: true,
+      }),
+      generatedField({
+        field_key: "string_flag",
+        title: "String flag",
+        evidence_required: "true",
+        required_for_intent: true,
+      }),
+      generatedField({
+        field_key: "number_flag",
+        title: "Number flag",
+        evidence_required: 1,
+        required_for_intent: true,
+      }),
+    ]) {
+      expect(() => parseGeneratedFields({ fields: [field] })).toThrow(
+        expect.objectContaining({
+          errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
+          diagnostics: { reason: "evidence_required" },
+        }),
+      );
+    }
   });
 
   it("fails closed when the reasoning gateway is unavailable", async () => {

@@ -40,6 +40,13 @@ function invalid(reason: string, message: string): PlanningError {
   return new PlanningError(ErrorCode.MODEL_OUTPUT_INVALID, message, { reason });
 }
 
+function assertEvidenceRequiredFlag(value: unknown): void {
+  if (value === true || value === undefined || value === null) {
+    return;
+  }
+  throw invalid("evidence_required", "Schema fields must require source evidence.");
+}
+
 export function parseGeneratedFields(raw: unknown): ExtractionSchemaFieldV1[] {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     throw invalid("schema_response_invalid", "Model schema response must be an object.");
@@ -73,9 +80,7 @@ function parseField(entry: unknown, seen: Set<string>): ExtractionSchemaFieldV1 
   if (typeof raw.value_type !== "string" || !VALUE_TYPES.has(raw.value_type)) {
     throw invalid("invalid_value_type", "Schema field type is unsupported.");
   }
-  if (raw.evidence_required !== true) {
-    throw invalid("evidence_required", "Schema fields must require source evidence.");
-  }
+  assertEvidenceRequiredFlag(raw.evidence_required);
   if (typeof raw.reusable !== "boolean" || typeof raw.required_for_intent !== "boolean") {
     throw invalid("field_flags", "Schema fields must set reusable and required_for_intent.");
   }
