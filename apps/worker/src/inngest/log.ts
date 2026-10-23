@@ -7,6 +7,9 @@ export function logWorkerEvent(input: {
   error_code?: string;
   retryable?: boolean;
   diagnostic_detail?: string;
+  model_alias?: string;
+  gateway_status?: number;
+  duration_ms?: number;
   error_name?: string;
   cause_safe?: string;
   inngest_connect_state?: string;

@@ -3,6 +3,21 @@ import {
   type ErrorCodeType,
 } from "@hiveforyou/contracts/errors/v1";
 
+const SAFE_PLANNING_DIAGNOSTIC_KEYS = ["reason", "alias", "status", "duration_ms"] as const;
+
+/** Allowlisted planning diagnostics safe for structured Worker logs (no prompts or document text). */
+export function pickSafePlanningDiagnostics(
+  diagnostics: Record<string, string | number | boolean | null>,
+): Record<string, string | number | boolean | null> {
+  const safe: Record<string, string | number | boolean | null> = {};
+  for (const key of SAFE_PLANNING_DIAGNOSTIC_KEYS) {
+    if (key in diagnostics) {
+      safe[key] = diagnostics[key];
+    }
+  }
+  return safe;
+}
+
 export class PlanningError extends Error {
   readonly errorCode: ErrorCodeType;
   readonly retryable: boolean;

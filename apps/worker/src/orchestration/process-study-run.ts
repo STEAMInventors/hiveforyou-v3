@@ -25,7 +25,7 @@ import {
 } from "../persistence/study-run-persistence.js";
 import { StudyRunPersistenceError } from "../persistence/study-run-persistence.js";
 import { compileStudyPlanAndCoverage } from "../plan/compile-study-plan.js";
-import { PlanningError } from "../plan/errors.js";
+import { PlanningError, pickSafePlanningDiagnostics } from "../plan/errors.js";
 import { buildStudyQuestionSet } from "../plan/plan-questions.js";
 import { prepareExtractionPlan } from "../plan/schema-plan.js";
 import { loadIepV3CandidateIfPinned } from "../packs/load-pack-v3-candidate.js";
@@ -38,14 +38,20 @@ import { createLiteLlmReasoningClient } from "../reasoning/litellm-client.js";
 import { createReaderClient, ReaderClientError } from "../reader/reader-client.js";
 
 export class ProcessStudyRunError extends Error {
+  readonly diagnostics?: Record<string, string | number | boolean | null>;
+
   constructor(
     message: string,
     readonly retryable: boolean,
     readonly errorCode: string,
     readonly messageSafe: string,
+    diagnostics?: Record<string, string | number | boolean | null>,
   ) {
     super(message);
     this.name = "ProcessStudyRunError";
+    if (diagnostics && Object.keys(diagnostics).length > 0) {
+      this.diagnostics = diagnostics;
+    }
   }
 }
 
@@ -186,6 +192,7 @@ export async function processStudyRun(
           error.retryable,
           error.errorCode,
           error.message,
+          pickSafePlanningDiagnostics(error.diagnostics),
         );
       }
       throw error;

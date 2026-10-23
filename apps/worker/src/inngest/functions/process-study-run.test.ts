@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   processStudyRun: vi.fn(),
   workerTransitionStudyRun: vi.fn(),
   createWorkerServiceClient: vi.fn(() => ({})),
+  logWorkerEvent: vi.fn(),
 }));
 
 vi.mock("../../orchestration/process-study-run.js", async (importOriginal) => {
@@ -23,7 +24,11 @@ vi.mock("../../persistence/study-run-persistence.js", async (importOriginal) => 
   return { ...actual, workerTransitionStudyRun: mocks.workerTransitionStudyRun };
 });
 
-const { processStudyRun, workerTransitionStudyRun } = mocks;
+vi.mock("../log.js", () => ({
+  logWorkerEvent: mocks.logWorkerEvent,
+}));
+
+const { processStudyRun, workerTransitionStudyRun, logWorkerEvent } = mocks;
 
 import { ProcessStudyRunError } from "../../orchestration/process-study-run.js";
 import { StudyRunPersistenceError } from "../../persistence/study-run-persistence.js";
@@ -42,6 +47,7 @@ const eventData = {
 describe("executeProcessStudyRunForEvent", () => {
   beforeEach(() => {
     processStudyRun.mockReset();
+    logWorkerEvent.mockReset();
   });
 
   it("returns success when orchestration completes", async () => {
@@ -65,6 +71,33 @@ describe("executeProcessStudyRunForEvent", () => {
     );
 
     await expect(executeProcessStudyRunForEvent(eventData)).rejects.toBeInstanceOf(NonRetriableError);
+    expect(logWorkerEvent).not.toHaveBeenCalled();
+  });
+
+  it("logs safe planning diagnostics before NonRetriableError", async () => {
+    processStudyRun.mockRejectedValue(
+      new ProcessStudyRunError(
+        "Model returned invalid JSON.",
+        false,
+        ErrorCode.MODEL_OUTPUT_INVALID,
+        "Model returned invalid JSON.",
+        { reason: "message_content_invalid_json", alias: "worker-p2-reasoning" },
+      ),
+    );
+
+    await expect(executeProcessStudyRunForEvent(eventData)).rejects.toBeInstanceOf(NonRetriableError);
+    expect(logWorkerEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: "error",
+        message: "process_study_run_failed",
+        correlation_id: "corr-1",
+        study_run_id: "run-1",
+        error_code: ErrorCode.MODEL_OUTPUT_INVALID,
+        retryable: false,
+        diagnostic_detail: "message_content_invalid_json",
+        model_alias: "worker-p2-reasoning",
+      }),
+    );
   });
 
   it("rethrows retryable ProcessStudyRunError for Inngest retries", async () => {
@@ -72,6 +105,31 @@ describe("executeProcessStudyRunForEvent", () => {
     processStudyRun.mockRejectedValue(err);
 
     await expect(executeProcessStudyRunForEvent(eventData)).rejects.toBe(err);
+    expect(logWorkerEvent).not.toHaveBeenCalled();
+  });
+
+  it("logs safe planning diagnostics for retryable ProcessStudyRunError", async () => {
+    const err = new ProcessStudyRunError(
+      "Reasoning gateway returned an error.",
+      true,
+      ErrorCode.MODEL_UNAVAILABLE,
+      "Reasoning gateway returned an error.",
+      { reason: "gateway_status", status: 503, alias: "worker-p2-reasoning" },
+    );
+    processStudyRun.mockRejectedValue(err);
+
+    await expect(executeProcessStudyRunForEvent(eventData)).rejects.toBe(err);
+    expect(logWorkerEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        correlation_id: "corr-1",
+        study_run_id: "run-1",
+        error_code: ErrorCode.MODEL_UNAVAILABLE,
+        retryable: true,
+        diagnostic_detail: "gateway_status",
+        gateway_status: 503,
+        model_alias: "worker-p2-reasoning",
+      }),
+    );
   });
 });
 

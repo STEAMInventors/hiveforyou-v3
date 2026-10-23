@@ -18,6 +18,27 @@ import {
 import { workerInngest } from "../client.js";
 import { logWorkerEvent } from "../log.js";
 
+function logProcessStudyRunFailure(
+  data: StudyRunQueuedEventDataV1,
+  error: ProcessStudyRunError,
+): void {
+  const diagnostics = error.diagnostics;
+  logWorkerEvent({
+    level: "error",
+    message: "process_study_run_failed",
+    correlation_id: data.correlation_id,
+    study_run_id: data.study_run_id,
+    route: "inngest/hive3-process-study-run",
+    error_code: error.errorCode,
+    retryable: error.retryable,
+    diagnostic_detail:
+      typeof diagnostics?.reason === "string" ? diagnostics.reason : undefined,
+    model_alias: typeof diagnostics?.alias === "string" ? diagnostics.alias : undefined,
+    gateway_status: typeof diagnostics?.status === "number" ? diagnostics.status : undefined,
+    duration_ms: typeof diagnostics?.duration_ms === "number" ? diagnostics.duration_ms : undefined,
+  });
+}
+
 function toWorkerRequest(data: StudyRunQueuedEventDataV1): WorkerProcessStudyRunRequestV1 {
   return {
     contract_version: "worker-process-study-run@1",
@@ -39,8 +60,13 @@ export async function executeProcessStudyRunForEvent(
       idempotent_replay: result.idempotent_replay,
     };
   } catch (error) {
-    if (error instanceof ProcessStudyRunError && !error.retryable) {
-      throw new NonRetriableError(error.messageSafe);
+    if (error instanceof ProcessStudyRunError) {
+      if (error.diagnostics) {
+        logProcessStudyRunFailure(data, error);
+      }
+      if (!error.retryable) {
+        throw new NonRetriableError(error.messageSafe);
+      }
     }
     throw error;
   }
