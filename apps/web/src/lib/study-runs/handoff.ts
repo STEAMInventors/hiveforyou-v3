@@ -71,6 +71,32 @@ export function capturedQuestionForAnalyze(requestText: string | null | undefine
   return trimmed.length > 0 ? trimmed : null;
 }
 
+export const ANALYZE_MISSING_QUESTION_MESSAGE =
+  "Describe what you want this study to answer.";
+
+export function studyDomainHintLabel(
+  domainId: string | null,
+  resolveShortLabel: (id: string) => string | undefined,
+): string {
+  if (!domainId) {
+    return "No domain";
+  }
+  return resolveShortLabel(domainId) ?? domainId;
+}
+
+/** Analyze is allowed only with a nonempty question and no active submit or in-flight run. */
+export function isAnalyzeDocumentsEnabled(input: {
+  requestText: string;
+  busy: boolean;
+  intentLocked: boolean;
+  runInProgress: boolean;
+}): boolean {
+  if (input.busy || input.intentLocked || input.runInProgress) {
+    return false;
+  }
+  return capturedQuestionForAnalyze(input.requestText) != null;
+}
+
 export function intentSignature(requestText: string, domainId: string | null): string {
   return `${domainId ?? ""}\n${requestText}`;
 }

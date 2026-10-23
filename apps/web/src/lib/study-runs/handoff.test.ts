@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   buildAnalyzeSubmitBody,
   capturedQuestionForAnalyze,
+  isAnalyzeDocumentsEnabled,
   nextDeliveryKey,
   resolveDisplayedIntent,
   shouldEnqueueStudyRun,
+  studyDomainHintLabel,
 } from "./handoff";
 
 describe("shouldEnqueueStudyRun", () => {
@@ -93,6 +95,61 @@ describe("buildAnalyzeSubmitBody", () => {
       idempotencyKey: "key-2",
     });
     expect(body.clarification_json).toEqual({ domain_hint: "iep" });
+  });
+});
+
+describe("studyDomainHintLabel", () => {
+  it("shows no domain when unset and resolves known ids", () => {
+    expect(studyDomainHintLabel(null, () => undefined)).toBe("No domain");
+    expect(studyDomainHintLabel("iep", () => "Special Education / IEP")).toBe(
+      "Special Education / IEP",
+    );
+    expect(studyDomainHintLabel("custom", () => undefined)).toBe("custom");
+  });
+});
+
+describe("isAnalyzeDocumentsEnabled", () => {
+  it("requires a nonempty question and an idle processing state", () => {
+    expect(
+      isAnalyzeDocumentsEnabled({
+        requestText: "What changed?",
+        busy: false,
+        intentLocked: false,
+        runInProgress: false,
+      }),
+    ).toBe(true);
+    expect(
+      isAnalyzeDocumentsEnabled({
+        requestText: "   ",
+        busy: false,
+        intentLocked: false,
+        runInProgress: false,
+      }),
+    ).toBe(false);
+    expect(
+      isAnalyzeDocumentsEnabled({
+        requestText: "What changed?",
+        busy: true,
+        intentLocked: false,
+        runInProgress: false,
+      }),
+    ).toBe(false);
+    expect(
+      isAnalyzeDocumentsEnabled({
+        requestText: "What changed?",
+        busy: false,
+        intentLocked: true,
+        runInProgress: false,
+      }),
+    ).toBe(false);
+    expect(
+      isAnalyzeDocumentsEnabled({
+        requestText: "What changed?",
+        busy: false,
+        intentLocked: false,
+        runInProgress: true,
+      }),
+    ).toBe(false);
   });
 });
 
