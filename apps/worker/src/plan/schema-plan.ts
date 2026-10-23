@@ -7,8 +7,9 @@ import {
   type ExtractionSchemaV1,
 } from "@hiveforyou/contracts/extraction/v1";
 import type { DomainPackManifestV1 } from "@hiveforyou/contracts/domain-packs/v1";
+import type { DomainPackManifestV2 } from "@hiveforyou/contracts/domain-packs/v2";
 import { ErrorCode } from "@hiveforyou/contracts/errors/v1";
-import { computeSchemaHash } from "@hiveforyou/core";
+import { buildFieldGuidanceForDocumentType, computeSchemaHash } from "@hiveforyou/core";
 
 import { AMBIGUITY_MULTIPLE_DOMAINS, type ClassifyDocumentInputV1 } from "./classify.js";
 import { PlanningError } from "./errors.js";
@@ -30,7 +31,7 @@ export type PlanSchemaInputV1 = {
   intent_text: string;
   classification: DocumentClassificationV1;
   combinedPageText: string;
-  packs: { manifest: DomainPackManifestV1; digest: string }[];
+  packs: { manifest: DomainPackManifestV1 | DomainPackManifestV2; digest: string }[];
   pages?: { page_number: number; text: string }[];
   extraction_schema_id?: string;
   correlation_id?: string;
@@ -41,7 +42,7 @@ export type PlanSchemaInputV1 = {
 export type PrepareExtractionPlanInputV1 = {
   classificationInput: ClassifyDocumentInputV1;
   intent_text: string;
-  packs: { manifest: DomainPackManifestV1; digest: string }[];
+  packs: { manifest: DomainPackManifestV1 | DomainPackManifestV2; digest: string }[];
   extraction_schema_id?: string;
   correlation_id?: string;
   study_run_id?: string;
@@ -71,17 +72,21 @@ function markIntentFields(
 }
 
 function fieldsFromDocumentType(
-  manifest: DomainPackManifestV1,
+  manifest: DomainPackManifestV1 | DomainPackManifestV2,
   documentTypeId: string,
 ): ExtractionSchemaFieldV1[] {
   const docType = manifest.document_types.find(
     (entry) => entry.document_type_id === documentTypeId,
   );
-  return docType?.structure.fields.map((field) => ({ ...field })) ?? [];
+  const structureFields =
+    docType && "structure" in docType && docType.structure?.fields
+      ? docType.structure.fields
+      : [];
+  return structureFields.map((field) => ({ ...field }));
 }
 
 function hintFieldsForDomain(
-  manifest: DomainPackManifestV1,
+  manifest: DomainPackManifestV1 | DomainPackManifestV2,
   domainId: string,
 ): ExtractionSchemaFieldV1[] {
   const domain = manifest.domains.find((entry) => entry.domain_id === domainId);
@@ -97,7 +102,7 @@ function hintFieldsForDomain(
 }
 
 function reusableVocabularyFields(
-  manifest: DomainPackManifestV1,
+  manifest: DomainPackManifestV1 | DomainPackManifestV2,
   domainId: string,
 ): ExtractionSchemaFieldV1[] {
   const domain = manifest.domains.find((entry) => entry.domain_id === domainId);
@@ -111,7 +116,7 @@ function reusableVocabularyFields(
 function requirePack(
   packs: PlanSchemaInputV1["packs"],
   packId: string,
-): { manifest: DomainPackManifestV1; digest: string } {
+): { manifest: DomainPackManifestV1 | DomainPackManifestV2; digest: string } {
   const pack = packs.find((entry) => entry.manifest.pack_id === packId);
   if (!pack) {
     throw new PlanningError(ErrorCode.INVALID_REQUEST, "Matched pack is missing from the loaded catalog.", {
@@ -146,6 +151,7 @@ function buildSchema(
   selection: MatchSelectionV1,
   fields: ExtractionSchemaFieldV1[],
   generic: boolean,
+  fieldGuidance: ExtractionSchemaV1["field_guidance"],
 ): ExtractionSchemaV1 {
   const extraction_schema_id = input.extraction_schema_id ?? randomUUID();
   const intentFields = markIntentFields(fields, input.intent_text);
@@ -161,6 +167,7 @@ function buildSchema(
     intent_text: input.intent_text,
     fields: intentFields,
     provenance,
+    field_guidance: fieldGuidance,
   });
 
   return {
@@ -171,6 +178,7 @@ function buildSchema(
     fields: intentFields,
     provenance,
     generic,
+    field_guidance: fieldGuidance,
   };
 }
 
@@ -205,10 +213,15 @@ export async function planExtractionSchema(
 
     let fields: ExtractionSchemaFieldV1[];
     let generic: boolean;
+    let fieldGuidance: ExtractionSchemaV1["field_guidance"];
 
     if (selection.match_tier === "exact" && selection.document_type_id && selection.pack_id) {
       const pack = requirePack(input.packs, selection.pack_id);
       fields = fieldsFromDocumentType(pack.manifest, selection.document_type_id);
+      fieldGuidance = buildFieldGuidanceForDocumentType(
+        pack.manifest,
+        selection.document_type_id,
+      );
       if (intentNeedsSupplementalFields(input.intent_text, fields)) {
         const pages = requirePageExcerpts(input.pages);
         const generated = await requestSupplementalSchema({
@@ -225,6 +238,7 @@ export async function planExtractionSchema(
       }
       generic = false;
     } else if (selection.match_tier === "partial" && selection.domain_id && selection.pack_id) {
+      fieldGuidance = undefined;
       const pack = requirePack(input.packs, selection.pack_id);
       const pages = requirePageExcerpts(input.pages);
       const generated = await requestGeneratedSchema({
@@ -243,6 +257,7 @@ export async function planExtractionSchema(
       );
       generic = false;
     } else {
+      fieldGuidance = undefined;
       const pages = requirePageExcerpts(input.pages);
       const generated = await requestGeneratedSchema({
         client: requireReasoning(input),
@@ -258,7 +273,7 @@ export async function planExtractionSchema(
       generic = true;
     }
 
-    const schema = buildSchema(input, selection, fields, generic);
+    const schema = buildSchema(input, selection, fields, generic, fieldGuidance);
     assertPlannedSchema(schema);
     emitPlanningLog({
       level: "info",

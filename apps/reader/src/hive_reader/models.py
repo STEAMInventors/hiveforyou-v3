@@ -94,6 +94,14 @@ class ExtractionSchemaField(BaseModel):
     required_for_intent: bool | None = None
 
 
+class ExtractionFieldGuidance(BaseModel):
+    record_type_id: str
+    repeatable: bool
+    nested_field_ids: list[str]
+    reading_note: str | None = None
+    identity_key_fields: list[str] | None = None
+
+
 class ExtractionSchemaProvenance(BaseModel):
     match_tier: Literal["exact", "partial", "generic"]
     pack_id: str | None = None
@@ -111,6 +119,7 @@ class ExtractionSchema(BaseModel):
     fields: list[ExtractionSchemaField]
     provenance: ExtractionSchemaProvenance
     generic: bool
+    field_guidance: list[ExtractionFieldGuidance] | None = None
 
 
 class CandidateEvidence(BaseModel):

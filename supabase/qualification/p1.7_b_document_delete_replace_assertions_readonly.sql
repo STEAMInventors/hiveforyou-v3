@@ -56,7 +56,14 @@ SELECT CASE
   WHEN to_regprocedure('public.hive3_m1_prepare_source_document_upload(uuid, text, text, text, bigint, uuid)') IS NOT NULL
     AND to_regprocedure('public.hive3_m1_prepare_source_document_upload(uuid, text, text, text, bigint)') IS NULL
     AND has_function_privilege('authenticated', 'public.hive3_m1_prepare_source_document_upload(uuid, text, text, text, bigint, uuid)', 'EXECUTE')
-    AND NOT has_function_privilege('PUBLIC', 'public.hive3_m1_prepare_source_document_upload(uuid, text, text, text, bigint, uuid)', 'EXECUTE')
+    AND NOT EXISTS (
+      SELECT 1
+      FROM pg_proc p
+      CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
+      WHERE p.oid = to_regprocedure('public.hive3_m1_prepare_source_document_upload(uuid, text, text, text, bigint, uuid)')
+        AND acl.privilege_type = 'EXECUTE'
+        AND acl.grantee = 0
+    )
   THEN 'pass: prepare six-arg signature and grants'
   ELSE 'fail: prepare signature or grants incorrect'
 END AS p1_7_b_prepare_signature_grants;
@@ -82,8 +89,22 @@ END AS p1_7_b_complete_replacement_replay;
 SELECT CASE
   WHEN has_function_privilege('authenticated', 'public.hive3_m1_begin_registered_source_document_deletion(uuid, text)', 'EXECUTE')
     AND has_function_privilege('authenticated', 'public.hive3_m1_finalize_registered_source_document_deletion(uuid, text)', 'EXECUTE')
-    AND NOT has_function_privilege('PUBLIC', 'public.hive3_m1_begin_registered_source_document_deletion(uuid, text)', 'EXECUTE')
-    AND NOT has_function_privilege('PUBLIC', 'public.hive3_m1_lock_hive_registered_sources_for_study(uuid)', 'EXECUTE')
+    AND NOT EXISTS (
+      SELECT 1
+      FROM pg_proc p
+      CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
+      WHERE p.oid = to_regprocedure('public.hive3_m1_begin_registered_source_document_deletion(uuid, text)')
+        AND acl.privilege_type = 'EXECUTE'
+        AND acl.grantee = 0
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM pg_proc p
+      CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
+      WHERE p.oid = to_regprocedure('public.hive3_m1_lock_hive_registered_sources_for_study(uuid)')
+        AND acl.privilege_type = 'EXECUTE'
+        AND acl.grantee = 0
+    )
   THEN 'pass: P1.7-B RPC grants'
   ELSE 'fail: P1.7-B RPC grants'
 END AS p1_7_b_rpc_grants;

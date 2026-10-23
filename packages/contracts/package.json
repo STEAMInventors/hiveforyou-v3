@@ -11,7 +11,10 @@
     "./documents/v1": "./src/documents/v1/index.ts",
     "./reader/v1": "./src/reader/v1/index.ts",
     "./extraction/v1": "./src/extraction/v1/index.ts",
-    "./domain-packs/v1": "./src/domain-packs/v1/index.ts"
+    "./domain-packs/v1": "./src/domain-packs/v1/index.ts",
+    "./domain-packs/v2": "./src/domain-packs/v2/index.ts",
+    "./domain-packs/v3": "./src/domain-packs/v3/index.ts",
+    "./study-runs/v1": "./src/study-runs/v1/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

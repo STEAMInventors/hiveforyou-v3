@@ -1,5 +1,7 @@
 import type { DocumentClassificationV1 } from "@hiveforyou/contracts/extraction/v1";
 import type { DomainPackManifestV1 } from "@hiveforyou/contracts/domain-packs/v1";
+import type { DomainPackManifestV2 } from "@hiveforyou/contracts/domain-packs/v2";
+import type { NormalizedDomainPackManifest } from "@hiveforyou/core";
 import { ErrorCode } from "@hiveforyou/contracts/errors/v1";
 
 import {
@@ -124,8 +126,13 @@ function nullableId(value: unknown, reason: string): string | null {
   return value.trim();
 }
 
+type PackLikeForModelClassify =
+  | DomainPackManifestV1
+  | DomainPackManifestV2
+  | NormalizedDomainPackManifest;
+
 function findDocumentType(
-  packs: DomainPackManifestV1[],
+  packs: PackLikeForModelClassify[],
   parsed: ModelClassificationV1,
 ): { pack_id: string; domain_id: string; document_type_id: string } | null {
   if (!parsed.pack_id || !parsed.domain_id || !parsed.document_type_id) {
@@ -152,7 +159,7 @@ function findDocumentType(
 }
 
 function findDomain(
-  packs: DomainPackManifestV1[],
+  packs: PackLikeForModelClassify[],
   parsed: ModelClassificationV1,
 ): { pack_id: string; domain_id: string } | null {
   if (!parsed.pack_id || !parsed.domain_id || parsed.document_type_id) {
@@ -189,7 +196,7 @@ function dedupeNotes(notes: string[]): string[] {
 function applyModelClassification(
   base: DocumentClassificationV1,
   parsed: ModelClassificationV1,
-  packs: DomainPackManifestV1[],
+  packs: (DomainPackManifestV1 | DomainPackManifestV2 | NormalizedDomainPackManifest)[],
 ): DocumentClassificationV1 {
   const crossDomain = base.ambiguity_notes.includes(AMBIGUITY_MULTIPLE_DOMAINS);
   const matchedType = findDocumentType(packs, parsed);

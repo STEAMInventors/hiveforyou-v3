@@ -27,6 +27,22 @@ export type ExtractionSchemaFieldV1 = DomainPackFieldDefV1 & {
   required_for_intent?: boolean;
 };
 
+/** Nested record hints for Reader extraction (declarative; no domain code in Reader). */
+export type ExtractionFieldGuidanceV1 = {
+  record_type_id: string;
+  repeatable: boolean;
+  nested_field_ids: string[];
+  reading_note?: string;
+  identity_key_fields?: string[];
+};
+
+export type ExtractionSchemaFieldGuidanceV1 = {
+  field_key: string;
+  record_type_id: string;
+  nested_field_ids: string[];
+  reading_note?: string;
+};
+
 export type ExtractionSchemaProvenanceV1 = {
   match_tier: MatchTierV1;
   pack_id: string | null;
@@ -44,6 +60,7 @@ export type ExtractionSchemaV1 = {
   fields: ExtractionSchemaFieldV1[];
   provenance: ExtractionSchemaProvenanceV1;
   generic: boolean;
+  field_guidance?: ExtractionFieldGuidanceV1[];
 };
 
 export type CandidateEvidenceV1 = {

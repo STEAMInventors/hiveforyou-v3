@@ -18,6 +18,7 @@ def extract_via_litellm(
     pages: list[dict[str, Any]],
     schema_fields: list[dict[str, Any]],
     intent_text: str,
+    field_guidance: list[dict[str, Any]] | None = None,
     http_client_factory: Callable[[], httpx.Client] | None = None,
 ) -> tuple[dict[str, Any] | None, dict | None, str | None]:
     if not reasoning_configured():
@@ -51,10 +52,12 @@ def extract_via_litellm(
         "Never invent values; use missing or unknown when absent. "
         "Every observed value needs a verbatim exact_quote from the given page text."
     )
+    guidance_payload = field_guidance or []
     user_prompt = json.dumps(
         {
             "intent_text": intent_text,
             "fields": field_list,
+            "field_guidance": guidance_payload,
             "pages": page_blocks,
         },
         ensure_ascii=False,

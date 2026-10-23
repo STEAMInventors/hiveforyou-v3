@@ -20,7 +20,7 @@ export type MatchSelectionV1 = {
 
 export function selectMatchTier(
   classification: DocumentClassificationV1,
-  packs: { manifest: DomainPackManifestV1; digest: string }[],
+  packs: { manifest: DomainPackManifestV1 | import("@hiveforyou/contracts/domain-packs/v2").DomainPackManifestV2; digest: string }[],
   combinedPageText: string,
 ): MatchSelectionV1 {
   const chosen = classification.chosen;

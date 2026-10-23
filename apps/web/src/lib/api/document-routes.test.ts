@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ErrorCode } from "@hiveforyou/contracts/errors/v1";
 
@@ -31,6 +31,20 @@ vi.mock("@/lib/server/log", () => ({
 }));
 
 const hiveId = "11111111-1111-4111-8111-111111111111";
+
+type DocumentRoutesModule = typeof import("./document-routes");
+let documentRoutesModule: DocumentRoutesModule | null = null;
+
+async function loadDocumentRoutes(): Promise<DocumentRoutesModule> {
+  if (!documentRoutesModule) {
+    documentRoutesModule = await import("./document-routes");
+  }
+  return documentRoutesModule;
+}
+
+beforeAll(async () => {
+  await loadDocumentRoutes();
+}, 20_000);
 const correlationId = "corr-dismiss-test";
 
 function supabaseForUser(userId: string) {
@@ -49,7 +63,7 @@ describe("handleDismissFailedDocumentUpload", () => {
   });
 
   it("returns validation error when client_request_id is missing", async () => {
-    const { handleDismissFailedDocumentUpload } = await import("./document-routes");
+    const { handleDismissFailedDocumentUpload } = await loadDocumentRoutes();
     const response = await handleDismissFailedDocumentUpload(correlationId, hiveId, {});
     expect(response.status).toBe(400);
     const body = await response.json();
@@ -59,7 +73,7 @@ describe("handleDismissFailedDocumentUpload", () => {
 
   it("returns auth error when the user is not signed in", async () => {
     requireAuthenticatedUser.mockResolvedValue({ ok: false });
-    const { handleDismissFailedDocumentUpload } = await import("./document-routes");
+    const { handleDismissFailedDocumentUpload } = await loadDocumentRoutes();
     const response = await handleDismissFailedDocumentUpload(correlationId, hiveId, {
       client_request_id: "req-dismiss-1",
     });
@@ -83,7 +97,7 @@ describe("handleDismissFailedDocumentUpload", () => {
       },
     });
 
-    const { handleDismissFailedDocumentUpload } = await import("./document-routes");
+    const { handleDismissFailedDocumentUpload } = await loadDocumentRoutes();
     const response = await handleDismissFailedDocumentUpload(correlationId, hiveId, {
       client_request_id: "req-dismiss-1",
     });
@@ -115,7 +129,7 @@ describe("handleDismissFailedDocumentUpload", () => {
       },
     });
 
-    const { handleDismissFailedDocumentUpload } = await import("./document-routes");
+    const { handleDismissFailedDocumentUpload } = await loadDocumentRoutes();
     const response = await handleDismissFailedDocumentUpload(correlationId, hiveId, {
       client_request_id: "req-dismiss-1",
     });
@@ -137,7 +151,7 @@ describe("handleDeleteRegisteredDocumentUpload", () => {
 
   it("returns auth error when the user is not signed in", async () => {
     requireAuthenticatedUser.mockResolvedValue({ ok: false });
-    const { handleDeleteRegisteredDocumentUpload } = await import("./document-routes");
+    const { handleDeleteRegisteredDocumentUpload } = await loadDocumentRoutes();
     const response = await handleDeleteRegisteredDocumentUpload(correlationId, hiveId, {
       client_request_id: "req-delete-1",
     });
@@ -161,7 +175,7 @@ describe("handleDeleteRegisteredDocumentUpload", () => {
       },
     });
 
-    const { handleDeleteRegisteredDocumentUpload } = await import("./document-routes");
+    const { handleDeleteRegisteredDocumentUpload } = await loadDocumentRoutes();
     const response = await handleDeleteRegisteredDocumentUpload(correlationId, hiveId, {
       client_request_id: "req-delete-1",
     });
@@ -193,7 +207,7 @@ describe("handleDeleteRegisteredDocumentUpload", () => {
       },
     });
 
-    const { handleDeleteRegisteredDocumentUpload } = await import("./document-routes");
+    const { handleDeleteRegisteredDocumentUpload } = await loadDocumentRoutes();
     const response = await handleDeleteRegisteredDocumentUpload(correlationId, hiveId, {
       client_request_id: "req-delete-1",
     });
@@ -220,7 +234,7 @@ describe("handleDeleteRegisteredDocumentUpload", () => {
       },
     });
 
-    const { handleDeleteRegisteredDocumentUpload } = await import("./document-routes");
+    const { handleDeleteRegisteredDocumentUpload } = await loadDocumentRoutes();
     const response = await handleDeleteRegisteredDocumentUpload(correlationId, hiveId, {
       client_request_id: "req-delete-1",
     });
@@ -246,7 +260,7 @@ describe("handleDeleteRegisteredDocumentUpload", () => {
       },
     });
 
-    const { handleDeleteRegisteredDocumentUpload } = await import("./document-routes");
+    const { handleDeleteRegisteredDocumentUpload } = await loadDocumentRoutes();
     const response = await handleDeleteRegisteredDocumentUpload(correlationId, hiveId, {
       client_request_id: "req-delete-1",
     });

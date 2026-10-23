@@ -132,10 +132,16 @@ async def extract_candidates(
             schema_fields=schema_fields,
         )
     else:
+        guidance_payload = (
+            [item.model_dump() for item in schema.field_guidance]
+            if schema.field_guidance
+            else None
+        )
         parsed, provenance, error_code = extract_via_litellm(
             pages=page_payload,
             schema_fields=schema_fields,
             intent_text=schema.intent_text,
+            field_guidance=guidance_payload,
         )
         if error_code == "P2_REASONING_NOT_CONFIGURED":
             raise ExtractionError(

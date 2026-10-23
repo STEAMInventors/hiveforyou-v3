@@ -1,0 +1,45 @@
+{
+  "contract_version": "domain-pack-public-metadata@1",
+  "domains": [
+    {
+      "domain_id": "medicaid",
+      "pack_id": "medicaid",
+      "pack_version": "1.0.0",
+      "label": "Medicaid",
+      "short_label": "Medicaid",
+      "executable": false,
+      "placeholder": "I got a denial letter. What was denied, why, and when do I need to respond?",
+      "pill_tone": "medicaid",
+      "starter_suggestions": [
+        {
+          "title": "Understand a denial letter",
+          "fill": "Explain this denial letter: what was denied, why, and the deadline to respond."
+        }
+      ]
+    },
+    {
+      "domain_id": "iep",
+      "pack_id": "iep",
+      "pack_version": "2.0.0",
+      "label": "Special Education / IEP",
+      "short_label": "IEP",
+      "executable": true,
+      "placeholder": "My child’s IEP meeting is next week. What changed from last year, and what should I ask?",
+      "pill_tone": "iep",
+      "starter_suggestions": [
+        {
+          "title": "IEP question 1",
+          "fill": "What does the current plan give my child?"
+        },
+        {
+          "title": "IEP question 2",
+          "fill": "What changed since the last plan?"
+        },
+        {
+          "title": "IEP question 3",
+          "fill": "Is my child making progress on each goal?"
+        }
+      ]
+    }
+  ]
+}

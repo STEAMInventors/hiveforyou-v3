@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { DeleteHiveModal } from "@/components/workspace/DeleteHiveModal";
 import { HiveDocumentsPanel } from "@/components/workspace/HiveDocumentsPanel";
+import { HiveProcessingPanel } from "@/components/workspace/HiveProcessingPanel";
 import { HiveWorkspaceMenu } from "@/components/workspace/HiveWorkspaceMenu";
 import { usePendingLandingUpload } from "@/components/workspace/usePendingLandingUpload";
 import { HiveCustomerShell } from "@/components/shell/HiveCustomerShell";
@@ -94,21 +95,14 @@ export function HiveWorkspace({ hive }: { hive: HiveV1 }) {
             initialPendingFiles={pending.pendingFiles}
             onPendingFilesConsumed={pending.clearPending}
           />
+        ) : tab === "Canonical Study" ? (
+          <HiveProcessingPanel hiveId={hive.id} />
         ) : (
           <section className="rounded-[18px] border border-[#E7E9ED] bg-white p-8 text-center">
-            <h2 className="m-0 text-lg font-semibold text-[#1F2328]">
-              Your study starts with your documents
-            </h2>
+            <h2 className="m-0 text-lg font-semibold text-[#1F2328]">Reports</h2>
             <p className="mt-2 text-sm text-[#4A525C]">
-              Add documents on the Documents tab first. Processing opens in a later release.
+              Reports will appear here after processing and later release milestones.
             </p>
-            <button
-              type="button"
-              className="mt-4 rounded-[10px] border border-[#E7E9ED] bg-white px-4 py-2 text-sm font-semibold"
-              onClick={() => setTab("Documents")}
-            >
-              Go to Documents
-            </button>
           </section>
         )}
       </div>

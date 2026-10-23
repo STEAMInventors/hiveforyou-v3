@@ -1,7 +1,7 @@
 -- P1.6 — Read-only structural assertions for upload_product_policy (run after migration apply).
 -- Expect failures until 20261021160000_hive3_m1_upload_product_policy.sql is applied.
-
-\set ON_ERROR_STOP on
+-- Supabase SQL Editor: run this file as plain SQL (no psql meta-commands).
+-- psql CLI (optional): \set ON_ERROR_STOP on  — then \i this file
 
 DO $$
 BEGIN

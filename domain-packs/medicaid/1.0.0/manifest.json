@@ -1,0 +1,84 @@
+{
+  "contract_version": "domain-pack-manifest@2",
+  "pack_id": "medicaid",
+  "pack_version": "1.0.0",
+  "review_status": "reviewed",
+  "jurisdictions": ["US-state"],
+  "public_surfaces": [
+    {
+      "domain_id": "medicaid",
+      "label": "Medicaid",
+      "short_label": "Medicaid",
+      "front_page": {
+        "executable": false,
+        "pill_tone": "medicaid",
+        "placeholder": "I got a denial letter. What was denied, why, and when do I need to respond?"
+      },
+      "starter_suggestions": [
+        {
+          "title": "Understand a denial letter",
+          "fill": "Explain this denial letter: what was denied, why, and the deadline to respond."
+        }
+      ]
+    }
+  ],
+  "domains": [
+    {
+      "domain_id": "medicaid",
+      "label": "Medicaid",
+      "vocabulary_fields": [
+        {
+          "field_key": "member_id",
+          "title": "Member ID",
+          "value_type": "string",
+          "reusable": true,
+          "evidence_required": true
+        }
+      ]
+    }
+  ],
+  "document_types": [
+    {
+      "document_type_id": "medicaid.denial_letter",
+      "domain_id": "medicaid",
+      "label": "Medicaid denial letter",
+      "match": {
+        "title_patterns": ["notice of denial", "denial letter", "adverse benefit determination"],
+        "title_only_patterns": ["notice of denial", "denial letter"],
+        "keywords": ["medicaid", "denied", "appeal", "deadline"],
+        "body_keywords": ["medicaid", "denied", "appeal", "deadline"],
+        "disambiguation_priority": 8
+      },
+      "checklist": ["document_header", "denial_detail"],
+      "ordering_date_field": "document_header.document_date"
+    }
+  ],
+  "record_types": [
+    {
+      "record_type_id": "document_header",
+      "label": "Document header",
+      "repeatable": false,
+      "identity": { "scope": "document", "key_fields": [] },
+      "fields": [
+        { "field_id": "document_date", "value_kind": "date" },
+        { "field_id": "title", "value_kind": "text" }
+      ]
+    },
+    {
+      "record_type_id": "denial_detail",
+      "label": "Denial detail",
+      "repeatable": true,
+      "identity": { "scope": "document", "key_fields": ["service_or_item"] },
+      "fields": [
+        { "field_id": "service_or_item", "value_kind": "text" },
+        { "field_id": "denial_reason", "value_kind": "text" },
+        { "field_id": "appeal_deadline", "value_kind": "date" }
+      ]
+    }
+  ],
+  "constructs": {},
+  "relationship_rules": {},
+  "reading_notes": {
+    "global": "Quote each denial reason verbatim; do not infer appeal rights not stated in the document."
+  }
+}

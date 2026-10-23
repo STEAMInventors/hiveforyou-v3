@@ -1,5 +1,9 @@
 export type ReasoningJsonRequest = {
-  task: "classify_document" | "generate_schema" | "supplement_schema";
+  task:
+    | "classify_document"
+    | "generate_schema"
+    | "supplement_schema"
+    | "plan_questions_decompose";
   systemPrompt: string;
   userPayload: Record<string, unknown>;
   correlationId?: string;

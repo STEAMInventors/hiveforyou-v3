@@ -7,6 +7,7 @@ export {
   type CandidateFieldV1,
   type ClassificationCandidateV1,
   type DocumentClassificationV1,
+  type ExtractionFieldGuidanceV1,
   type ExtractionSchemaFieldV1,
   type ExtractionSchemaProvenanceV1,
   type ExtractionSchemaV1,

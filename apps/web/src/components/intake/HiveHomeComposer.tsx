@@ -8,58 +8,40 @@ import {
   PURPOSE_DESCRIBED_PLACEHOLDER,
 } from "@/lib/intake/intake-work-purpose";
 import { formatFileSize } from "@/lib/format-file-metadata";
+import {
+  listPublicDomainPacks,
+  type DomainPackPublicDomain,
+} from "@/lib/domain-packs/public-metadata";
 import { ACCEPTED_UPLOAD_MIME } from "@/lib/upload-constants";
 
-const ROUTABLE_PACKS = [
-  { domainId: "iep", label: "Special Education / IEP", executable: true },
-  { domainId: "medicaid", label: "Medicaid", executable: false },
-  { domainId: "bankruptcy", label: "Bankruptcy", executable: false },
-] as const;
-
-const DOMAIN_PLACEHOLDERS: Record<string, string> = {
-  iep: "My child’s IEP meeting is next week. What changed from last year, and what should I ask?",
-  medicaid: "I got a denial letter. What was denied, why, and when do I need to respond?",
-  bankruptcy: "Sort my statements and notices so my lawyer sees the full picture.",
-};
+const PUBLIC_DOMAIN_PACKS = listPublicDomainPacks();
 
 const STARTER_SUGGESTIONS = [
-  {
-    title: "Prepare for an IEP meeting",
-    domainId: "iep" as const,
-    fill: "Help me prepare for my child’s IEP meeting. What changed from the last IEP?",
-  },
-  {
-    title: "Understand a denial letter",
-    domainId: "medicaid" as const,
-    fill: "Explain this denial letter: what was denied, why, and the deadline to respond.",
-  },
-  {
-    title: "Get ready for a lawyer",
-    domainId: "bankruptcy" as const,
-    fill: "Organize these documents for my bankruptcy consult and flag anything missing.",
-  },
+  ...PUBLIC_DOMAIN_PACKS.flatMap((pack) =>
+    (pack.starter_suggestions.length > 0
+      ? pack.starter_suggestions.slice(0, 1)
+      : []
+    ).map((suggestion) => ({
+      title: suggestion.title,
+      domainId: pack.domain_id,
+      fill: suggestion.fill,
+    })),
+  ),
   {
     title: "Review an agreement",
-    domainId: null,
+    domainId: null as string | null,
     fill: "List the services, amounts, and dates this agreement commits to.",
   },
-] as const;
+];
 
-function shortDomainLabel(domainId: string, fullLabel: string): string {
-  if (domainId === "iep") return "IEP";
-  if (domainId === "medicaid") return "Medicaid";
-  if (domainId === "bankruptcy") return "Bankruptcy";
-  const segment = fullLabel.split("/")[0]?.trim();
-  return segment && segment.length <= 24 ? segment : fullLabel;
-}
-
-function domainPillClass(domainId: string, selected: boolean): string {
+function domainPillClass(pack: DomainPackPublicDomain, selected: boolean): string {
+  const tone = pack.pill_tone ?? "default";
   const base =
     "start-dpill rounded-full px-3.5 py-2 text-[13.5px] font-medium min-h-10 cursor-pointer ";
   if (selected) {
     return `${base} border border-[#0D0D0D] bg-[#0D0D0D] text-white`;
   }
-  return `${base} start-dpill-${domainId} border border-[#E3E3E3] bg-white text-[#3C4043]`;
+  return `${base} start-dpill-${tone} border border-[#E3E3E3] bg-white text-[#3C4043]`;
 }
 
 export type HiveComposerSubmit = {
@@ -86,7 +68,7 @@ export function HiveHomeComposer({ onSubmit, busy = false }: HiveHomeComposerPro
 
   const selectedPack =
     selectedDomainId !== null
-      ? ROUTABLE_PACKS.find((pack) => pack.domainId === selectedDomainId)
+      ? PUBLIC_DOMAIN_PACKS.find((pack) => pack.domain_id === selectedDomainId)
       : null;
   const explicitDomainReady =
     selectedDomainId !== null && (selectedPack?.executable ?? false);
@@ -94,10 +76,7 @@ export function HiveHomeComposer({ onSubmit, busy = false }: HiveHomeComposerPro
   const canSubmit =
     attachments.length > 0 && (explicitDomainReady || isDescribedIntentReady(rawIntent));
 
-  const placeholder =
-    selectedDomainId && DOMAIN_PLACEHOLDERS[selectedDomainId]
-      ? DOMAIN_PLACEHOLDERS[selectedDomainId]
-      : PURPOSE_DESCRIBED_PLACEHOLDER;
+  const placeholder = selectedPack?.placeholder ?? PURPOSE_DESCRIBED_PLACEHOLDER;
 
   const handleSubmit = () => {
     if (!canSubmit || busy) {
@@ -205,33 +184,33 @@ export function HiveHomeComposer({ onSubmit, busy = false }: HiveHomeComposerPro
                 <line className="arm-l" x1="12" y1="12" x2="5" y2="12" />
               </svg>
             </button>
-            {ROUTABLE_PACKS.map((pack) => {
-              const selected = selectedDomainId === pack.domainId;
+            {PUBLIC_DOMAIN_PACKS.map((pack) => {
+              const selected = selectedDomainId === pack.domain_id;
               if (!pack.executable) {
                 return (
                   <button
-                    key={pack.domainId}
+                    key={pack.domain_id}
                     type="button"
                     disabled
                     title="Coming Soon"
-                    data-testid={`hive-composer-domain-${pack.domainId}`}
+                    data-testid={`hive-composer-domain-${pack.domain_id}`}
                     aria-pressed={false}
-                    className={`${domainPillClass(pack.domainId, false)} cursor-not-allowed opacity-50`}
+                    className={`${domainPillClass(pack, false)} cursor-not-allowed opacity-50`}
                   >
-                    {shortDomainLabel(pack.domainId, pack.label)}
+                    {pack.short_label}
                   </button>
                 );
               }
               return (
                 <button
-                  key={pack.domainId}
+                  key={pack.domain_id}
                   type="button"
-                  data-testid={`hive-composer-domain-${pack.domainId}`}
+                  data-testid={`hive-composer-domain-${pack.domain_id}`}
                   aria-pressed={selected}
-                  className={domainPillClass(pack.domainId, selected)}
-                  onClick={() => toggleDomain(pack.domainId, pack.executable)}
+                  className={domainPillClass(pack, selected)}
+                  onClick={() => toggleDomain(pack.domain_id, pack.executable)}
                 >
-                  {shortDomainLabel(pack.domainId, pack.label)}
+                  {pack.short_label}
                 </button>
               );
             })}
@@ -265,7 +244,9 @@ export function HiveHomeComposer({ onSubmit, busy = false }: HiveHomeComposerPro
                 setRawIntent(suggestion.fill);
                 return;
               }
-              const pack = ROUTABLE_PACKS.find((row) => row.domainId === suggestion.domainId);
+              const pack = PUBLIC_DOMAIN_PACKS.find(
+                (row) => row.domain_id === suggestion.domainId,
+              );
               if (pack?.executable) {
                 setSelectedDomainId(suggestion.domainId);
               } else {

@@ -13,6 +13,7 @@ type ServerLogFields = {
   diagnostic_detail?: string;
   hive_id?: string;
   deletion_stage?: string;
+  study_run_id?: string;
 };
 
 export function logServerEvent(fields: ServerLogFields): void {
