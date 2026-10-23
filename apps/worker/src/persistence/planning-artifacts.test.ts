@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  parseStudyPlanV1,
+  parseStudyQuestionCoverageV1,
+  parseStudyQuestionSetV1,
   STUDY_PLAN_KIND,
   STUDY_QUESTION_COVERAGE_KIND,
   STUDY_QUESTION_SET_KIND,
@@ -98,6 +101,48 @@ function buildCoverage(questionSetHash: string): StudyQuestionCoverageV1 {
       },
     ],
   };
+}
+
+/** Simulates PostgreSQL JSONB normalization (key reordering) on nested objects. */
+function simulatePostgresJsonbKeyReorder(value: unknown): unknown {
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => simulatePostgresJsonbKeyReorder(item));
+  }
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).sort().reverse();
+  const reordered: Record<string, unknown> = {};
+  for (const key of keys) {
+    reordered[key] = simulatePostgresJsonbKeyReorder(record[key]);
+  }
+  return reordered;
+}
+
+function contractNormalizedSha256(payload: unknown, kind: string): string {
+  if (kind === STUDY_QUESTION_SET_KIND) {
+    const parsed = parseStudyQuestionSetV1(payload);
+    if (!parsed.ok) {
+      throw new Error(parsed.message);
+    }
+    return sha256JsonPayload(parsed.value);
+  }
+  if (kind === STUDY_PLAN_KIND) {
+    const parsed = parseStudyPlanV1(payload);
+    if (!parsed.ok) {
+      throw new Error(parsed.message);
+    }
+    return sha256JsonPayload(parsed.value);
+  }
+  if (kind === STUDY_QUESTION_COVERAGE_KIND) {
+    const parsed = parseStudyQuestionCoverageV1(payload);
+    if (!parsed.ok) {
+      throw new Error(parsed.message);
+    }
+    return sha256JsonPayload(parsed.value);
+  }
+  throw new Error(`unsupported kind ${kind}`);
 }
 
 function artifactRow(
@@ -278,5 +323,128 @@ describe("planning artifact persistence", () => {
       putStudyQuestionSetArtifact({ rpc }, { studyRunId: STUDY_RUN_ID, payload: questionSet }),
     ).rejects.toBeInstanceOf(PlanningArtifactPersistenceError);
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  describe("JSONB round-trip integrity", () => {
+    it.each([
+      [STUDY_QUESTION_SET_KIND, () => buildQuestionSet()],
+      [STUDY_PLAN_KIND, () => buildPlan(buildQuestionSet().content_hash)],
+      [STUDY_QUESTION_COVERAGE_KIND, () => buildCoverage(buildQuestionSet().content_hash)],
+    ] as const)("accepts %s after JSONB key reorder on payload_jsonb", async (kind, buildPayload) => {
+      const payload = buildPayload();
+      const content_sha256 = contractNormalizedSha256(payload, kind);
+      const reordered = simulatePostgresJsonbKeyReorder(payload);
+      expect(sha256JsonPayload(reordered)).not.toBe(content_sha256);
+
+      const questionSet = buildQuestionSet();
+      const qsContentSha256 = contractNormalizedSha256(questionSet, STUDY_QUESTION_SET_KIND);
+      const qsRow = artifactRow(
+        STUDY_QUESTION_SET_KIND,
+        simulatePostgresJsonbKeyReorder(questionSet),
+        { content_sha256: qsContentSha256 },
+      );
+      const row = artifactRow(kind, reordered, { content_sha256 });
+
+      const rpc = vi.fn(async (fn: string, args?: Record<string, unknown>) => {
+        if (fn !== "hive3_p1p_worker_get_run_artifact") {
+          return { data: null, error: { message: "unexpected rpc" } };
+        }
+        const artifactKind = args?.p_artifact_kind as string;
+        if (artifactKind === kind) {
+          return { data: row, error: null };
+        }
+        if (artifactKind === STUDY_QUESTION_SET_KIND) {
+          return { data: qsRow, error: null };
+        }
+        return { data: null, error: { message: "artifact_not_found" } };
+      });
+      const client = { rpc };
+
+      if (kind === STUDY_QUESTION_SET_KIND) {
+        await expect(getStudyQuestionSetArtifact(client, { studyRunId: STUDY_RUN_ID })).resolves.toEqual(payload);
+        return;
+      }
+      if (kind === STUDY_PLAN_KIND) {
+        await expect(getStudyPlanArtifact(client, { studyRunId: STUDY_RUN_ID })).resolves.toEqual(payload);
+        return;
+      }
+      await expect(getStudyQuestionCoverageArtifact(client, { studyRunId: STUDY_RUN_ID })).resolves.toEqual(payload);
+    });
+
+    it("rejects semantically tampered payload after JSONB reorder", async () => {
+      const questionSet = buildQuestionSet();
+      const content_sha256 = contractNormalizedSha256(questionSet, STUDY_QUESTION_SET_KIND);
+      const tampered = simulatePostgresJsonbKeyReorder({
+        ...questionSet,
+        merged_questions: [
+          {
+            ...questionSet.merged_questions[0]!,
+            display_label: "Tampered after storage",
+          },
+        ],
+      });
+      const row = artifactRow(STUDY_QUESTION_SET_KIND, tampered, { content_sha256 });
+      const rpc = vi.fn().mockResolvedValue({ data: row, error: null });
+      await expect(
+        getStudyQuestionSetArtifact({ rpc }, { studyRunId: STUDY_RUN_ID }),
+      ).rejects.toBeInstanceOf(PlanningArtifactPersistenceError);
+    });
+
+    it("rejects invalid stored contract before content_sha256 check", async () => {
+      const row = artifactRow(STUDY_QUESTION_SET_KIND, { contract_version: STUDY_QUESTION_SET_KIND }, {
+        content_sha256: "e".repeat(64),
+      });
+      const rpc = vi.fn().mockResolvedValue({ data: row, error: null });
+      await expect(
+        getStudyQuestionSetArtifact({ rpc }, { studyRunId: STUDY_RUN_ID }),
+      ).rejects.toSatisfy((err: unknown) => {
+        expect(err).toBeInstanceOf(PlanningArtifactPersistenceError);
+        expect((err as PlanningArtifactPersistenceError).message).not.toBe(
+          "Stored artifact content_sha256 does not match payload.",
+        );
+        return true;
+      });
+    });
+  });
+
+  it("persists study plan after question set survived JSONB normalization on read", async () => {
+    const questionSet = buildQuestionSet();
+    const content_sha256 = contractNormalizedSha256(questionSet, STUDY_QUESTION_SET_KIND);
+    const reorderedQuestionSet = simulatePostgresJsonbKeyReorder(questionSet);
+    const qsRow = artifactRow(STUDY_QUESTION_SET_KIND, reorderedQuestionSet, { content_sha256 });
+
+    const plan = buildPlan(questionSet.content_hash);
+    const store = new Map<string, ReturnType<typeof artifactRow>>();
+
+    const rpc = vi.fn(async (fn: string, args?: Record<string, unknown>) => {
+      if (fn === "hive3_p1p_worker_get_run_artifact") {
+        const artifactKind = args?.p_artifact_kind as string;
+        if (artifactKind === STUDY_QUESTION_SET_KIND) {
+          return { data: qsRow, error: null };
+        }
+        const key = `${args?.p_study_run_id}:${artifactKind}:${args?.p_revision ?? 1}`;
+        const row = store.get(key);
+        if (!row) {
+          return { data: null, error: { message: "artifact_not_found" } };
+        }
+        return { data: row, error: null };
+      }
+      if (fn === "hive3_p1p_worker_put_run_artifact") {
+        const kind = args?.p_artifact_kind as string;
+        const key = `${args?.p_study_run_id}:${kind}:${args?.p_revision ?? 1}`;
+        const hash = args?.p_content_sha256 as string;
+        const row = artifactRow(kind, args?.p_payload_jsonb, {
+          content_sha256: hash,
+          artifact_kind: kind,
+          contract_version: args?.p_contract_version as string,
+        });
+        store.set(key, row);
+        return { data: row, error: null };
+      }
+      return { data: null, error: { message: "unexpected rpc" } };
+    });
+
+    await putStudyPlanArtifact({ rpc }, { studyRunId: STUDY_RUN_ID, payload: plan });
+    expect(store.has(`${STUDY_RUN_ID}:${STUDY_PLAN_KIND}:1`)).toBe(true);
   });
 });

@@ -47,11 +47,44 @@ function assertQuestionSetContentHash(payload: StudyQuestionSetV1): void {
   }
 }
 
+function parseStoredPlanningPayload(
+  expectedKind: string,
+  payload: unknown,
+): StudyQuestionSetV1 | StudyPlanV1 | StudyQuestionCoverageV1 {
+  switch (expectedKind) {
+    case STUDY_QUESTION_SET_KIND: {
+      const parsed = parseStudyQuestionSetV1(payload);
+      if (!parsed.ok) {
+        throw new PlanningArtifactPersistenceError(parsed.message, ErrorCode.INVALID_REQUEST);
+      }
+      return parsed.value;
+    }
+    case STUDY_PLAN_KIND: {
+      const parsed = parseStudyPlanV1(payload);
+      if (!parsed.ok) {
+        throw new PlanningArtifactPersistenceError(parsed.message, ErrorCode.INVALID_REQUEST);
+      }
+      return parsed.value;
+    }
+    case STUDY_QUESTION_COVERAGE_KIND: {
+      const parsed = parseStudyQuestionCoverageV1(payload);
+      if (!parsed.ok) {
+        throw new PlanningArtifactPersistenceError(parsed.message, ErrorCode.INVALID_REQUEST);
+      }
+      return parsed.value;
+    }
+    default:
+      throw new PlanningArtifactPersistenceError("Stored artifact kind or contract_version mismatch.");
+  }
+}
+
+/** Re-hash contract-normalized payload so JSONB key reordering on read does not false-fail integrity. */
 function assertStoredArtifactIntegrity(row: RunArtifactV1, expectedKind: string): void {
   if (row.artifact_kind !== expectedKind || row.contract_version !== expectedKind) {
     throw new PlanningArtifactPersistenceError("Stored artifact kind or contract_version mismatch.");
   }
-  const payloadHash = sha256JsonPayload(row.payload_jsonb);
+  const normalized = parseStoredPlanningPayload(expectedKind, row.payload_jsonb);
+  const payloadHash = sha256JsonPayload(normalized);
   if (payloadHash !== row.content_sha256.toLowerCase()) {
     throw new PlanningArtifactPersistenceError("Stored artifact content_sha256 does not match payload.");
   }
