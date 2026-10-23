@@ -67,15 +67,7 @@ function parseClassification(
   ) {
     throw invalidClassification("classification_quality");
   }
-  if (!Array.isArray(body.ambiguity_notes)) {
-    throw invalidClassification("ambiguity_notes");
-  }
-  const ambiguity_notes = body.ambiguity_notes.slice(0, 8).map((note) => {
-    if (typeof note !== "string" || !note.trim()) {
-      throw invalidClassification("ambiguity_notes");
-    }
-    return note.trim().slice(0, 200);
-  });
+  const ambiguity_notes = normalizeAmbiguityNotes(body.ambiguity_notes);
   if (!Array.isArray(body.detected_sections)) {
     throw invalidClassification("detected_sections");
   }
@@ -114,6 +106,30 @@ function parseClassification(
     ambiguity_notes,
     detected_sections,
   };
+}
+
+function normalizeAmbiguityNotes(value: unknown): string[] {
+  if (value === null || value === undefined) {
+    return [];
+  }
+  if (typeof value === "string") {
+    throw invalidClassification("ambiguity_notes");
+  }
+  if (!Array.isArray(value)) {
+    throw invalidClassification("ambiguity_notes");
+  }
+  const ambiguity_notes: string[] = [];
+  for (const note of value.slice(0, 8)) {
+    if (typeof note !== "string") {
+      throw invalidClassification("ambiguity_notes");
+    }
+    const trimmed = note.trim();
+    if (!trimmed) {
+      continue;
+    }
+    ambiguity_notes.push(trimmed.slice(0, 200));
+  }
+  return ambiguity_notes;
 }
 
 function nullableId(value: unknown, reason: string): string | null {

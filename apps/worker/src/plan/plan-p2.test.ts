@@ -6,7 +6,11 @@ import { ErrorCode } from "@hiveforyou/contracts/errors/v1";
 import type { DomainPackManifestV1 } from "@hiveforyou/contracts/domain-packs/v1";
 import { computeSchemaHash, parsePackManifest, computePackDigest } from "@hiveforyou/core";
 
-import { AMBIGUITY_MULTIPLE_DOMAINS, classifyDocument } from "./classify.js";
+import {
+  AMBIGUITY_MULTIPLE_DOMAINS,
+  AMBIGUITY_NO_STRONG_MATCH,
+  classifyDocument,
+} from "./classify.js";
 import { PlanningError } from "./errors.js";
 import { resolveDocumentClassification } from "./model-classify.js";
 import { planExtractionSchema, prepareExtractionPlan } from "./schema-plan.js";
@@ -485,6 +489,114 @@ describe("P2.2 schema planning", () => {
     expect(failure).toContain("corr-supplement-fail");
     expect(failure).toContain("hive-p2-reasoning");
     expect(failure).not.toContain("Annual Goal");
+  });
+
+  it("accepts missing, null, or empty model ambiguity_notes", async () => {
+    const pack = loadIepPack();
+    const pages = [
+      {
+        page_number: 1,
+        text: "Grocery Mart\nItem Qty Subtotal\nTax Total\nReceipt #123",
+      },
+    ];
+    const inconclusiveInput = {
+      source_document_id: "doc-ambiguity-empty",
+      filename: "receipt.jpg",
+      pages,
+      domain_hint: null,
+      packs: [pack.manifest],
+      correlation_id: "corr-ambiguity-empty",
+    };
+    const classifyPayload = {
+      domain_id: null,
+      document_type_id: null,
+      pack_id: null,
+      score: 0.1,
+      classification_quality: "low" as const,
+      detected_sections: [{ label: "Totals", page_start: 1, page_end: 1 }],
+    };
+
+    for (const ambiguity_notes of [undefined, null, []] as const) {
+      const resolved = await resolveDocumentClassification(
+        inconclusiveInput,
+        scriptedClient(() => ({
+          ...classifyPayload,
+          ambiguity_notes,
+        })),
+      );
+      expect(resolved.ambiguity_notes).toContain(AMBIGUITY_NO_STRONG_MATCH);
+    }
+  });
+
+  it("filters whitespace-only ambiguity notes and preserves trimmed valid notes", async () => {
+    const pack = loadIepPack();
+    const pages = [{ page_number: 1, text: "Unclassified workshop agenda" }];
+    const resolved = await resolveDocumentClassification(
+      {
+        source_document_id: "doc-ambiguity-trim",
+        filename: "agenda.txt",
+        pages,
+        domain_hint: null,
+        packs: [pack.manifest],
+      },
+      scriptedClient(() => ({
+        domain_id: null,
+        document_type_id: null,
+        pack_id: null,
+        score: 0.2,
+        classification_quality: "low" as const,
+        ambiguity_notes: ["  ", "\t", "  Pack signals conflict.  "],
+        detected_sections: [{ label: "Agenda", page_start: 1, page_end: 1 }],
+      })),
+    );
+    expect(resolved.ambiguity_notes).toContain("Pack signals conflict.");
+    expect(resolved.ambiguity_notes.some((note) => !note.trim())).toBe(false);
+  });
+
+  it("rejects scalar or non-string model ambiguity_notes", async () => {
+    const pack = loadIepPack();
+    const pages = [{ page_number: 1, text: "Unclassified workshop agenda" }];
+    const inconclusiveInput = {
+      source_document_id: "doc-ambiguity-bad",
+      filename: "agenda.txt",
+      pages,
+      domain_hint: null,
+      packs: [pack.manifest],
+    };
+    const classifyPayload = {
+      domain_id: null,
+      document_type_id: null,
+      pack_id: null,
+      score: 0.2,
+      classification_quality: "low" as const,
+      detected_sections: [{ label: "Agenda", page_start: 1, page_end: 1 }],
+    };
+
+    await expect(
+      resolveDocumentClassification(
+        inconclusiveInput,
+        scriptedClient(() => ({
+          ...classifyPayload,
+          ambiguity_notes: "single note",
+        })),
+      ),
+    ).rejects.toMatchObject({
+      errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
+      diagnostics: { reason: "ambiguity_notes" },
+    });
+
+    await expect(
+      resolveDocumentClassification(
+        inconclusiveInput,
+        scriptedClient(() => ({
+          ...classifyPayload,
+          ambiguity_notes: ["valid note", 42],
+        })),
+      ),
+    ).rejects.toMatchObject({
+      errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
+      diagnostics: { reason: "ambiguity_notes" },
+    });
   });
 
   it("records ambiguity without forcing domain on mixed signals", async () => {
