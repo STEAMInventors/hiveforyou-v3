@@ -18,7 +18,7 @@ import {
   type AtomicQuestionProposalV1,
 } from "./question-decompose-model.js";
 import type { ReasoningJsonClient } from "../reasoning/types.js";
-import { computeStudyQuestionSetContentHash } from "../persistence/planning-artifacts.js";
+import { finalizeStudyQuestionSet } from "../persistence/study-question-set-digest.js";
 
 export const QUESTION_PLANNER_VERSION = "p2.2-dp.i@1" as const;
 
@@ -213,7 +213,7 @@ export async function buildStudyQuestionSet(input: {
 
   const frozen_at = new Date().toISOString();
   const text_hash = hashIntentText(input.intentText);
-  const withoutHash = {
+  const withoutHash: Omit<StudyQuestionSetV1, "content_hash"> = {
     contract_version: STUDY_QUESTION_SET_KIND,
     study_run_id: input.studyRunId.toLowerCase(),
     intent_id: input.intentId.toLowerCase(),
@@ -223,10 +223,14 @@ export async function buildStudyQuestionSet(input: {
     merged_questions,
     investigation_bindings,
     deduplication_log,
-    pack_id: input.pack?.manifest.pack_id ?? null,
-    pack_version: input.pack?.manifest.pack_version ?? null,
+    ...(input.pack
+      ? {
+          pack_id: input.pack.manifest.pack_id,
+          pack_version: input.pack.manifest.pack_version,
+        }
+      : {}),
   };
-  const content_hash = computeStudyQuestionSetContentHash(withoutHash);
+  const questionSet = finalizeStudyQuestionSet(withoutHash);
 
   console.info(
     JSON.stringify({
@@ -239,9 +243,9 @@ export async function buildStudyQuestionSet(input: {
       merged_count: merged_questions.length,
       catalog_count: catalogSelected.length,
       pack_digest_prefix: input.pack?.digest?.slice(0, 12) ?? null,
-      content_hash_prefix: content_hash.slice(0, 12),
+      content_hash_prefix: questionSet.content_hash.slice(0, 12),
     }),
   );
 
-  return { ...withoutHash, content_hash };
+  return questionSet;
 }

@@ -9,6 +9,7 @@ import {
 } from "@hiveforyou/contracts/study-runs/v1";
 
 import { sha256JsonPayload } from "./artifact-json-hash.js";
+import { computeStudyQuestionSetContentHash } from "./study-question-set-digest.js";
 import {
   getStudyPlanArtifact,
   getStudyQuestionCoverageArtifact,
@@ -22,12 +23,6 @@ import { StudyRunPersistenceError } from "./study-run-persistence.js";
 
 const STUDY_RUN_ID = "11111111-1111-4111-8111-111111111111";
 const INTENT_ID = "22222222-2222-4222-8222-222222222222";
-
-function computeQuestionSetContentHash(
-  payload: Omit<StudyQuestionSetV1, "content_hash">,
-): string {
-  return sha256JsonPayload(payload);
-}
 
 function buildQuestionSet(overrides: Partial<StudyQuestionSetV1> = {}): StudyQuestionSetV1 {
   const { content_hash: contentHashOverride, ...restOverrides } = overrides;
@@ -57,7 +52,7 @@ function buildQuestionSet(overrides: Partial<StudyQuestionSetV1> = {}): StudyQue
   const content_hash =
     typeof contentHashOverride === "string"
       ? contentHashOverride
-      : computeQuestionSetContentHash(base);
+      : computeStudyQuestionSetContentHash(base);
   return { ...base, content_hash };
 }
 

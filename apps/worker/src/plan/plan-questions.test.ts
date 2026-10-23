@@ -130,7 +130,7 @@ describe("buildStudyQuestionSet", () => {
         },
       ]),
     });
-    expect(questionSet.pack_id).toBeNull();
+    expect(questionSet.pack_id).toBeUndefined();
     expect(questionSet.merged_questions).toHaveLength(1);
     expect(questionSet.investigation_bindings).toHaveLength(0);
   });

@@ -19,13 +19,9 @@ import {
   workerGetRunArtifact,
   type StudyRunPersistenceClient,
 } from "./study-run-persistence.js";
+import { studyQuestionSetSemanticDigest } from "./study-question-set-digest.js";
 
-/** Semantic digest for `study-question-set@1` (`content_hash`; excludes the hash field itself). */
-export function computeStudyQuestionSetContentHash(
-  payload: Omit<StudyQuestionSetV1, "content_hash">,
-): string {
-  return sha256JsonPayload(payload);
-}
+export { computeStudyQuestionSetContentHash } from "./study-question-set-digest.js";
 
 export class PlanningArtifactPersistenceError extends Error {
   constructor(
@@ -44,13 +40,8 @@ function assertStudyRunBinding(payloadStudyRunId: string, studyRunId: string): v
   }
 }
 
-function questionSetSemanticDigest(payload: StudyQuestionSetV1): string {
-  const { content_hash: _ignored, ...rest } = payload;
-  return sha256JsonPayload(rest);
-}
-
 function assertQuestionSetContentHash(payload: StudyQuestionSetV1): void {
-  const computed = questionSetSemanticDigest(payload);
+  const computed = studyQuestionSetSemanticDigest(payload);
   if (computed !== payload.content_hash.toLowerCase()) {
     throw new PlanningArtifactPersistenceError("content_hash does not match canonical question set digest.");
   }
