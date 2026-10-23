@@ -28,6 +28,7 @@ describe("LiteLLM reasoning client", () => {
     const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
       const body = JSON.parse(String(init.body));
       expect(body.model).toBe("hive-p2-reasoning");
+      expect(body.max_tokens).toBe(4096);
       expect(body.metadata).toEqual({
         correlation_id: "corr-9",
         task: "classify_document",
@@ -97,7 +98,69 @@ describe("LiteLLM reasoning client", () => {
         systemPrompt: "return json",
         userPayload: {},
       }),
-    ).rejects.toMatchObject({ errorCode: ErrorCode.MODEL_OUTPUT_INVALID });
+    ).rejects.toMatchObject({
+      errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
+      diagnostics: { reason: "message_content_invalid_json" },
+    });
+  });
+
+  it("accepts JSON delivered via tool_calls when content is null", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        status: 200,
+        ok: true,
+        async json() {
+          return {
+            choices: [
+              {
+                message: {
+                  content: null,
+                  tool_calls: [
+                    {
+                      function: {
+                        arguments: JSON.stringify({ atomic_questions: [] }),
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          };
+        },
+      })),
+    );
+    const client = createLiteLlmReasoningClient(configured);
+    const result = await client.completeJson({
+      task: "plan_questions_decompose",
+      systemPrompt: "return json",
+      userPayload: { intent_text: "test" },
+    });
+    expect(result.parsed).toEqual({ atomic_questions: [] });
+  });
+
+  it("maps a non-JSON gateway body", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        status: 200,
+        ok: true,
+        async json() {
+          throw new SyntaxError("Unexpected token");
+        },
+      })),
+    );
+    const client = createLiteLlmReasoningClient(configured);
+    await expect(
+      client.completeJson({
+        task: "generate_schema",
+        systemPrompt: "return json",
+        userPayload: {},
+      }),
+    ).rejects.toMatchObject({
+      errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
+      diagnostics: { reason: "gateway_response_not_json" },
+    });
   });
 
   it("maps timeouts without retrying", async () => {

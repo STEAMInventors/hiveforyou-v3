@@ -11,7 +11,10 @@ import {
   asPersistenceClient,
   createWorkerServiceClient,
 } from "../../persistence/supabase-service-client.js";
-import { workerTransitionStudyRun } from "../../persistence/study-run-persistence.js";
+import {
+  StudyRunPersistenceError,
+  workerTransitionStudyRun,
+} from "../../persistence/study-run-persistence.js";
 import { workerInngest } from "../client.js";
 import { logWorkerEvent } from "../log.js";
 
@@ -47,13 +50,23 @@ export async function markRunFailedAfterInngestRetries(
   data: StudyRunQueuedEventDataV1,
 ): Promise<void> {
   const supabase = createWorkerServiceClient();
-  await workerTransitionStudyRun(asPersistenceClient(supabase), {
-    studyRunId: data.study_run_id,
-    status: StudyRunStatus.FAILED,
-    stage: StudyRunStage.FINALIZE,
-    errorCode: ErrorCode.DEPENDENCY_UNAVAILABLE,
-    errorMessageSafe: "Processing could not complete after several attempts.",
-  });
+  try {
+    await workerTransitionStudyRun(asPersistenceClient(supabase), {
+      studyRunId: data.study_run_id,
+      status: StudyRunStatus.FAILED,
+      stage: StudyRunStage.FINALIZE,
+      errorCode: ErrorCode.DEPENDENCY_UNAVAILABLE,
+      errorMessageSafe: "Processing could not complete after several attempts.",
+    });
+  } catch (error) {
+    if (
+      error instanceof StudyRunPersistenceError &&
+      error.boundary?.message_safe.includes("already finished")
+    ) {
+      return;
+    }
+    throw error;
+  }
 }
 
 export const processStudyRunInngestFunction = workerInngest.createFunction(

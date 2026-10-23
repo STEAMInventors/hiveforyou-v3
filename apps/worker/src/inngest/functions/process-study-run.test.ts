@@ -18,13 +18,15 @@ vi.mock("../../persistence/supabase-service-client.js", () => ({
   asPersistenceClient: (client: unknown) => client,
 }));
 
-vi.mock("../../persistence/study-run-persistence.js", () => ({
-  workerTransitionStudyRun: mocks.workerTransitionStudyRun,
-}));
+vi.mock("../../persistence/study-run-persistence.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../persistence/study-run-persistence.js")>();
+  return { ...actual, workerTransitionStudyRun: mocks.workerTransitionStudyRun };
+});
 
 const { processStudyRun, workerTransitionStudyRun } = mocks;
 
 import { ProcessStudyRunError } from "../../orchestration/process-study-run.js";
+import { StudyRunPersistenceError } from "../../persistence/study-run-persistence.js";
 
 const { executeProcessStudyRunForEvent, markRunFailedAfterInngestRetries } = await import(
   "./process-study-run.js"
@@ -89,5 +91,13 @@ describe("markRunFailedAfterInngestRetries", () => {
       errorCode: ErrorCode.DEPENDENCY_UNAVAILABLE,
       errorMessageSafe: "Processing could not complete after several attempts.",
     });
+  });
+
+  it("treats an already-terminal run as idempotent", async () => {
+    workerTransitionStudyRun.mockRejectedValue(
+      new StudyRunPersistenceError("hive3_p1p_worker_transition_study_run: study_run_terminal"),
+    );
+
+    await expect(markRunFailedAfterInngestRetries(eventData)).resolves.toBeUndefined();
   });
 });

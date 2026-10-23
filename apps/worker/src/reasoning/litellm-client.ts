@@ -1,6 +1,7 @@
 import { ErrorCode } from "@hiveforyou/contracts/errors/v1";
 
 import { PlanningError } from "../plan/errors.js";
+import { extractJsonFromLiteLlmCompletion } from "./litellm-completion-json.js";
 import type { ReasoningJsonClient, ReasoningJsonRequest } from "./types.js";
 
 const REQUEST_TIMEOUT_MS = 90_000;
@@ -51,6 +52,7 @@ export function createLiteLlmReasoningClient(
           },
           body: JSON.stringify({
             model: alias,
+            max_tokens: 4096,
             response_format: { type: "json_object" },
             metadata: {
               correlation_id: request.correlationId ?? null,
@@ -83,29 +85,19 @@ export function createLiteLlmReasoningClient(
         } catch {
           throw gatewayFailure(
             ErrorCode.MODEL_OUTPUT_INVALID,
-            "Model returned invalid JSON.",
-            { reason: "invalid_json", alias },
+            "Reasoning gateway returned a non-JSON response.",
+            { reason: "gateway_response_not_json", alias },
           );
         }
-        const content = readContent(data);
-        let parsed: unknown;
-        try {
-          parsed = typeof content === "string" ? JSON.parse(content) : content;
-        } catch {
+        const extracted = extractJsonFromLiteLlmCompletion(data);
+        if (!extracted.ok) {
           throw gatewayFailure(
             ErrorCode.MODEL_OUTPUT_INVALID,
             "Model returned invalid JSON.",
-            { reason: "invalid_json", alias },
+            { reason: extracted.reason, alias },
           );
         }
-        if (!parsed || typeof parsed !== "object") {
-          throw gatewayFailure(
-            ErrorCode.MODEL_OUTPUT_INVALID,
-            "Model returned invalid JSON.",
-            { reason: "invalid_json", alias },
-          );
-        }
-        return { parsed, alias, durationMs };
+        return { parsed: extracted.parsed, alias, durationMs };
       } catch (error) {
         if (error instanceof PlanningError) {
           throw error;
@@ -126,19 +118,4 @@ export function createLiteLlmReasoningClient(
       }
     },
   };
-}
-
-function readContent(data: unknown): unknown {
-  if (!data || typeof data !== "object") {
-    return undefined;
-  }
-  const choices = (data as { choices?: unknown }).choices;
-  if (!Array.isArray(choices) || !choices[0] || typeof choices[0] !== "object") {
-    return undefined;
-  }
-  const message = (choices[0] as { message?: unknown }).message;
-  if (!message || typeof message !== "object") {
-    return undefined;
-  }
-  return (message as { content?: unknown }).content;
 }
