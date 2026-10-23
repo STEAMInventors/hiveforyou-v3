@@ -3,7 +3,14 @@ import {
   type ErrorCodeType,
 } from "@hiveforyou/contracts/errors/v1";
 
-const SAFE_PLANNING_DIAGNOSTIC_KEYS = ["reason", "alias", "status", "duration_ms"] as const;
+const SAFE_PLANNING_DIAGNOSTIC_KEYS = [
+  "reason",
+  "alias",
+  "status",
+  "duration_ms",
+  "finish_reason",
+  "message_content_length",
+] as const;
 
 /** Allowlisted planning diagnostics safe for structured Worker logs (no prompts or document text). */
 export function pickSafePlanningDiagnostics(

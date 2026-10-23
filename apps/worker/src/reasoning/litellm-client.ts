@@ -1,10 +1,53 @@
 import { ErrorCode } from "@hiveforyou/contracts/errors/v1";
 
 import { PlanningError } from "../plan/errors.js";
-import { extractJsonFromLiteLlmCompletion } from "./litellm-completion-json.js";
+import {
+  extractJsonFromLiteLlmCompletion,
+  measureLiteLlmMessageContentLength,
+} from "./litellm-completion-json.js";
 import type { ReasoningJsonClient, ReasoningJsonRequest } from "./types.js";
 
 const REQUEST_TIMEOUT_MS = 90_000;
+
+const ALLOWED_FINISH_REASONS = new Set([
+  "stop",
+  "length",
+  "content_filter",
+  "tool_calls",
+  "function_call",
+]);
+
+function allowlistedFinishReason(data: unknown): string | null {
+  if (!data || typeof data !== "object") {
+    return null;
+  }
+  const choices = (data as { choices?: unknown }).choices;
+  if (!Array.isArray(choices) || !choices[0] || typeof choices[0] !== "object") {
+    return null;
+  }
+  const finishReason = (choices[0] as { finish_reason?: unknown }).finish_reason;
+  if (typeof finishReason !== "string" || !ALLOWED_FINISH_REASONS.has(finishReason)) {
+    return null;
+  }
+  return finishReason;
+}
+
+function modelOutputInvalidDiagnostics(
+  data: unknown,
+  reason: string,
+  alias: string,
+): Record<string, string | number | boolean | null> {
+  const diagnostics: Record<string, string | number | boolean | null> = { reason, alias };
+  const finishReason = allowlistedFinishReason(data);
+  if (finishReason) {
+    diagnostics.finish_reason = finishReason;
+  }
+  const contentLength = measureLiteLlmMessageContentLength(data);
+  if (contentLength !== null) {
+    diagnostics.message_content_length = contentLength;
+  }
+  return diagnostics;
+}
 
 function gatewayFailure(
   errorCode: typeof ErrorCode.MODEL_UNAVAILABLE | typeof ErrorCode.MODEL_TIMEOUT | typeof ErrorCode.MODEL_OUTPUT_INVALID | typeof ErrorCode.DEPENDENCY_UNAVAILABLE,
@@ -94,7 +137,7 @@ export function createLiteLlmReasoningClient(
           throw gatewayFailure(
             ErrorCode.MODEL_OUTPUT_INVALID,
             "Model returned invalid JSON.",
-            { reason: extracted.reason, alias },
+            modelOutputInvalidDiagnostics(data, extracted.reason, alias),
           );
         }
         return { parsed: extracted.parsed, alias, durationMs };

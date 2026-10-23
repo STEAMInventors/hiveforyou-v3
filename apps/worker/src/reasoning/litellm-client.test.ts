@@ -104,6 +104,81 @@ describe("LiteLLM reasoning client", () => {
     });
   });
 
+  it("includes allowlisted finish_reason and content length on JSON parse failure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        status: 200,
+        ok: true,
+        async json() {
+          return {
+            choices: [
+              {
+                finish_reason: "length",
+                message: { content: '{"truncated":' },
+              },
+            ],
+          };
+        },
+      })),
+    );
+    const client = createLiteLlmReasoningClient(configured);
+    await expect(
+      client.completeJson({
+        task: "plan_questions_decompose",
+        systemPrompt: "return json",
+        userPayload: {},
+      }),
+    ).rejects.toMatchObject({
+      errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
+      diagnostics: {
+        reason: "message_content_invalid_json",
+        finish_reason: "length",
+        message_content_length: 13,
+      },
+    });
+  });
+
+  it("omits non-allowlisted finish_reason from parse failure diagnostics", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        status: 200,
+        ok: true,
+        async json() {
+          return {
+            choices: [
+              {
+                finish_reason: "model_custom_stop",
+                message: { content: "not-json" },
+              },
+            ],
+          };
+        },
+      })),
+    );
+    const client = createLiteLlmReasoningClient(configured);
+    try {
+      await client.completeJson({
+        task: "generate_schema",
+        systemPrompt: "return json",
+        userPayload: {},
+      });
+      expect.fail("expected PlanningError");
+    } catch (error) {
+      expect(error).toMatchObject({
+        errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
+        diagnostics: {
+          reason: "message_content_invalid_json",
+          message_content_length: 8,
+        },
+      });
+      expect(
+        (error as { diagnostics: Record<string, unknown> }).diagnostics.finish_reason,
+      ).toBeUndefined();
+    }
+  });
+
   it("accepts JSON delivered via tool_calls when content is null", async () => {
     vi.stubGlobal(
       "fetch",
