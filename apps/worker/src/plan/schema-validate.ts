@@ -88,6 +88,7 @@ export function assertPlannedSchema(schema: ExtractionSchemaV1): void {
     intent_text: schema.intent_text,
     fields: schema.fields,
     provenance: schema.provenance,
+    field_guidance: schema.field_guidance,
   });
   if (expected !== schema.schema_hash || !/^[a-f0-9]{64}$/.test(schema.schema_hash)) {
     throw invalid("schema_hash", "Schema hash did not match the canonical field definition.");

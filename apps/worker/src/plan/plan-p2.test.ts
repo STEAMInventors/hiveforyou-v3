@@ -4,7 +4,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ErrorCode } from "@hiveforyou/contracts/errors/v1";
 import type { DomainPackManifestV1 } from "@hiveforyou/contracts/domain-packs/v1";
-import { computeSchemaHash, parsePackManifest, computePackDigest } from "@hiveforyou/core";
+import type { DomainPackManifestV2 } from "@hiveforyou/contracts/domain-packs/v2";
+import {
+  computeSchemaHash,
+  parsePackManifest,
+  computePackDigest,
+  normalizeDomainPackManifest,
+} from "@hiveforyou/core";
 
 import {
   AMBIGUITY_MULTIPLE_DOMAINS,
@@ -14,14 +20,24 @@ import {
 import { PlanningError } from "./errors.js";
 import { resolveDocumentClassification } from "./model-classify.js";
 import { planExtractionSchema, prepareExtractionPlan } from "./schema-plan.js";
+import { assertPlannedSchema } from "./schema-validate.js";
+import { L001_CORPUS } from "./l001-corpus.fixture.js";
 import type { ReasoningJsonClient, ReasoningJsonRequest } from "../reasoning/types.js";
 
 const repoRoot = join(process.cwd(), "../..");
 const iepManifestPath = join(repoRoot, "domain-packs/iep/1.0.0/manifest.json");
+const iepV2ManifestPath = join(repoRoot, "domain-packs/iep/2.0.0/manifest.json");
 
 function loadIepPack() {
   const bytes = readFileSync(iepManifestPath, "utf8");
   const manifest = parsePackManifest(JSON.parse(bytes));
+  return { manifest, digest: computePackDigest(bytes) };
+}
+
+function loadIepV2Pack(): { manifest: DomainPackManifestV2; digest: string } {
+  const bytes = readFileSync(iepV2ManifestPath, "utf8");
+  const parsed = parsePackManifest(JSON.parse(bytes));
+  const manifest = normalizeDomainPackManifest(parsed) as DomainPackManifestV2;
   return { manifest, digest: computePackDigest(bytes) };
 }
 
@@ -143,6 +159,70 @@ describe("P2.2 schema planning", () => {
         intent_text: schema.intent_text,
         fields: schema.fields,
         provenance: schema.provenance,
+        field_guidance: schema.field_guidance,
+      }),
+    );
+  });
+
+  it("validates schema hash for normalized IEP v2 iep.consent exact match", async () => {
+    const pack = loadIepV2Pack();
+    const consentDoc = L001_CORPUS.find((doc) => doc.expected_document_type_id === "iep.consent");
+    expect(consentDoc).toBeDefined();
+    const { schema } = await prepareExtractionPlan({
+      classificationInput: {
+        source_document_id: consentDoc!.source_document_id,
+        filename: consentDoc!.filename,
+        pages: consentDoc!.pages,
+        domain_hint: "iep",
+        packs: [pack.manifest],
+      },
+      intent_text: "Review document header student consent",
+      packs: [pack],
+      reasoning: refuseModel(),
+    });
+    expect(schema.provenance.match_tier).toBe("exact");
+    expect(schema.provenance.document_type_id).toBe("iep.consent");
+    expect(schema.field_guidance?.length).toBeGreaterThan(0);
+    expect(schema.schema_hash).toBe(
+      computeSchemaHash({
+        intent_text: schema.intent_text,
+        fields: schema.fields,
+        provenance: schema.provenance,
+        field_guidance: schema.field_guidance,
+      }),
+    );
+    assertPlannedSchema(schema);
+
+    const tamperedFields = {
+      ...schema,
+      fields: schema.fields.map((field, index) =>
+        index === 0 ? { ...field, title: `${field.title} (edited)` } : field,
+      ),
+    };
+    expect(() => assertPlannedSchema(tamperedFields)).toThrow(
+      expect.objectContaining({
+        errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
+        diagnostics: { reason: "schema_hash" },
+      }),
+    );
+
+    const tamperedGuidance = {
+      ...schema,
+      field_guidance: schema.field_guidance?.map((entry, index) =>
+        index === 0
+          ? {
+              ...entry,
+              reading_note: entry.reading_note
+                ? `${entry.reading_note} (edited)`
+                : "(edited)",
+            }
+          : entry,
+      ),
+    };
+    expect(() => assertPlannedSchema(tamperedGuidance)).toThrow(
+      expect.objectContaining({
+        errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
+        diagnostics: { reason: "schema_hash" },
       }),
     );
   });
