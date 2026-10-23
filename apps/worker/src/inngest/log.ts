@@ -7,6 +7,8 @@ export function logWorkerEvent(input: {
   error_code?: string;
   retryable?: boolean;
   diagnostic_detail?: string;
+  error_name?: string;
+  cause_safe?: string;
   inngest_connect_state?: string;
 }): void {
   // eslint-disable-next-line no-console
