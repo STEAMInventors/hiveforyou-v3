@@ -184,8 +184,9 @@
 
 | Ticket | Status | Blocked on |
 |--------|--------|------------|
+| **V3 Database-First Persistence — Plan Revision 2** | **PENDING (T2/T3 persistence **DECIDED** 2026-10-23 — §3.1.6; await implementation approval)** | User review of remaining §3.1.7 open items and Gate 2b+ implementation; active ticket unchanged |
 | **P2.2-DP.I** | **ACTIVE** (plan only) | Explicit implementation approval (prerequisites in repo) |
-| **P1.P Gate 3** | NOT_STARTED | Gate 2 repo; Canonical Study revision pointer |
+| **P1.P Gate 3** | NOT_STARTED | Gate 2 repo; Gate 2b/2c per Plan Revision 2 §3.1.2; Canonical Study promote RPC |
 | **P1.P Gate 2** | **IMPLEMENTED (repo) — live acceptance deferred** | Operator apply + eight live scenarios |
 | **P2.3** | ON HOLD | P2.2-DP repo acceptance; integrated path needs **P1.5-processing** |
 | **P3** (study / investigations) | NOT_STARTED | P2.3 + P1.P Gate 3 + P2.2-DP.I as scoped |

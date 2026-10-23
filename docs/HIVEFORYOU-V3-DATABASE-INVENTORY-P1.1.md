@@ -123,7 +123,7 @@ Product limits that are not columns in v0.1: `name` 1–100 characters, `descrip
 | | |
 |---|---|
 | **Keys** | `id uuid` PK. FK `source_document_id`. **`UNIQUE (source_document_id, page_number)`**. |
-| **Columns** | `page_number`, `text_storage_path` or bounded text (**open**, §6.3), `extraction_status`, `created_at`. No `hive_id` column. |
+| **Columns** | `page_number`, **`page_text`** (bounded, **T2 — PostgreSQL**), **`provenance_json jsonb`** (**T2**), `extraction_status`, `created_at`. No `hive_id` column. Gate SQL enforces per-page text bound (plan §3.1.6 / A4). |
 | **Relationships** | Many pages per document. Referenced by facts and fact evidence. |
 | **Ownership** | Transitive through `source_documents.hive_id`. |
 | **Lifecycle** | Created by extraction, not by the upload request itself. Rows are locators for quotes; replacement rules are unspecified. |
@@ -194,7 +194,7 @@ Product limits that are not columns in v0.1: `name` 1–100 characters, `descrip
 | | |
 |---|---|
 | **Keys** | `id uuid` PK. FK `canonical_study_id`. **`UNIQUE (canonical_study_id, revision_number)`**. FK `based_on_run_id` nullable. |
-| **Columns** | `revision_number`, `snapshot_json` **or** `snapshot_storage_path` (one, §6.4 open), `created_at`, `created_by`. |
+| **Columns** | `revision_number`, **`snapshot_json jsonb`** (**T3 — PostgreSQL**, bounded in Gate SQL), `created_at`, `created_by`. |
 | **Relationships** | Many revisions per study. Referenced by analyses and reports. |
 | **Ownership** | Hive of the study. |
 | **Lifecycle** | Insert only. Never overwrite snapshot bytes. Numbers increase by one. Reports keep their pinned revision after later merges. |
@@ -253,7 +253,7 @@ Product limits that are not columns in v0.1: `name` 1–100 characters, `descrip
 | | |
 |---|---|
 | **Keys** | `id uuid` PK. FKs `hive_id`, `study_revision_id`. Nullable FK `analysis_id`. |
-| **Columns** | `audience` (`customer`, `professional`), `request_json`, `created_by`, `status`, `output_storage_path` nullable, `created_at`. |
+| **Columns** | `audience` (`customer`, `professional`), `request_json`, `created_by`, `status`, **`output_json jsonb`** (persona report body — PostgreSQL, bounded), `export_storage_path` nullable (explicit export only), `created_at`. |
 | **Relationships** | Many reports per Hive and revision. Claims link to facts through `report_claim_evidence`. |
 | **Ownership** | Hive owner until sharing exists. Professional audience does not by itself grant another user access (OD-04 is about content, not membership). |
 | **Lifecycle** | Independent historical runs. A report stays pinned to its revision. Supported factual claims need provenance (OD-04). |
@@ -274,7 +274,7 @@ Product limits that are not columns in v0.1: `name` 1–100 characters, `descrip
 | Object | Keys / boundary | Lifecycle | When |
 |---|---|---|---|
 | `auth.users` | Supabase Auth primary key. Application does not copy a users table. | Register, session, email confirmation per environment (MD-04). OD-12: owned Hives cascade when this row is removed after the 30-day recovery window. The deletion job is a future ticket. | Milestone 1 auth. |
-| Private storage | One or more **private** buckets. Object names scoped by owner and Hive. Paths stored on documents, batches, revisions, and reports. Bucket **names are not approved**. | Upload commits object + `source_documents` together. Failed-run artifacts retained only under an approved duration (§6.5). No public buckets. | Document upload and later artifacts. **No bucket is documented as deployed.** |
+| Private storage | One or more **private** buckets. Object names scoped by owner and Hive. Paths on **original uploads** (`source_documents`), **T4** batch artifacts, and **optional report exports** — not extracted page text, revision snapshots, facts, or report JSON bodies (PostgreSQL per plan **§3.1.6**). Bucket **names are not approved**. | Upload commits object + `source_documents` together. Failed-run artifacts retained only under an approved duration (§6.5). No public buckets. | Document upload and later artifacts. **No bucket is documented as deployed.** |
 | Upload meter | **Not in the 16-table design.** OD-01: Free plan, **10 successful uploads per UTC calendar month across all Hives of the user**. Requirements put the exact columns at P1.2+. | A successful registration counts even if the study never runs. Soft-delete or hard-delete of a document must not erase the month’s count if the product rule is “successful registration”. | Before upload is enabled. See PC-08. |
 
 ## 5. `hive3.hives` drift assessment
@@ -449,8 +449,8 @@ Left open on purpose. Resolving them is the approval after this review, not a si
 | Whether My Hives hides `archived_at` rows | Unspecified | M1 list behavior at P1.4 |
 | `client_request_id` type `uuid` vs `text` | PC-03 | P1.2 `hives` SQL |
 | Fact row vs snapshot as source of truth | Design §6.2 | P3, not M1 |
-| Page text in-row vs object storage | Design §6.3 | P2 |
-| Large snapshot / report / raw model JSON in JSONB vs storage | Design §6.4 | P1.5+ artifacts |
+| ~~Page text in-row vs object storage~~ | **DECIDED 2026-10-23** — PostgreSQL T2; plan §3.1.6 | — |
+| ~~Large snapshot / report JSON vs storage~~ | **DECIDED 2026-10-23** — PostgreSQL JSONB (T3, facts, reports); T4/raw files in Storage only; plan §3.1.6 | — |
 | Professional sharing and `hive_members` | MD-05, §6.1, §6.6 | After M1 |
 | Duplicate `(hive_id, sha256)` | Design §2 `source_documents` | Upload SQL |
 | Eligible documents for full Study | Requirements §6.1, OD-07 | P1.5 coverage |

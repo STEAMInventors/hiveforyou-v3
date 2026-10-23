@@ -2,6 +2,8 @@
 
 **Status:** PROPOSED schema — do not execute this document as SQL. **Target:** Supabase PostgreSQL schema `hive3`. **Date:** 2026-10-20.
 
+**Plan Revision 2 (2026-10-23):** Executable gate order, architectural corrections (promote RPC, JSONB hashing, payload tiers, verification authority), and Reader/Documents UI acceptance live in **`docs/HIVEFORYOU-V3-DEVELOPMENT-PLAN-database-first-PROPOSED.md` §3.1**. **Persistence location (T2/T3, uploads, overflow):** **DECIDED 2026-10-23** in that plan **§3.1.6** — extracted pages, revision snapshots, verified facts, and persona report bodies in **PostgreSQL**; original files and T4 raw Reader blobs in **Storage** only. This file remains the table dictionary; sync column/RPC details from §3.1 when implementation is approved (§3.1.8).
+
 **Sequencing:** The database-first development plan was approved 2026-10-20. Table definitions in this file are still proposed. **Inventory and drift:** `docs/HIVEFORYOU-V3-DATABASE-INVENTORY-P1.1.md` (P1.1, ready for review). A user-reported manual `hive3.hives` object is not a migration baseline and was not independently catalogued in P1.1.
 
 ## 1. Design constraints
@@ -24,7 +26,7 @@
 | `hives` | Workspace boundary | `id uuid PK`, `owner_user_id uuid FK auth.users ON DELETE CASCADE` (OD-12; matches reported live FK), `name text NOT NULL`, `description text NULL`, `client_request_id text NOT NULL`, `created_at`, `updated_at`, `archived_at`, **`deleting_at`** (P1.7 permanent owner delete in progress); **`UNIQUE (owner_user_id, client_request_id)`** (create-Hive idempotency, P0.1 MD-01); index on `owner_user_id` |
 | `hive_members` | User/pro collaboration, **only when sharing is in MVP scope** | `hive_id FK`, `user_id FK auth.users`, `role enum/text CHECK(owner,editor,viewer,professional)`, `created_at`, composite PK; defer table creation until role policy approved |
 | `source_documents` | Registered uploads and immutable file identity | `id uuid PK`, `hive_id FK`, `uploaded_by uuid`, `filename`, `mime_type` (**OD-01:** PDF, PNG, JPG, DOCX initially), `byte_size`, `sha256`, `storage_path`, `status`, `created_at`, `deleted_at`; unique `(hive_id, sha256)` decision **open** (duplicate uploads may be legitimate) |
-| `document_pages` | Page-level text/OCR and stable evidence locators | `id uuid PK`, `source_document_id FK`, `page_number int`, `text_storage_path` (or bounded text, decision pending), `extraction_status`, `created_at`; unique `(source_document_id,page_number)` |
+| `document_pages` | Page-level text/OCR and stable evidence locators | `id uuid PK`, `source_document_id FK`, `page_number int`, **`page_text`** (bounded text, **T2 — PostgreSQL**), **`provenance_json jsonb`** (read method, OCR flags, content version — **T2**), `extraction_status`, `created_at`; unique `(source_document_id,page_number)`; Gate SQL enforces per-page text bound (see plan §3.1.6 / A4 T2) |
 | `intents` | User goals and clarifications within a Hive | `id uuid PK`, `hive_id FK`, `created_by`, `request_text`, `status`, `clarification_json jsonb`, `created_at`; multiple per Hive |
 
 ### B. Study processing (5)
@@ -35,7 +37,7 @@
 | `extraction_schemas` | Generated per-intent extraction specification (no registry) | `id uuid PK`, `hive_id FK`, `intent_id FK`, `schema_json jsonb`, `schema_hash`, `created_by_run_id FK`, `created_at`; validate JSON schema before use; immutable row |
 | `extraction_batches` | Which Reader call covered which source and schema | `id uuid PK`, `study_run_id FK`, `source_document_id FK`, `extraction_schema_id FK nullable`, `status`, `raw_artifact_path nullable`, `validated_artifact_path nullable`, `error_code nullable`, `created_at`; **`UNIQUE (study_run_id, source_document_id, extraction_schema_id)`** for idempotent retries |
 | `canonical_studies` | Exactly one logical Canonical Study per Hive | `id uuid PK`, `hive_id uuid UNIQUE FK`, `current_revision_id uuid nullable`, `created_at`, `updated_at`; pointer updated transactionally |
-| `study_revisions` | Immutable snapshots of study state and version history | `id uuid PK`, `canonical_study_id FK`, `revision_number int`, `based_on_run_id FK nullable`, `snapshot_json jsonb` **or** private `snapshot_storage_path`, `created_at`, `created_by`; unique `(canonical_study_id,revision_number)`; never overwrite snapshots |
+| `study_revisions` | Immutable snapshots of study state and version history | `id uuid PK`, `canonical_study_id FK`, `revision_number int`, `based_on_run_id FK nullable`, **`snapshot_json jsonb`** (**T3 — PostgreSQL**, bounded in Gate SQL), `created_at`, `created_by`; unique `(canonical_study_id,revision_number)`; never overwrite snapshots |
 
 ### C. Evidence and correction (3)
 
@@ -49,8 +51,8 @@
 
 | Table | Why it exists | Key columns / constraints |
 |---|---|---|
-| `analyses` | Intent-specific results attached to exact study revision | `id uuid PK`, `hive_id FK`, `intent_id FK`, `study_revision_id FK`, `created_by`, `result_json jsonb` or private artifact, `status`, `created_at`; each result pinned to a revision |
-| `reports` | Customer/professional-generated outputs (**OD-04:** evidence-backed findings + provenance) | `id uuid PK`, `hive_id FK`, `analysis_id FK nullable`, `study_revision_id FK`, `audience` (customer/pro), `request_json jsonb`, `created_by`, `status`, `output_storage_path nullable`, `created_at`; independent runs/history |
+| `analyses` | Intent-specific results attached to exact study revision | `id uuid PK`, `hive_id FK`, `intent_id FK`, `study_revision_id FK`, `created_by`, **`result_json jsonb`** (PostgreSQL, bounded), `status`, `created_at`; each result pinned to a revision |
+| `reports` | Customer/professional-generated outputs (**OD-04:** evidence-backed findings + provenance) | `id uuid PK`, `hive_id FK`, `analysis_id FK nullable`, `study_revision_id FK`, `audience` (customer/pro), `request_json jsonb`, `created_by`, `status`, **`output_json jsonb`** (persona report body — PostgreSQL, bounded), `export_storage_path nullable` (optional explicit PDF/export object only — not JSON overflow), `created_at`; independent runs/history |
 | `report_claim_evidence` | Auditable link from a report claim to verified facts | `report_id FK`, `claim_id text`, `fact_id FK`, composite PK; no validated claim without linked evidence/derivation |
 
 **Minimum initial migration recommendation:** implement ownership, uploads, intents, runs, schemas, one study/revisions, facts/evidence, and analyses/reports with explicit policy; `hive_members` is conditional on clarified MVP roles. Do not create unused extra tables simply to complete the inventory.
@@ -99,7 +101,7 @@ Hive archive (`archived_at`), **owner permanent deletion** (`deleting_at` + serv
 ## 4. Non-table database objects and invariants
 
 - `CREATE SCHEMA hive3`; keep it independent of existing `hive`/public V2 schemas. Never modify or backfill V2 tables implicitly.
-- **Private Storage**: bucket(s) for raw documents, Reader raw/validated artifacts, and exports; storage object names scoped by owner/hive; **bucket creation and storage policies are separate migration deliverables**.
+- **Private Storage**: bucket(s) for **original uploads** (`source_documents.storage_path`), **T4** Reader raw/validated candidate blobs (`extraction_batches.*_artifact_path`), and **optional explicit report exports** (`reports.export_storage_path`) — not extracted page text, study revision snapshots, verified facts, or persona report JSON bodies (those live in PostgreSQL per plan **§3.1.6**). Storage object names scoped by owner/hive; **bucket creation and storage policies are separate migration deliverables**.
 - **RLS (OD-02)**: enable and test on every browser-accessible table. Owner is derived by membership/`hives.owner_user_id`; no user can supply arbitrary `owner_user_id` to read another Hive. Storage objects scoped by owner/hive with policies matching relational access. Any service-role bypass confined to trusted Oracle Worker with explicit server-side ownership and Hive-scope checks.
 - **Cross-Hive integrity**: composite foreign keys or transaction-time validation for `hive_id` relationships so a report in Hive A cannot point to evidence in Hive B.
 - **Revision correctness**: one `canonical_studies` row per Hive; `current_revision_id` must belong to that study; revisions monotonically numbered and immutable; **insert revision and advance pointer in one transaction** (P0.2). Reconcile unknown commit by `study_revisions.based_on_run_id = study_run_id`.
@@ -123,8 +125,8 @@ Hive archive (`archived_at`), **owner permanent deletion** (`deleting_at` + serv
 
 1. **Access and sharing:** **M1 approved owner-only** (P0.1 MD-05); defer `hive_members` until professional/sharing policy is approved beyond M1.
 2. **Fact identity:** normalized subject/predicate/value rows vs full `snapshot_json` with evidence index; current recommendation is compact facts/evidence tables plus a projection snapshot, but avoid dual sources of truth.
-3. **Page text:** store bounded text in DB vs encrypted/private object storage; ensure exact quote/page verifier consistency.
-4. **Artifact sizing:** JSONB snapshots or private storage pointer for potentially large Canonical Studies, reports, raw model output.
+3. **Page text (T2):** **DECIDED 2026-10-23** — bounded **`document_pages.page_text`** and **`provenance_json`** in **PostgreSQL**; P2.3 quote verifier reads persisted row data. Oversize → **`PAYLOAD_TOO_LARGE`**, not Storage spillover. See **`docs/HIVEFORYOU-V3-DEVELOPMENT-PLAN-database-first-PROPOSED.md` §3.1.6** and A4.
+4. **Artifact sizing (T3, facts, reports, T4):** **DECIDED 2026-10-23** — **`study_revisions.snapshot_json`**, verified **`facts` / `fact_evidence`**, and persona **`analyses.result_json` / `reports.output_json`** in **PostgreSQL JSONB** with explicit gate bounds; **raw Reader model output** (T4) and **original files** in **Storage only**; same **no silent Storage redirect** for oversized JSONB. See plan **§3.1.6**.
 5. **Account deletion (OD-12):** **approved** 2026-10-20 — notification, 30-day retention, recovery, then permanent storage and database cleanup with a deletion audit. Processing waits for a future ticket. Milestone 1 keeps `hives.owner_user_id` **`ON DELETE CASCADE`** and adds no deletion tables. **Still open:** failed-run private-artifact retention duration (OD-06) and document-level delete versus physical object cleanup during ordinary Hive use.
 6. **Scoping:** how `created_by` and role-based report access work when professionals collaborate.
 7. **Idempotency and concurrency:** create-Hive idempotency on `hives (owner_user_id, client_request_id)` (P0.1 MD-01); delivery idempotency on `study_runs.idempotency_key` (resolved P0.2). **Concurrent runs per Hive** — implementation decision at P1.3/P1.5 (allow vs reject vs queue); not a P0 blocker.
@@ -134,7 +136,7 @@ Hive archive (`archived_at`), **owner permanent deletion** (`deleting_at` + serv
 
 ## 7. Database-first development plan amendment
 
-**Status:** Sequencing **approved** 2026-10-20 in `docs/HIVEFORYOU-V3-DEVELOPMENT-PLAN-database-first-PROPOSED.md`. The table definitions in this design file remain proposed. P1.1 inventory does not close the open decisions in §6, except account deletion, which OD-12 approved on 2026-10-20 (implementation still deferred). Don't run migrations before a reviewed P1.2 script is separately approved.
+**Status:** Sequencing **approved** 2026-10-20 in `docs/HIVEFORYOU-V3-DEVELOPMENT-PLAN-database-first-PROPOSED.md`. The table definitions in this design file remain proposed. **T2/T3 persistence location** and related overflow policy are **DECIDED 2026-10-23** (plan **§3.1.6**; design **§6.3–§6.4**). P1.1 inventory does not close remaining §6 items, except account deletion (OD-12, 2026-10-20) and T2/T3 (2026-10-23). Don't run migrations before a reviewed P1.2 script is separately approved.
 
 | New ticket | Objective | Gate |
 |---|---|---|
