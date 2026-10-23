@@ -37,8 +37,8 @@ The product must never infer “not performed” from “not documented in suppl
 flowchart TB
   User[Customer / authorized professional] --> Web[Next.js on Vercel: auth, uploads, intents, reports]
   Web --> S[(Supabase: Postgres, Auth, private Storage)]
-  Web --> I[Inngest: durable workflow and retries]
-  I --> W[Oracle TypeScript Worker: planning, verification, study, findings, writer]
+  Web --> I[Inngest: event publish + durable workflow and retries]
+  I -->|Connect outbound WebSocket| W[Oracle TypeScript Worker: planning, verification, study, findings, writer]
   W --> S
   W <-->|versioned internal HTTP and service auth| R[Oracle Python Reader: pages + candidate extraction]
   R --> S
@@ -47,7 +47,7 @@ flowchart TB
   L --> M[Approved configured models/providers]
 ```
 
-Inngest owns workflow retry scheduling; individual Worker/Reader calls have deadlines and do not independently create nested retry trees. Inngest events carry IDs and stage handles, not raw sensitive source text. Worker is the single database and canonical acceptance owner. Reader does not merge studies, make authoritative cross-document identity decisions or directly promote facts.
+Inngest owns workflow retry scheduling; individual Worker/Reader calls have deadlines and do not independently create nested retry trees. Vercel publishes study-run events; the **`hive3-process-study-run`** function registers on Oracle through **Inngest Connect** (no inbound Oracle URL or Worker token on Vercel). Inngest events carry IDs and stage handles, not raw sensitive source text. Worker is the single database and canonical acceptance owner. Reader does not merge studies, make authoritative cross-document identity decisions or directly promote facts.
 
 ### Stage contract (logical; not necessarily individual deployed endpoints)
 

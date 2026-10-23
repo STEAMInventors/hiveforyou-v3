@@ -7,6 +7,7 @@ import {
   type WorkerProcessStudyRunRequestV1,
 } from "@hiveforyou/contracts/study-runs/v1";
 
+import { getInngestConnectState } from "../inngest/start-connect.js";
 import { ProcessStudyRunError, processStudyRun } from "../orchestration/process-study-run.js";
 import {
   asPersistenceClient,
@@ -61,7 +62,12 @@ export function startWorkerHttpServer(): void {
 
     try {
       if (request.method === "GET" && request.url === "/health") {
-        writeJson(response, 200, { status: "ok" }, { [CORRELATION_HEADER]: correlationId });
+        writeJson(
+          response,
+          200,
+          { status: "ok", inngest_connect_state: getInngestConnectState() },
+          { [CORRELATION_HEADER]: correlationId },
+        );
         return;
       }
 

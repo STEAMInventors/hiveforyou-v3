@@ -17,8 +17,8 @@
 
 1. **Supabase SQL (authorized apply only):** M1 through `20261021200000`, then Gate 1 (`20261022100000`, `20261022203000`), P1.5 submit (`20261022210000`), optional P2.2-DP.I stage (`20261022220000` when question planning + UI summary enabled). Run readonly qualification scripts under `supabase/qualification/`.
 2. **Supabase Edge:** GitHub Actions **`Deploy Supabase Edge Functions`** (`workflow_dispatch`) or `scripts/deploy-supabase-edge.ps1` — deploy `v1-documents` + `v1-hives`; secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`; function secrets unchanged (`SUPABASE_URL`, anon + service role).
-3. **Vercel:** Push **`main`** to GitHub (triggers production deploy of `apps/web`); confirm env vars in § missing configuration below; Inngest sync picks up `/api/inngest`.
-4. **Oracle Worker / Reader:** Pull release SHA on Oracle host; `npm ci` + `npm run start` in `apps/worker`; `pip install -e .` + `uvicorn hive_reader.main:app` in `apps/reader`; env from `infra/oracle/*.config.env.example` (no deploy script in repo — operator unit/restart as on host).
+3. **Vercel:** Push **`main`** to GitHub (triggers production deploy of `apps/web`); confirm `INNGEST_EVENT_KEY` (and Inngest integration signing key); `/api/inngest` registers **no** functions (Connect owns `hive3-process-study-run`).
+4. **Oracle Worker / Reader:** Pull release SHA on Oracle host; `npm ci` + `npm run start` in `apps/worker` (requires **Node ≥ 22.4** for Connect); set `INNGEST_SIGNING_KEY` per `infra/oracle/worker-inngest-connect.md`; `pip install -e .` + `uvicorn hive_reader.main:app` in `apps/reader`; env from `infra/oracle/*.config.env.example` (no deploy script in repo — operator unit/restart as on host).
 5. **LiteLLM:** Configure **`WORKER_P2_REASONING_LITELLM_ALIAS`** / **`READER_P2_REASONING_LITELLM_ALIAS`** (and OCR alias if used) on existing Oracle gateway — P5.3; missing alias fails closed.
 
 **Repo verification (2026-10-22, local):** `apps/web` typecheck + build OK; vitest **86/86**; `apps/worker` typecheck OK; vitest **51 passed** (1 integration skipped); `packages/contracts` + `packages/core` typecheck OK; Reader pytest **21 passed, 2 skipped**.
@@ -118,7 +118,8 @@
 | Area | Evidence |
 |------|----------|
 | Submit SQL + readonly assertions | `supabase/migrations/20261022210000_hive3_p15_processing_submit.sql`, `supabase/qualification/p1.5_processing_submit_assertions_readonly.sql` |
-| Web APIs + Inngest | `apps/web/src/app/api/v1/hives/[hiveId]/study-runs/`, `apps/web/src/inngest/functions/process-study-run.ts` |
+| Web APIs + Inngest send | `apps/web/src/app/api/v1/hives/[hiveId]/study-runs/`, `apps/web/src/lib/inngest/send-study-run-queued.ts` |
+| Inngest Connect (Oracle) | `apps/worker/src/inngest/` |
 | Worker HTTP + orchestration | `apps/worker/src/http/`, `apps/worker/src/orchestration/process-study-run.ts` |
 | UI | `apps/web/src/components/workspace/HiveProcessingPanel.tsx` |
 | Contracts | `packages/contracts/src/study-runs/v1/orchestration.ts` |
