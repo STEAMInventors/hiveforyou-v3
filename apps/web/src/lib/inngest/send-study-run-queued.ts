@@ -12,9 +12,13 @@ export async function sendStudyRunQueuedEvent(event: {
   if (!eventKey) {
     throw new Error("INNGEST_EVENT_KEY is not configured.");
   }
-  await inngest.send({
+  inngest.setEventKey(eventKey);
+  const result = await inngest.send({
     name: event.name,
     data: event.data,
     id: event.data.delivery_idempotency_key,
   });
+  if (!result.ids?.length) {
+    throw new Error("Inngest accepted the request but returned no event ids.");
+  }
 }
