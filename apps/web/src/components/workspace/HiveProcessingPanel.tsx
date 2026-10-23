@@ -5,12 +5,14 @@ import type {
   StudyRunPlanningSummarySafeV1,
   StudyRunSafeV1,
 } from "@hiveforyou/contracts/study-runs/v1";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { listPublicDomainPacks } from "@/lib/domain-packs/public-metadata";
+import { getPublicDomainPack } from "@/lib/domain-packs/public-metadata";
 import { adoptLandingIntentForHive, readHiveIntentDraft, saveHiveIntentDraft } from "@/lib/landing/hive-intent-draft";
 import {
   buildAnalyzeSubmitBody,
+  capturedQuestionForAnalyze,
   intentSignature,
   isTerminalStudyRunStatus,
   nextDeliveryKey,
@@ -27,12 +29,18 @@ function formatStage(stage: string): string {
   return stage.replaceAll("_", " ");
 }
 
+function domainSummary(domainId: string | null): string {
+  if (!domainId) {
+    return "No domain";
+  }
+  return getPublicDomainPack(domainId)?.short_label ?? domainId;
+}
+
 type HiveProcessingPanelProps = {
   hiveId: string;
 };
 
 export function HiveProcessingPanel({ hiveId }: HiveProcessingPanelProps) {
-  const packs = listPublicDomainPacks();
   const [requestText, setRequestText] = useState("");
   const [domainId, setDomainId] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
@@ -129,7 +137,7 @@ export function HiveProcessingPanel({ hiveId }: HiveProcessingPanelProps) {
       })
       .catch(() => {
         if (!cancelled) {
-          setStatusNote("Could not load processing status. Your question is still on this page.");
+          setStatusNote("Could not load processing status.");
         }
       });
     return () => {
@@ -138,21 +146,13 @@ export function HiveProcessingPanel({ hiveId }: HiveProcessingPanelProps) {
     };
   }, [hiveId, startPolling, stopPolling]);
 
-  const persistDraft = (nextText: string, nextDomain: string | null) => {
-    saveHiveIntentDraft({
-      hiveId,
-      rawIntent: nextText,
-      selectedDomainId: nextDomain,
-    });
-  };
-
   const handleSubmit = async () => {
     if (submittingRef.current || locked) {
       return;
     }
-    const trimmed = requestText.trim();
+    const trimmed = capturedQuestionForAnalyze(requestText);
     if (!trimmed) {
-      setError("Describe what you want this study to answer.");
+      setError("This Hive has no question from the start page. Enter one there before analyzing.");
       return;
     }
     const signature = intentSignature(trimmed, domainId);
@@ -178,10 +178,6 @@ export function HiveProcessingPanel({ hiveId }: HiveProcessingPanelProps) {
       const result = await submitStudyRun(hiveId, body);
       reuseDeliveryRef.current = false;
       deliveryRef.current = null;
-      const sentDomain = body.clarification_json?.domain_hint ?? null;
-      setRequestText(body.request_text);
-      setDomainId(sentDomain);
-      persistDraft(body.request_text, sentDomain);
       setActiveRun(result.study_run);
       setPlanningSummary(null);
       setLocked(!isTerminalStudyRunStatus(result.study_run.status));
@@ -208,11 +204,10 @@ export function HiveProcessingPanel({ hiveId }: HiveProcessingPanelProps) {
     }
   };
 
+  const capturedQuestion = capturedQuestionForAnalyze(requestText);
   const runInProgress = activeRun != null && !isTerminalStudyRunStatus(activeRun.status);
-  const inputsLocked = busy || locked || runInProgress;
+  const analyzeLocked = busy || locked || runInProgress;
   const showRetry = Boolean(error) || activeRun?.status === "FAILED";
-  const knownDomain = packs.some((pack) => pack.domain_id === domainId);
-  const domainOptions = packs.filter((pack) => pack.executable || pack.domain_id === domainId);
 
   return (
     <section className="rounded-[18px] border border-[#E7E9ED] bg-white p-6 md:p-8">
@@ -222,49 +217,33 @@ export function HiveProcessingPanel({ hiveId }: HiveProcessingPanelProps) {
         durable storage, not this browser session alone.
       </p>
 
-      <label className="mt-6 block text-sm font-medium text-[#1F2328]" htmlFor="study-request-text">
-        What should this study answer?
-      </label>
-      <textarea
-        id="study-request-text"
-        className="mt-2 min-h-[120px] w-full max-w-2xl rounded-[12px] border border-[#E3E3E3] px-3 py-2 text-sm text-[#1F2328]"
-        value={requestText}
-        onChange={(event) => {
-          const next = event.target.value;
-          setRequestText(next);
-          persistDraft(next, domainId);
-        }}
-        disabled={inputsLocked}
-        data-testid="study-request-text"
-      />
-
-      <label className="mt-4 block text-sm font-medium text-[#1F2328]" htmlFor="study-domain-hint">
-        Domain hint (optional)
-      </label>
-      <select
-        id="study-domain-hint"
-        className="mt-2 w-full max-w-md rounded-[12px] border border-[#E3E3E3] bg-white px-3 py-2 text-sm text-[#1F2328]"
-        value={domainId ?? ""}
-        disabled={inputsLocked}
-        data-testid="study-domain-hint"
-        onChange={(event) => {
-          const next = event.target.value ? event.target.value : null;
-          setDomainId(next);
-          persistDraft(requestText, next);
-        }}
-      >
-        <option value="">No domain</option>
-        {!knownDomain && domainId ? <option value={domainId}>{domainId}</option> : null}
-        {domainOptions.map((pack) => (
-          <option key={pack.domain_id} value={pack.domain_id}>
-            {pack.short_label}
-          </option>
-        ))}
-      </select>
-      <p className="mt-2 max-w-2xl text-sm text-[#4A525C]">
-        A domain hint does not force classification. Leave this empty to process without a domain
-        pack.
-      </p>
+      {capturedQuestion ? (
+        <div className="mt-6 max-w-2xl">
+          <p className="m-0 text-sm font-medium text-[#1F2328]">Question</p>
+          <p
+            className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[#1F2328]"
+            data-testid="study-request-text"
+          >
+            {capturedQuestion}
+          </p>
+          <p className="mt-4 m-0 text-sm font-medium text-[#1F2328]">Domain</p>
+          <p className="mt-2 m-0 text-sm text-[#1F2328]" data-testid="study-domain-hint">
+            {domainSummary(domainId)}
+          </p>
+        </div>
+      ) : (
+        <div className="mt-6 max-w-2xl" role="alert" data-testid="missing-intent">
+          <p className="m-0 text-sm leading-relaxed text-[#1F2328]">
+            This Hive has no question from the start page. Analyze will not invent one.
+          </p>
+          <Link
+            href="/"
+            className="mt-3 inline-flex rounded-[10px] border border-[#D9DDE3] bg-white px-4 py-2.5 text-sm font-semibold text-[#1F2328] no-underline hover:bg-[#F4F6F8]"
+          >
+            Enter a question on the start page
+          </Link>
+        </div>
+      )}
 
       {error ? (
         <p className="mt-3 text-sm text-[#B42318]" role="alert">
@@ -277,15 +256,17 @@ export function HiveProcessingPanel({ hiveId }: HiveProcessingPanelProps) {
         </p>
       ) : null}
 
-      <button
-        type="button"
-        className="mt-4 rounded-[10px] bg-[#2F6FE4] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-        disabled={inputsLocked || !requestText.trim()}
-        onClick={() => void handleSubmit()}
-        data-testid="analyze-documents"
-      >
-        {busy ? "Submitting…" : runInProgress ? "Analyzing…" : showRetry ? "Retry analysis" : "Analyze documents"}
-      </button>
+      {capturedQuestion ? (
+        <button
+          type="button"
+          className="mt-4 rounded-[10px] bg-[#2F6FE4] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+          disabled={analyzeLocked}
+          onClick={() => void handleSubmit()}
+          data-testid="analyze-documents"
+        >
+          {busy ? "Submitting…" : runInProgress ? "Analyzing…" : showRetry ? "Retry analysis" : "Analyze documents"}
+        </button>
+      ) : null}
 
       {activeRun ? (
         <div
@@ -306,7 +287,7 @@ export function HiveProcessingPanel({ hiveId }: HiveProcessingPanelProps) {
               {activeRun.error_message_safe}
             </p>
           ) : null}
-          {activeRun.status === "FAILED" ? (
+          {activeRun.status === "FAILED" && capturedQuestion ? (
             <p className="mt-2 m-0 text-[#4A525C]">
               This run failed. Retry analysis starts a new processing run with the question above.
             </p>
