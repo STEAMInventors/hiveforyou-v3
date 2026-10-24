@@ -969,7 +969,11 @@ describe("P2.2 schema planning", () => {
       }),
     ).rejects.toMatchObject({
       errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
-      diagnostics: { reason: "evidence_required" },
+      diagnostics: {
+        reason: "evidence_required",
+        validation_boundary: "model_field_parse",
+        evidence_flag_kind: "explicit_false",
+      },
     });
   });
 
@@ -1146,7 +1150,10 @@ describe("P2.2 schema planning", () => {
       expect(() => parseGeneratedFields({ fields: [field] })).toThrow(
         expect.objectContaining({
           errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
-          diagnostics: { reason: "evidence_required" },
+          diagnostics: expect.objectContaining({
+            reason: "evidence_required",
+            validation_boundary: "model_field_parse",
+          }),
         }),
       );
     }

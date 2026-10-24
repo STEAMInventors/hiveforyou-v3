@@ -6,6 +6,8 @@ import {
 const SAFE_PLANNING_DIAGNOSTIC_KEYS = [
   "reason",
   "field_key_category",
+  "validation_boundary",
+  "evidence_flag_kind",
   "alias",
   "status",
   "duration_ms",

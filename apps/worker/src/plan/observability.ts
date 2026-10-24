@@ -19,6 +19,8 @@ export type PlanningLogEvent = {
   failure_reason?: string;
   /** Safe invalid-key category from planning diagnostics; never raw field keys. */
   field_key_category?: string;
+  validation_boundary?: string;
+  evidence_flag_kind?: string;
 };
 
 /** Sanitized planning log. Never include prompts, page text, or model completions. */

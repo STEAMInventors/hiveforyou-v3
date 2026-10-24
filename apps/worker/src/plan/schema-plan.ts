@@ -319,6 +319,12 @@ export async function planExtractionSchema(
       ...(typeof safeDiagnostics?.field_key_category === "string"
         ? { field_key_category: safeDiagnostics.field_key_category }
         : {}),
+      ...(typeof safeDiagnostics?.validation_boundary === "string"
+        ? { validation_boundary: safeDiagnostics.validation_boundary }
+        : {}),
+      ...(typeof safeDiagnostics?.evidence_flag_kind === "string"
+        ? { evidence_flag_kind: safeDiagnostics.evidence_flag_kind }
+        : {}),
     });
     throw error;
   }

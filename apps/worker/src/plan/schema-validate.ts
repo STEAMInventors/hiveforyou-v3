@@ -73,8 +73,62 @@ export const VALUE_TYPES = new Set([
   "array",
 ]);
 
-function invalid(reason: string, message: string): PlanningError {
-  return new PlanningError(ErrorCode.MODEL_OUTPUT_INVALID, message, { reason });
+/** Safe category for invalid `evidence_required` values (never log raw field keys or model JSON). */
+export type EvidenceFlagKind =
+  | "explicit_false"
+  | "string_true"
+  | "string_false"
+  | "number"
+  | "other_invalid"
+  | "missing_on_planned_field";
+
+export type EvidenceValidationBoundary = "model_field_parse" | "planned_schema";
+
+export function classifyInvalidEvidenceFlagKind(
+  value: unknown,
+  boundary: EvidenceValidationBoundary,
+): EvidenceFlagKind {
+  if (value === false) {
+    return "explicit_false";
+  }
+  if (value === undefined || value === null) {
+    return boundary === "planned_schema" ? "missing_on_planned_field" : "other_invalid";
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") {
+      return "string_true";
+    }
+    if (normalized === "false") {
+      return "string_false";
+    }
+    return "other_invalid";
+  }
+  if (typeof value === "number") {
+    return "number";
+  }
+  return "other_invalid";
+}
+
+export function evidenceRequiredFailureDiagnostics(
+  value: unknown,
+  boundary: EvidenceValidationBoundary,
+): {
+  validation_boundary: EvidenceValidationBoundary;
+  evidence_flag_kind: EvidenceFlagKind;
+} {
+  return {
+    validation_boundary: boundary,
+    evidence_flag_kind: classifyInvalidEvidenceFlagKind(value, boundary),
+  };
+}
+
+function invalid(
+  reason: string,
+  message: string,
+  extra: Record<string, string | number | boolean | null> = {},
+): PlanningError {
+  return new PlanningError(ErrorCode.MODEL_OUTPUT_INVALID, message, { reason, ...extra });
 }
 
 export function assertPlannedSchema(schema: ExtractionSchemaV1): void {
@@ -111,6 +165,7 @@ export function assertPlannedSchema(schema: ExtractionSchemaV1): void {
       throw invalid(
         "evidence_required",
         "Extraction schema fields must require source evidence.",
+        evidenceRequiredFailureDiagnostics(field.evidence_required, "planned_schema"),
       );
     }
   }

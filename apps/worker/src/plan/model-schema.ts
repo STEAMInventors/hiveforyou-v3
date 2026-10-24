@@ -7,6 +7,7 @@ import { ErrorCode } from "@hiveforyou/contracts/errors/v1";
 
 import { PlanningError } from "./errors.js";
 import {
+  evidenceRequiredFailureDiagnostics,
   normalizeModelGeneratedFieldKey,
   SCHEMA_LIMITS,
   VALUE_TYPES,
@@ -48,7 +49,9 @@ function assertEvidenceRequiredFlag(value: unknown): void {
   if (value === true || value === undefined || value === null) {
     return;
   }
-  throw invalid("evidence_required", "Schema fields must require source evidence.");
+  throw invalid("evidence_required", "Schema fields must require source evidence.", {
+    ...evidenceRequiredFailureDiagnostics(value, "model_field_parse"),
+  });
 }
 
 export function parseGeneratedFields(raw: unknown): ExtractionSchemaFieldV1[] {
