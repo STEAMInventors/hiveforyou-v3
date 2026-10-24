@@ -12,6 +12,7 @@ import {
   ANALYZE_MISSING_QUESTION_MESSAGE,
   buildAnalyzeSubmitBody,
   capturedQuestionForAnalyze,
+  type HiveProgressPollState,
   intentSignature,
   isTerminalStudyRunStatus,
   nextDeliveryKey,
@@ -27,7 +28,51 @@ import {
 const POLL_INTERVAL_MS = 3000;
 const POLL_FAILURES_BEFORE_NOTICE = 3;
 
+function minimizedStorageKey(hiveId: string): string {
+  return `hfy-progress-minimized-${hiveId}`;
+}
+
+function readMinimizedRunIds(hiveId: string): Set<string> {
+  if (typeof sessionStorage === "undefined") {
+    return new Set();
+  }
+  try {
+    const raw = sessionStorage.getItem(minimizedStorageKey(hiveId));
+    if (!raw) {
+      return new Set();
+    }
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return new Set();
+    }
+    return new Set(parsed.filter((id): id is string => typeof id === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+function writeMinimizedRunIds(hiveId: string, ids: Set<string>): void {
+  if (typeof sessionStorage === "undefined") {
+    return;
+  }
+  try {
+    sessionStorage.setItem(minimizedStorageKey(hiveId), JSON.stringify([...ids]));
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
 export type HiveStudyRun = ReturnType<typeof useHiveStudyRun>;
+
+function pollStateFromFailures(failures: number, authExpired: boolean): HiveProgressPollState {
+  if (authExpired) {
+    return "auth_expired";
+  }
+  if (failures >= POLL_FAILURES_BEFORE_NOTICE) {
+    return "reconnecting";
+  }
+  return "ok";
+}
 
 export function useHiveStudyRun(hiveId: string) {
   const [requestText, setRequestText] = useState("");
@@ -45,14 +90,26 @@ export function useHiveStudyRun(hiveId: string) {
     requestText: string | null;
     domainId: string | null;
   }>({ requestText: null, domainId: null });
+  const [progressOpen, setProgressOpen] = useState(false);
+  const [lastPollSuccessAt, setLastPollSuccessAt] = useState<number | null>(null);
+  const [pollFailures, setPollFailures] = useState(0);
+  const [authPollExpired, setAuthPollExpired] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollFailuresRef = useRef(0);
   const activeRunRef = useRef<StudyRunSafeV1 | null>(null);
   const submittingRef = useRef(false);
   const deliveryRef = useRef<{ key: string; signature: string } | null>(null);
   const reuseDeliveryRef = useRef(false);
+  const minimizedRunIdsRef = useRef<Set<string>>(readMinimizedRunIds(hiveId));
+  const progressReturnFocusRef = useRef<HTMLElement | null>(null);
 
   activeRunRef.current = activeRun;
+
+  useEffect(() => {
+    minimizedRunIdsRef.current = readMinimizedRunIds(hiveId);
+  }, [hiveId]);
+
+  const pollState = pollStateFromFailures(pollFailures, authPollExpired);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
@@ -61,21 +118,46 @@ export function useHiveStudyRun(hiveId: string) {
     }
   }, []);
 
+  const maybeOpenProgress = useCallback((run: StudyRunSafeV1) => {
+    if (isTerminalStudyRunStatus(run.status)) {
+      return;
+    }
+    if (!minimizedRunIdsRef.current.has(run.id)) {
+      setProgressOpen(true);
+    }
+  }, []);
+
   const refreshRun = useCallback(
     async (studyRunId: string) => {
-      const result = await fetchStudyRunStatus(hiveId, studyRunId);
-      pollFailuresRef.current = 0;
-      setActiveRun(result.study_run);
-      setPlanningSummary(result.planning_summary);
-      setStatusNote(null);
-      if (isTerminalStudyRunStatus(result.study_run.status)) {
-        stopPolling();
-        setLocked(false);
-        const saved = readHiveIntentDraft(hiveId);
-        if (saved) {
-          setRequestText(saved.rawIntent);
-          setDomainId(saved.selectedDomainId);
+      try {
+        const result = await fetchStudyRunStatus(hiveId, studyRunId);
+        pollFailuresRef.current = 0;
+        setPollFailures(0);
+        setAuthPollExpired(false);
+        setLastPollSuccessAt(Date.now());
+        setActiveRun(result.study_run);
+        setPlanningSummary(result.planning_summary);
+        setStatusNote(null);
+        if (isTerminalStudyRunStatus(result.study_run.status)) {
+          stopPolling();
+          setLocked(false);
+          const saved = readHiveIntentDraft(hiveId);
+          if (saved) {
+            setRequestText(saved.rawIntent);
+            setDomainId(saved.selectedDomainId);
+          }
         }
+      } catch (err) {
+        if (err instanceof StudyRunApiError && err.envelope.error_code === ErrorCode.AUTH_FAILED) {
+          setAuthPollExpired(true);
+          setStatusNote("Sign in again to see live updates.");
+        }
+        pollFailuresRef.current += 1;
+        setPollFailures(pollFailuresRef.current);
+        if (pollFailuresRef.current >= POLL_FAILURES_BEFORE_NOTICE) {
+          setStatusNote("We're having trouble reaching HiveForYou. We'll keep trying.");
+        }
+        throw err;
       }
     },
     [hiveId, stopPolling],
@@ -85,28 +167,28 @@ export function useHiveStudyRun(hiveId: string) {
     (studyRunId: string) => {
       stopPolling();
       pollFailuresRef.current = 0;
+      setPollFailures(0);
+      setAuthPollExpired(false);
       pollRef.current = setInterval(() => {
-        void refreshRun(studyRunId).catch(() => {
-          pollFailuresRef.current += 1;
-          if (pollFailuresRef.current >= POLL_FAILURES_BEFORE_NOTICE) {
-            setStatusNote("We're having trouble reaching HiveForYou. We'll keep trying.");
-          }
-        });
+        void refreshRun(studyRunId).catch(() => undefined);
       }, POLL_INTERVAL_MS);
     },
     [refreshRun, stopPolling],
   );
 
   const attachToRun = useCallback(
-    (run: StudyRunSafeV1, summary: StudyRunPlanningSummarySafeV1 | null) => {
+    (run: StudyRunSafeV1, summary: StudyRunPlanningSummarySafeV1 | null, openProgress = true) => {
       setActiveRun(run);
       setPlanningSummary(summary);
       if (!isTerminalStudyRunStatus(run.status)) {
         setLocked(true);
         startPolling(run.id);
+        if (openProgress) {
+          maybeOpenProgress(run);
+        }
       }
     },
-    [startPolling],
+    [maybeOpenProgress, startPolling],
   );
 
   useEffect(() => {
@@ -147,7 +229,8 @@ export function useHiveStudyRun(hiveId: string) {
           });
         }
         if (handoff.study_run) {
-          attachToRun(handoff.study_run, handoff.planning_summary);
+          attachToRun(handoff.study_run, handoff.planning_summary, true);
+          setLastPollSuccessAt(Date.now());
         }
       })
       .catch(() => {
@@ -185,6 +268,25 @@ export function useHiveStudyRun(hiveId: string) {
     [hiveId, domainId],
   );
 
+  const openProgress = useCallback(() => {
+    const run = activeRunRef.current;
+    if (!run || isTerminalStudyRunStatus(run.status)) {
+      return;
+    }
+    minimizedRunIdsRef.current.delete(run.id);
+    writeMinimizedRunIds(hiveId, minimizedRunIdsRef.current);
+    setProgressOpen(true);
+  }, [hiveId]);
+
+  const minimizeProgress = useCallback(() => {
+    const run = activeRunRef.current;
+    if (run && !isTerminalStudyRunStatus(run.status)) {
+      minimizedRunIdsRef.current.add(run.id);
+      writeMinimizedRunIds(hiveId, minimizedRunIdsRef.current);
+    }
+    setProgressOpen(false);
+  }, [hiveId]);
+
   /** Attaches to a run another tab already started instead of submitting a second one. */
   const submit = useCallback(async () => {
     if (submittingRef.current || locked) {
@@ -205,7 +307,7 @@ export function useHiveStudyRun(hiveId: string) {
       const latest = await fetchHiveProcessingHandoff(hiveId).catch(() => null);
       if (latest?.study_run && !isTerminalStudyRunStatus(latest.study_run.status)) {
         setLastIntent({ requestText: latest.intent_request_text, domainId: latest.domain_hint });
-        attachToRun(latest.study_run, latest.planning_summary);
+        attachToRun(latest.study_run, latest.planning_summary, true);
         return;
       }
 
@@ -232,7 +334,10 @@ export function useHiveStudyRun(hiveId: string) {
       saveHiveIntentDraft({ hiveId, rawIntent: body.request_text, selectedDomainId: sentDomain });
       setLastIntent({ requestText: body.request_text, domainId: sentDomain });
       setLocked(!isTerminalStudyRunStatus(result.study_run.status));
-      attachToRun(result.study_run, null);
+      minimizedRunIdsRef.current.delete(result.study_run.id);
+      writeMinimizedRunIds(hiveId, minimizedRunIdsRef.current);
+      attachToRun(result.study_run, null, true);
+      setLastPollSuccessAt(Date.now());
     } catch (err) {
       const retrySaved =
         err instanceof StudyRunApiError &&
@@ -262,7 +367,13 @@ export function useHiveStudyRun(hiveId: string) {
     activeRun,
     planningSummary,
     lastIntent,
+    progressOpen,
+    pollState,
+    lastPollSuccessAt,
+    progressReturnFocusRef,
     saveQuestion,
     submit,
+    openProgress,
+    minimizeProgress,
   };
 }

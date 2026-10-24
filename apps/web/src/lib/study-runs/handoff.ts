@@ -178,6 +178,102 @@ function documentsPhrase(count: number | null): string {
   return `your ${count} document${count === 1 ? "" : "s"}`;
 }
 
+/** No durable `updated_at` change for this long → nonterminal “still checking” copy. */
+export const STUDY_RUN_STALE_UPDATE_MS = 4 * 60 * 1000;
+
+export type HiveProgressPollState = "ok" | "reconnecting" | "auth_expired";
+
+/** Customer-visible stages for the progress modal (P1.5 path only — no verify/merge/report). */
+export const STUDY_PROGRESS_CHECKLIST = [
+  { stage: "enqueue", label: "Getting started" },
+  { stage: "plan_questions", label: "Understanding your question" },
+  { stage: "load_sources", label: "Gathering your documents" },
+  { stage: "plan_schema", label: "Identifying document types" },
+  { stage: "extract", label: "Reading your documents" },
+  { stage: "finalize", label: "Finishing up" },
+] as const;
+
+const STAGE_ORDER = new Map<string, number>(
+  STUDY_PROGRESS_CHECKLIST.map((row, index) => [row.stage, index]),
+);
+
+export function studyProgressStageIndex(stage: string): number {
+  return STAGE_ORDER.get(stage) ?? -1;
+}
+
+/** Never move the visible checklist backward when Inngest retries an earlier stage. */
+export function mergeMonotonicStageIndex(currentMax: number, stage: string): number {
+  const index = studyProgressStageIndex(stage);
+  if (index < 0) {
+    return currentMax;
+  }
+  return Math.max(currentMax, index);
+}
+
+export type StudyProgressChecklistItem = {
+  label: string;
+  state: "done" | "active" | "pending";
+};
+
+export function buildStudyProgressChecklist(
+  maxStageIndex: number,
+  run: { status: string; stage: string },
+): StudyProgressChecklistItem[] {
+  if (run.status === StudyRunStatus.SUCCEEDED) {
+    return STUDY_PROGRESS_CHECKLIST.map((row) => ({ label: row.label, state: "done" }));
+  }
+  const rawIndex = studyProgressStageIndex(run.stage);
+  const activeIndex = rawIndex >= 0 ? Math.max(maxStageIndex, rawIndex) : maxStageIndex;
+
+  return STUDY_PROGRESS_CHECKLIST.map((row, index) => {
+    if (index < activeIndex) {
+      return { label: row.label, state: "done" as const };
+    }
+    if (index === activeIndex && !isTerminalStudyRunStatus(run.status)) {
+      return { label: row.label, state: "active" as const };
+    }
+    return { label: row.label, state: "pending" as const };
+  });
+}
+
+export function isStudyRunUpdateStale(updatedAtIso: string | null | undefined, nowMs: number): boolean {
+  if (!updatedAtIso) {
+    return false;
+  }
+  const updatedMs = Date.parse(updatedAtIso);
+  if (Number.isNaN(updatedMs)) {
+    return false;
+  }
+  return nowMs - updatedMs >= STUDY_RUN_STALE_UPDATE_MS;
+}
+
+export function formatTimeSinceUpdate(updatedAtIso: string | null | undefined, nowMs: number): string | null {
+  if (!updatedAtIso) {
+    return null;
+  }
+  const updatedMs = Date.parse(updatedAtIso);
+  if (Number.isNaN(updatedMs)) {
+    return null;
+  }
+  const deltaSec = Math.max(0, Math.floor((nowMs - updatedMs) / 1000));
+  if (deltaSec < 45) {
+    return "Last update just now";
+  }
+  const deltaMin = Math.floor(deltaSec / 60);
+  if (deltaMin < 60) {
+    return `Last update ${deltaMin} minute${deltaMin === 1 ? "" : "s"} ago`;
+  }
+  const deltaHr = Math.floor(deltaMin / 60);
+  return `Last update ${deltaHr} hour${deltaHr === 1 ? "" : "s"} ago`;
+}
+
+export function studyRunDocumentTotalLine(documentCount: number | null): string | null {
+  if (documentCount == null || documentCount <= 0) {
+    return null;
+  }
+  return `${documentCount} document${documentCount === 1 ? "" : "s"} in this analysis`;
+}
+
 /** Customer-facing run summary; never exposes run ids, raw stages or correlation ids. */
 export function studyRunSummaryText(
   run: { status: string; stage: string } | null,
@@ -205,6 +301,7 @@ export function studyRunSummaryText(
     case "load_sources":
       return `Gathering ${docs}…`;
     case "plan_schema":
+      return `Identifying types in ${docs}…`;
     case "extract":
       return `Reading ${docs}…`;
     default:

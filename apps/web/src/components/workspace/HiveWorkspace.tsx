@@ -7,6 +7,7 @@ import { useState } from "react";
 import { CanonicalStudyStatusPanel } from "@/components/workspace/CanonicalStudyStatusPanel";
 import { DeleteHiveModal } from "@/components/workspace/DeleteHiveModal";
 import { HiveAnalyzeHeader } from "@/components/workspace/HiveAnalyzeHeader";
+import { HiveProgressModal } from "@/components/workspace/HiveProgressModal";
 import {
   HiveDocumentsPanel,
   type HiveDocumentsSnapshot,
@@ -106,6 +107,7 @@ export function HiveWorkspace({ hive }: { hive: HiveV1 }) {
               study={study}
               documents={documents}
               onViewResults={() => setTab("Canonical Study")}
+              onOpenProgress={study.openProgress}
             />
             <HiveDocumentsPanel
               hiveId={hive.id}
@@ -119,6 +121,7 @@ export function HiveWorkspace({ hive }: { hive: HiveV1 }) {
             study={study}
             documentCount={runDocumentTotal}
             onGoToDocuments={() => setTab("Documents")}
+            onOpenProgress={study.openProgress}
           />
         ) : (
           <section className="rounded-[18px] border border-[#E7E9ED] bg-white p-8 text-center">
@@ -129,6 +132,20 @@ export function HiveWorkspace({ hive }: { hive: HiveV1 }) {
           </section>
         )}
       </div>
+
+      <HiveProgressModal
+        open={study.progressOpen && study.activeRun != null}
+        run={study.activeRun}
+        documentCount={runDocumentTotal}
+        pollState={study.pollState}
+        lastPollSuccessAt={study.lastPollSuccessAt}
+        returnFocusRef={study.progressReturnFocusRef}
+        onMinimize={study.minimizeProgress}
+        onViewResults={() => {
+          study.minimizeProgress();
+          setTab("Canonical Study");
+        }}
+      />
 
       <DeleteHiveModal
         hiveName={hive.name}

@@ -2,14 +2,20 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildAnalyzeSubmitBody,
+  buildStudyProgressChecklist,
   capturedQuestionForAnalyze,
   continueAction,
+  formatTimeSinceUpdate,
   isQuestionChanged,
+  isStudyRunUpdateStale,
+  mergeMonotonicStageIndex,
   nextDeliveryKey,
   resolveDisplayedIntent,
   runDocumentCounts,
   shouldEnqueueStudyRun,
+  STUDY_RUN_STALE_UPDATE_MS,
   studyDomainHintLabel,
+  studyRunDocumentTotalLine,
   studyRunSummaryText,
 } from "./handoff";
 
@@ -217,6 +223,9 @@ describe("studyRunSummaryText", () => {
     expect(studyRunSummaryText({ status: "RUNNING", stage: "extract" }, 8)).toBe(
       "Reading your 8 documents…",
     );
+    expect(studyRunSummaryText({ status: "RUNNING", stage: "plan_schema" }, 8)).toBe(
+      "Identifying types in your 8 documents…",
+    );
     expect(studyRunSummaryText({ status: "RUNNING", stage: "load_sources" }, 1)).toBe(
       "Gathering your 1 document…",
     );
@@ -232,6 +241,42 @@ describe("studyRunSummaryText", () => {
     const text = studyRunSummaryText({ status: "SUCCEEDED", stage: "finalize" }, 8) ?? "";
     expect(text).toBe("Analysis finished. We read your 8 documents.");
     expect(text.toLowerCase()).not.toContain("study");
+  });
+});
+
+describe("study progress helpers", () => {
+  it("merges stage indices monotonically across retries", () => {
+    let max = mergeMonotonicStageIndex(-1, "plan_schema");
+    expect(max).toBe(3);
+    max = mergeMonotonicStageIndex(max, "load_sources");
+    expect(max).toBe(3);
+    max = mergeMonotonicStageIndex(max, "extract");
+    expect(max).toBe(4);
+  });
+
+  it("keeps checklist progress when the server reports an earlier stage", () => {
+    const checklist = buildStudyProgressChecklist(4, { status: "RUNNING", stage: "plan_schema" });
+    const extractRow = checklist.find((row) => row.label === "Reading your documents");
+    expect(extractRow?.state).toBe("active");
+  });
+
+  it("detects stale durable updates", () => {
+    const now = Date.parse("2026-10-24T12:00:00.000Z");
+    const fresh = new Date(now - STUDY_RUN_STALE_UPDATE_MS + 60_000).toISOString();
+    const stale = new Date(now - STUDY_RUN_STALE_UPDATE_MS - 1).toISOString();
+    expect(isStudyRunUpdateStale(fresh, now)).toBe(false);
+    expect(isStudyRunUpdateStale(stale, now)).toBe(true);
+  });
+
+  it("formats last-update copy for customers", () => {
+    const now = Date.parse("2026-10-24T12:05:00.000Z");
+    expect(formatTimeSinceUpdate("2026-10-24T12:04:50.000Z", now)).toBe("Last update just now");
+    expect(formatTimeSinceUpdate("2026-10-24T12:03:00.000Z", now)).toBe("Last update 2 minutes ago");
+  });
+
+  it("shows document totals without completion counts", () => {
+    expect(studyRunDocumentTotalLine(8)).toBe("8 documents in this analysis");
+    expect(studyRunDocumentTotalLine(null)).toBeNull();
   });
 });
 

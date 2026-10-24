@@ -20,6 +20,7 @@ type HiveAnalyzeHeaderProps = {
   study: HiveStudyRun;
   documents: HiveDocumentsSnapshot | null;
   onViewResults: () => void;
+  onOpenProgress: () => void;
 };
 
 const PRIMARY_BUTTON =
@@ -27,7 +28,12 @@ const PRIMARY_BUTTON =
 const SECONDARY_BUTTON =
   "inline-flex h-12 items-center justify-center rounded-[12px] border border-[#D9DDE3] bg-white px-5 text-sm font-semibold text-[#1F2328] hover:bg-[#F4F6F8] disabled:opacity-60";
 
-export function HiveAnalyzeHeader({ study, documents, onViewResults }: HiveAnalyzeHeaderProps) {
+export function HiveAnalyzeHeader({
+  study,
+  documents,
+  onViewResults,
+  onOpenProgress,
+}: HiveAnalyzeHeaderProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const statusRef = useRef<HTMLDivElement>(null);
@@ -68,8 +74,10 @@ export function HiveAnalyzeHeader({ study, documents, onViewResults }: HiveAnaly
     : null;
 
   const showProgress = () => {
-    statusRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    statusRef.current?.focus();
+    study.progressReturnFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    onOpenProgress();
   };
 
   const startEditing = () => {
@@ -93,7 +101,16 @@ export function HiveAnalyzeHeader({ study, documents, onViewResults }: HiveAnaly
   let helper: string | null = null;
   switch (action.kind) {
     case "start":
-      primary = { label: "Continue", onClick: () => void study.submit(), disabled: false };
+      primary = {
+        label: "Continue",
+        onClick: () => {
+          study.progressReturnFocusRef.current = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
+          void study.submit();
+        },
+        disabled: false,
+      };
       helper = `We'll read ${docsPhrase} to answer your question.`;
       break;
     case "retry":

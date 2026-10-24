@@ -7,6 +7,7 @@ type CanonicalStudyStatusPanelProps = {
   study: HiveStudyRun;
   documentCount: number | null;
   onGoToDocuments: () => void;
+  onOpenProgress: () => void;
 };
 
 const LINK_BUTTON =
@@ -17,6 +18,7 @@ export function CanonicalStudyStatusPanel({
   study,
   documentCount,
   onGoToDocuments,
+  onOpenProgress,
 }: CanonicalStudyStatusPanelProps) {
   const run = study.activeRun;
   const labels = study.planningSummary?.merged_question_labels ?? [];
@@ -68,7 +70,19 @@ export function CanonicalStudyStatusPanel({
         </div>
       ) : null}
       {action ? (
-        <button type="button" className={LINK_BUTTON} onClick={onGoToDocuments}>
+        <button
+          type="button"
+          className={LINK_BUTTON}
+          onClick={() => {
+            if (action === "View progress") {
+              study.progressReturnFocusRef.current =
+                document.activeElement instanceof HTMLElement ? document.activeElement : null;
+              onOpenProgress();
+            } else {
+              onGoToDocuments();
+            }
+          }}
+        >
           {action}
         </button>
       ) : null}
