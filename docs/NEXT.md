@@ -1,7 +1,60 @@
 ﻿# Active ticket
 
+**Phase / Ticket:** **P2.2-PX.I — Selected-Domain-Pack extraction (implementation)**
+**Status:** **ACTIVE — design approved (commit `e3482d6`); implementation not started in repo** (2026-10-24). No migrations, gateway configuration, paid model calls, deploys or pushes without separate authorization. Generic / no-Pack extraction **DEFERRED** (existing P2.2 path unchanged; **pack-free grocery release gate remains mandatory**).
+
+**Objective:** Implement the selected-Pack branch on the existing P1.5-processing Worker path: deterministic prompt compile and `prompt_digest`, Reader read-only source preparation, Worker-owned extraction model call, fact-level validation and disposition, Gate 2b persistence (`pack_extraction_prompts`, amended `extraction_batches`), and mocked L001 acceptance — per approved design.
+
+**Authority:** `docs/design/p2.2-px/PACK-EXTRACTION-PROMPT-ARCHITECTURE.md` (§14 sequence), `docs/acceptance/P2.2-PX-pack-extraction-L001.md` (tier 1 before live tier 2).
+
+**Prerequisites (repo / governance):**
+
+| Prerequisite | State |
+|--------------|--------|
+| **P2.2-PX.D** | **CLOSED (design)** — commit `e3482d6` |
+| **P1.5-processing** | **IMPLEMENTED (repo) — live acceptance deferred** |
+| **P1.P Gate 1 / Gate 2** | **IMPLEMENTED (repo) — live acceptance deferred**; Gate 2b SQL **not applied** |
+| **P2.2 local path** | **ACCEPTED (repo)** — generic branch left unchanged on this ticket |
+
+**Ordered implementation scope (each step separately approved before execution):**
+
+| Step | Layer | Deliverable |
+|------|--------|-------------|
+| 1 | **`packages/contracts`** | `pack-extraction-input@1`, output, validation, ref types + validators |
+| 2 | **`packages/core`** | JCS canonicalization, digests, partition plan + completeness proof (domain-neutral) |
+| 3 | **`apps/worker`** | Prompt compiler, budget estimator, mode selection |
+| 4 | **`apps/worker`** | LiteLLM client: system content block, usage/cache fields, `WORKER_P2_EXTRACTION_LITELLM_ALIAS` (fail closed) |
+| 5 | **`apps/worker`** | Selected-Pack extract stage: call, fact-level validator, disposition; **no** changes to generic `generate_schema` / Reader extract |
+| 6 | **Supabase SQL (authorized apply only)** | Gate 2b `pack_extraction_prompts` + `extraction_batches` columns + service-role RPCs + readonly qualification |
+| 7 | **`apps/worker` persistence** | Prompt insert-if-absent, batch idempotent insert, same-Hive reuse, `pack-extraction-ref@1` artifact |
+| 8 | **Gateway (operator, P5.3)** | Alias, cache injection policy, verify and record capabilities — **UNVERIFIED in repo** |
+| 9 | **Tests / acceptance** | Tier 1 mocked tests per acceptance doc; tier 2 live L001 only with explicit paid-call authorization |
+
+**Acceptance (repo closure — not live product):** Tier 1 rows in `docs/acceptance/P2.2-PX-pack-extraction-L001.md` pass with mocked LiteLLM/RPC; no `generate_schema` / Reader extract on selected-Pack path; eight L001 fixtures covered; idempotent replay; existing integrated-release gates (Gate 1, Gate 2, P1.5-processing live) **unchanged** and **not** satisfied by unit tests alone.
+
+**Blocked on (not this ticket alone):** Gate 2b SQL apply authorization; `WORKER_P2_EXTRACTION_LITELLM_ALIAS` (P5.3); `PAYLOAD_TOO_LARGE` ADR if used as envelope code; real L001 PDFs for tier 2; OD-02 for cached user content; deployed LiteLLM caching/context limits (**UNVERIFIED**).
+
+**Paused alongside this ticket:** **UX-DOC-1** (Step 1 implemented in repo; resume after P2.2-PX.I closure or explicit re-scope — one active implementation ticket at a time).
+
+---
+
+## Closed — P2.2-PX.D (2026-10-24)
+
+**Phase / Ticket:** **P2.2-PX.D — Domain Pack Extraction Design and Prompt Architecture**
+**Status:** **CLOSED (design approved)** — commit `e3482d6` (2026-10-24). Documentation only; no application code, migrations, gateway configuration or paid model calls in that commit.
+
+**Objective (met):** When a reviewed Domain Pack is selected, the Pack owns the document-type taxonomy and complete fact catalog; the model identifies document types and extracts only defined facts with mandatory evidence; **no model-driven schema-generation stage**. Prompt construction, caching, validation, persistence and failure handling specified.
+
+**Evidence:** `docs/design/p2.2-px/PACK-EXTRACTION-PROMPT-ARCHITECTURE.md`, `docs/acceptance/P2.2-PX-pack-extraction-L001.md`; synchronized authority docs and Cursor rules listed in git commit `e3482d6`.
+
+**Carry forward:** **P2.2-PX.I** active; generic/no-Pack redesign **DEFERRED**; pack-free grocery gate **mandatory**; `PAYLOAD_TOO_LARGE` and Gate 2b remain **proposed** until ADR/SQL authorization.
+
+---
+
+## Paused — UX-DOC-1
+
 **Phase / Ticket:** **UX-DOC-1 — Documents → Continue → Live Hive Progress**  
-**Status:** **ACTIVE — Step 1 IMPLEMENTED (repo); awaiting user verification before Step 2** (2026-10-24). Local: `apps/web` typecheck OK, vitest **117/117**, `next build` OK. Browser check not yet run. UX investigation complete; design direction approved. Steps are approved, verified and reported one at a time.
+**Status:** **PAUSED (2026-10-24) while P2.2-PX.I is active — Step 1 IMPLEMENTED (repo); awaiting user verification before Step 2** (2026-10-24). Local: `apps/web` typecheck OK, vitest **117/117**, `next build` OK. Browser check not yet run. UX investigation complete; design direction approved. Steps are approved, verified and reported one at a time.
 
 **Objective:** Replace the Analyze Documents form with one journey: question at the top (editable), a context-aware **Continue** above the document list, a brand-aligned progress modal driven only by real `study_runs` status, and an honest results handoff that never claims a Canonical Study exists before Gate 3.
 
@@ -21,7 +74,7 @@
 ## Paused — Five-Feature Release Deployment (operator runbook)
 
 **Phase / Ticket:** **Five-Feature Release — Deployment** (operator runbook)  
-**Status:** **PAUSED while UX-DOC-1 is active (runbook unchanged — await explicit commit/push/deploy/SQL authorization)** (2026-10-22)
+**Status:** **PAUSED while P2.2-PX.I is active (UX-DOC-1 also paused; runbook unchanged — await explicit commit/push/deploy/SQL authorization)** (2026-10-22)
 
 **Release bundle (repo — not live until operator steps below):**
 
@@ -205,7 +258,8 @@
 | Ticket | Status | Blocked on |
 |--------|--------|------------|
 | **V3 Database-First Persistence — Plan Revision 2** | **PENDING (T2/T3 persistence **DECIDED** 2026-10-23 — §3.1.6; await implementation approval)** | User review of remaining §3.1.7 open items and Gate 2b+ implementation; active ticket unchanged |
-| **P2.2-DP.I** | **ACTIVE** (plan only) | Explicit implementation approval (prerequisites in repo) |
+| **P2.2-DP.I** | **PARKED** (plan only) | Explicit implementation approval (prerequisites in repo) |
+| **P2.2-PX.I** | **ACTIVE** (see top) | Gate 2b SQL authorization; extraction alias (P5.3); paid-call authorization for live L001 tier |
 | **P1.P Gate 3** | NOT_STARTED | Gate 2 repo; Gate 2b/2c per Plan Revision 2 §3.1.2; Canonical Study promote RPC |
 | **P1.P Gate 2** | **IMPLEMENTED (repo) — live acceptance deferred** | Operator apply + eight live scenarios |
 | **P2.3** | ON HOLD | P2.2-DP repo acceptance; integrated path needs **P1.5-processing** |
@@ -374,3 +428,5 @@ Prior P0.1–P0.3, P1.1, database-first plan approval, and Milestone 1 decision 
 | `docs/acceptance/P1.P-gate2-planning-artifacts.md` | Gate 2 live acceptance (when implemented) |
 | `docs/acceptance/P1.5-processing-ui-oracle.md` | P1.5-processing live acceptance (release blocker) |
 | `docs/acceptance/P1.7-document-workspace-hive-delete.md` | P1.7 live acceptance |
+| `docs/design/p2.2-px/PACK-EXTRACTION-PROMPT-ARCHITECTURE.md` | P2.2-PX.D selected-Pack extraction design (proposed) |
+| `docs/acceptance/P2.2-PX-pack-extraction-L001.md` | P2.2-PX L001 acceptance (proposed, not run) |
