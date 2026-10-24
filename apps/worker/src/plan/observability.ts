@@ -21,6 +21,8 @@ export type PlanningLogEvent = {
   field_key_category?: string;
   validation_boundary?: string;
   evidence_flag_kind?: string;
+  /** Model fields that included a non-true evidence_required value (ignored; never field keys). */
+  ignored_legacy_evidence_flag_count?: number;
 };
 
 /** Sanitized planning log. Never include prompts, page text, or model completions. */

@@ -7,7 +7,6 @@ import { ErrorCode } from "@hiveforyou/contracts/errors/v1";
 
 import { PlanningError } from "./errors.js";
 import {
-  evidenceRequiredFailureDiagnostics,
   normalizeModelGeneratedFieldKey,
   SCHEMA_LIMITS,
   VALUE_TYPES,
@@ -17,8 +16,8 @@ import type { ReasoningJsonClient, ReasoningJsonResult } from "../reasoning/type
 const GENERATE_SYSTEM_PROMPT = [
   "Propose an extraction schema for the user intent and the supplied document.",
   "Return JSON with a fields array.",
-  "Each field needs field_key (snake_case), title, value_type, evidence_required true,",
-  "reusable, and required_for_intent.",
+  "Each field needs field_key (snake_case), title, value_type, reusable, and required_for_intent.",
+  "Do not include evidence_required; the system requires source evidence for every field.",
   "value_type must be string, number, date, boolean, object, or array.",
   "Include reusable document facts that stay useful for other intents,",
   "and separate fields prioritized for this intent.",
@@ -31,7 +30,8 @@ const SUPPLEMENT_SYSTEM_PROMPT = [
   "The document already has a declarative field structure.",
   "Return JSON with a fields array containing only additional fields required by the user intent.",
   "Do not repeat existing field keys.",
-  "Each field needs field_key, title, value_type, evidence_required true, reusable, and required_for_intent.",
+  "Each field needs field_key, title, value_type, reusable, and required_for_intent.",
+  "Do not include evidence_required; the system requires source evidence for every field.",
   "value_type must be string, number, date, boolean, object, or array.",
   "Ground new fields in the supplied pages and sections.",
   "Do not include extracted values or quotes.",
@@ -45,16 +45,16 @@ function invalid(
   return new PlanningError(ErrorCode.MODEL_OUTPUT_INVALID, message, { reason, ...extra });
 }
 
-function assertEvidenceRequiredFlag(value: unknown): void {
-  if (value === true || value === undefined || value === null) {
-    return;
-  }
-  throw invalid("evidence_required", "Schema fields must require source evidence.", {
-    ...evidenceRequiredFailureDiagnostics(value, "model_field_parse"),
-  });
+function isIgnoredLegacyEvidenceFlag(raw: Record<string, unknown>): boolean {
+  return Object.prototype.hasOwnProperty.call(raw, "evidence_required") && raw.evidence_required !== true;
 }
 
-export function parseGeneratedFields(raw: unknown): ExtractionSchemaFieldV1[] {
+export type ParseGeneratedFieldsResult = {
+  fields: ExtractionSchemaFieldV1[];
+  ignoredLegacyEvidenceFlagCount: number;
+};
+
+export function parseGeneratedFields(raw: unknown): ParseGeneratedFieldsResult {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     throw invalid("schema_response_invalid", "Model schema response must be an object.");
   }
@@ -66,14 +66,24 @@ export function parseGeneratedFields(raw: unknown): ExtractionSchemaFieldV1[] {
     throw invalid("too_many_fields", "Model schema exceeds the field limit.");
   }
   const seen = new Set<string>();
-  return fields.map((entry) => parseField(entry, seen));
+  let ignoredLegacyEvidenceFlagCount = 0;
+  const parsedFields = fields.map((entry) => {
+    const parsed = parseField(entry, seen);
+    ignoredLegacyEvidenceFlagCount += parsed.ignoredLegacyEvidenceFlagCount;
+    return parsed.field;
+  });
+  return { fields: parsedFields, ignoredLegacyEvidenceFlagCount };
 }
 
-function parseField(entry: unknown, seen: Set<string>): ExtractionSchemaFieldV1 {
+function parseField(
+  entry: unknown,
+  seen: Set<string>,
+): { field: ExtractionSchemaFieldV1; ignoredLegacyEvidenceFlagCount: number } {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
     throw invalid("schema_field_invalid", "Schema field must be an object.");
   }
   const raw = entry as Record<string, unknown>;
+  const ignoredLegacyEvidenceFlagCount = isIgnoredLegacyEvidenceFlag(raw) ? 1 : 0;
   if (typeof raw.field_key !== "string") {
     throw invalid("invalid_field_key", "Schema field_key is invalid.", {
       field_key_category: "empty",
@@ -96,7 +106,6 @@ function parseField(entry: unknown, seen: Set<string>): ExtractionSchemaFieldV1 
   if (typeof raw.value_type !== "string" || !VALUE_TYPES.has(raw.value_type)) {
     throw invalid("invalid_value_type", "Schema field type is unsupported.");
   }
-  assertEvidenceRequiredFlag(raw.evidence_required);
   if (typeof raw.reusable !== "boolean" || typeof raw.required_for_intent !== "boolean") {
     throw invalid("field_flags", "Schema fields must set reusable and required_for_intent.");
   }
@@ -118,14 +127,17 @@ function parseField(entry: unknown, seen: Set<string>): ExtractionSchemaFieldV1 
   }
 
   return {
-    field_key,
-    title: raw.title.trim(),
-    ...(description ? { description } : {}),
-    value_type: raw.value_type as ExtractionSchemaFieldV1["value_type"],
-    ...(required != null ? { required } : {}),
-    reusable: raw.reusable,
-    evidence_required: true,
-    required_for_intent: raw.required_for_intent,
+    ignoredLegacyEvidenceFlagCount,
+    field: {
+      field_key,
+      title: raw.title.trim(),
+      ...(description ? { description } : {}),
+      value_type: raw.value_type as ExtractionSchemaFieldV1["value_type"],
+      ...(required != null ? { required } : {}),
+      reusable: raw.reusable,
+      evidence_required: true,
+      required_for_intent: raw.required_for_intent,
+    },
   };
 }
 
@@ -183,19 +195,27 @@ type SchemaCallContext = {
   pages: { page_number: number; text: string }[];
 };
 
+type SchemaModelResult = {
+  fields: ExtractionSchemaFieldV1[];
+  alias: string;
+  durationMs: number;
+  ignoredLegacyEvidenceFlagCount: number;
+};
+
 async function completeSchema(
   context: SchemaCallContext,
   task: "generate_schema" | "supplement_schema",
   systemPrompt: string,
   userPayload: Record<string, unknown>,
-): Promise<ReasoningJsonResult & { fields: ExtractionSchemaFieldV1[] }> {
+): Promise<ReasoningJsonResult & ParseGeneratedFieldsResult> {
   const result = await context.client.completeJson({
     task,
     systemPrompt,
     userPayload,
     correlationId: context.correlationId,
   });
-  return { ...result, fields: parseGeneratedFields(result.parsed) };
+  const parsed = parseGeneratedFields(result.parsed);
+  return { ...result, ...parsed };
 }
 
 export async function requestGeneratedSchema(
@@ -203,7 +223,7 @@ export async function requestGeneratedSchema(
     matchTier: Extract<MatchTierV1, "partial" | "generic">;
     hintFields: DomainPackFieldDefV1[];
   },
-): Promise<{ fields: ExtractionSchemaFieldV1[]; alias: string; durationMs: number }> {
+): Promise<SchemaModelResult> {
   const result = await completeSchema(context, "generate_schema", GENERATE_SYSTEM_PROMPT, {
     intent_text: context.intentText,
     match_tier: context.matchTier,
@@ -211,7 +231,12 @@ export async function requestGeneratedSchema(
     pages: context.pages,
     hint_fields: hintPayload(context.hintFields),
   });
-  return { fields: result.fields, alias: result.alias, durationMs: result.durationMs };
+  return {
+    fields: result.fields,
+    alias: result.alias,
+    durationMs: result.durationMs,
+    ignoredLegacyEvidenceFlagCount: result.ignoredLegacyEvidenceFlagCount,
+  };
 }
 
 export async function requestSupplementalSchema(
@@ -219,7 +244,7 @@ export async function requestSupplementalSchema(
     documentTypeId: string;
     existingFields: ExtractionSchemaFieldV1[];
   },
-): Promise<{ fields: ExtractionSchemaFieldV1[]; alias: string; durationMs: number }> {
+): Promise<SchemaModelResult> {
   const result = await completeSchema(context, "supplement_schema", SUPPLEMENT_SYSTEM_PROMPT, {
     intent_text: context.intentText,
     match_tier: "exact",
@@ -236,5 +261,6 @@ export async function requestSupplementalSchema(
     fields: mergeSupplementalFields(context.existingFields, result.fields),
     alias: result.alias,
     durationMs: result.durationMs,
+    ignoredLegacyEvidenceFlagCount: result.ignoredLegacyEvidenceFlagCount,
   };
 }

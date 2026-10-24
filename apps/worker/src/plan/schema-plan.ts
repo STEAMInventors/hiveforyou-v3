@@ -187,6 +187,7 @@ export async function planExtractionSchema(
 ): Promise<ExtractionSchemaV1> {
   const started = Date.now();
   let modelAlias: string | null = null;
+  let ignoredLegacyEvidenceFlagCount = 0;
   let selection: MatchSelectionV1 | undefined;
   try {
     if (!input.intent_text.trim()) {
@@ -234,6 +235,7 @@ export async function planExtractionSchema(
           existingFields: fields,
         });
         modelAlias = generated.alias;
+        ignoredLegacyEvidenceFlagCount += generated.ignoredLegacyEvidenceFlagCount;
         fields = generated.fields;
       }
       generic = false;
@@ -251,6 +253,7 @@ export async function planExtractionSchema(
         hintFields: hintFieldsForDomain(pack.manifest, selection.domain_id),
       });
       modelAlias = generated.alias;
+      ignoredLegacyEvidenceFlagCount += generated.ignoredLegacyEvidenceFlagCount;
       fields = mergeReusableFacts(
         reusableVocabularyFields(pack.manifest, selection.domain_id),
         generated.fields,
@@ -269,6 +272,7 @@ export async function planExtractionSchema(
         hintFields: [],
       });
       modelAlias = generated.alias;
+      ignoredLegacyEvidenceFlagCount += generated.ignoredLegacyEvidenceFlagCount;
       fields = generated.fields;
       generic = true;
     }
@@ -289,6 +293,9 @@ export async function planExtractionSchema(
       schema_hash: schema.schema_hash,
       model_alias: modelAlias,
       duration_ms: Date.now() - started,
+      ...(ignoredLegacyEvidenceFlagCount > 0
+        ? { ignored_legacy_evidence_flag_count: ignoredLegacyEvidenceFlagCount }
+        : {}),
     });
     return schema;
   } catch (error) {

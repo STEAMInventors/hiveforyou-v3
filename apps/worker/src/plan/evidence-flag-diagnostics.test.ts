@@ -81,32 +81,36 @@ describe("evidence flag diagnostics", () => {
 
   describe("model_field_parse boundary", () => {
     it.each([
-      ["explicit_false", { evidence_required: false }],
-      ["string_true", { evidence_required: "true" }],
-      ["string_false", { evidence_required: "false" }],
-      ["number", { evidence_required: 1 }],
-      ["other_invalid", { evidence_required: { invalid: true } }],
-    ] as const)("reports %s via parseGeneratedFields", (kind, flag) => {
-      expect(() =>
-        parseGeneratedFields({
-          fields: [
-            generatedField({
-              field_key: "flag_test",
-              title: "Flag test",
-              ...flag,
-            }),
-          ],
-        }),
-      ).toThrow(
-        expect.objectContaining({
-          errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
-          diagnostics: {
-            reason: "evidence_required",
-            validation_boundary: "model_field_parse",
-            evidence_flag_kind: kind,
-          },
-        }),
-      );
+      { evidence_required: false },
+      { evidence_required: "true" },
+      { evidence_required: "false" },
+      { evidence_required: 1 },
+      { evidence_required: { invalid: true } },
+    ] as const)("ignores legacy flag %j and sets evidence_required true", (flag) => {
+      const { fields, ignoredLegacyEvidenceFlagCount } = parseGeneratedFields({
+        fields: [
+          generatedField({
+            field_key: "flag_test",
+            title: "Flag test",
+            ...flag,
+          }),
+        ],
+      });
+      expect(fields[0]?.evidence_required).toBe(true);
+      expect(ignoredLegacyEvidenceFlagCount).toBe(1);
+    });
+
+    it("does not count omitted evidence_required as legacy", () => {
+      const { fields, ignoredLegacyEvidenceFlagCount } = parseGeneratedFields({
+        fields: [
+          generatedField({
+            field_key: "flag_test",
+            title: "Flag test",
+          }),
+        ],
+      });
+      expect(fields[0]?.evidence_required).toBe(true);
+      expect(ignoredLegacyEvidenceFlagCount).toBe(0);
     });
   });
 
@@ -144,17 +148,17 @@ describe("evidence flag diagnostics", () => {
   });
 
   describe("plan_schema structured log", () => {
-    const errorLogs: string[] = [];
-    let errorSpy: { mockRestore: () => void } | undefined;
+    const infoLogs: string[] = [];
+    let infoSpy: { mockRestore: () => void } | undefined;
 
     afterEach(() => {
-      errorSpy?.mockRestore();
-      errorLogs.length = 0;
+      infoSpy?.mockRestore();
+      infoLogs.length = 0;
     });
 
-    it("includes validation_boundary and evidence_flag_kind on failure", async () => {
-      errorSpy = vi.spyOn(console, "error").mockImplementation((message: unknown) => {
-        errorLogs.push(String(message));
+    it("logs ignored_legacy_evidence_flag_count on successful plan when model sent false", async () => {
+      infoSpy = vi.spyOn(console, "info").mockImplementation((message: unknown) => {
+        infoLogs.push(String(message));
       });
       const classification = classifyDocument({
         source_document_id: "doc-log-evidence",
@@ -173,6 +177,7 @@ describe("evidence flag diagnostics", () => {
                   title: "Note summary",
                   evidence_required: false,
                   reusable: true,
+                  required_for_intent: true,
                 }),
               ],
             },
@@ -181,33 +186,19 @@ describe("evidence flag diagnostics", () => {
           };
         },
       };
-      await expect(
-        planExtractionSchema({
-          intent_text: "Summarize the operational note",
-          classification,
-          combinedPageText: "Plain operational note without pack signals.",
-          pages: [{ page_number: 1, text: "Plain operational note without pack signals." }],
-          packs: [],
-          correlation_id: "corr-evidence-log",
-          reasoning,
-        }),
-      ).rejects.toMatchObject({
-        diagnostics: {
-          validation_boundary: "model_field_parse",
-          evidence_flag_kind: "explicit_false",
-        },
+      await planExtractionSchema({
+        intent_text: "Summarize the operational note",
+        classification,
+        combinedPageText: "Plain operational note without pack signals.",
+        pages: [{ page_number: 1, text: "Plain operational note without pack signals." }],
+        packs: [],
+        correlation_id: "corr-evidence-log",
+        reasoning,
       });
-      expect(errorLogs).toHaveLength(1);
-      const logged = JSON.parse(errorLogs[0]!) as {
-        stage: string;
-        failure_reason: string;
-        validation_boundary?: string;
-        evidence_flag_kind?: string;
-      };
-      expect(logged.stage).toBe("plan_schema");
-      expect(logged.failure_reason).toBe("evidence_required");
-      expect(logged.validation_boundary).toBe("model_field_parse");
-      expect(logged.evidence_flag_kind).toBe("explicit_false");
+      const planLog = infoLogs
+        .map((line) => JSON.parse(line) as { stage?: string; ignored_legacy_evidence_flag_count?: number })
+        .find((entry) => entry.stage === "plan_schema");
+      expect(planLog?.ignored_legacy_evidence_flag_count).toBe(1);
     });
   });
 });

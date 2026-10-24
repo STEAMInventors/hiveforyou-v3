@@ -275,6 +275,41 @@ describe("P2.2 schema planning", () => {
     assertPlannedSchema(schema);
   });
 
+  it("L001 supplemental schema succeeds when model returns evidence_required false", async () => {
+    const pack = loadIepV2Pack();
+    const referralDoc = L001_CORPUS.find(
+      (doc) => doc.expected_document_type_id === "iep.referral",
+    );
+    expect(referralDoc).toBeDefined();
+    const { schema } = await prepareExtractionPlan({
+      classificationInput: {
+        source_document_id: referralDoc!.source_document_id,
+        filename: referralDoc!.filename,
+        pages: referralDoc!.pages,
+        domain_hint: "iep",
+        packs: [pack.manifest],
+      },
+      intent_text: "What is the reason for referral and evaluation request?",
+      packs: [pack],
+      reasoning: scriptedClient((request) => {
+        expect(request.task).toBe("supplement_schema");
+        return {
+          fields: [
+            generatedField({
+              field_key: "evaluation_request",
+              title: "Evaluation request",
+              evidence_required: false,
+              required_for_intent: true,
+            }),
+          ],
+        };
+      }),
+    });
+    const supplemental = schema.fields.find((field) => field.field_key === "evaluation_request");
+    expect(supplemental?.evidence_required).toBe(true);
+    assertPlannedSchema(schema);
+  });
+
   it("normalizes dotted supplemental field keys on IEP v2 iep.referral (L001 reproduction)", async () => {
     const pack = loadIepV2Pack();
     const referralDoc = L001_CORPUS.find(
@@ -939,7 +974,7 @@ describe("P2.2 schema planning", () => {
     expect(errorLogs.join("\n")).toContain("MODEL_OUTPUT_INVALID");
   });
 
-  it("rejects generated fields that do not require evidence", async () => {
+  it("ignores legacy evidence_required false on generated fields and plans with true", async () => {
     const pack = loadIepPack();
     const classification = classifyDocument({
       source_document_id: "doc-evidence",
@@ -948,33 +983,26 @@ describe("P2.2 schema planning", () => {
       domain_hint: null,
       packs: [pack.manifest],
     });
-    await expect(
-      planExtractionSchema({
-        intent_text: "Summarize the operational note",
-        classification,
-        combinedPageText: "Plain operational note without pack signals.",
-        pages: [{ page_number: 1, text: "Plain operational note without pack signals." }],
-        packs: [pack],
-        reasoning: scriptedClient(() => ({
-          fields: [
-            generatedField({
-              field_key: "note_summary",
-              title: "Note summary",
-              evidence_required: false,
-              reusable: true,
-              required_for_intent: true,
-            }),
-          ],
-        })),
-      }),
-    ).rejects.toMatchObject({
-      errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
-      diagnostics: {
-        reason: "evidence_required",
-        validation_boundary: "model_field_parse",
-        evidence_flag_kind: "explicit_false",
-      },
+    const schema = await planExtractionSchema({
+      intent_text: "Summarize the operational note",
+      classification,
+      combinedPageText: "Plain operational note without pack signals.",
+      pages: [{ page_number: 1, text: "Plain operational note without pack signals." }],
+      packs: [pack],
+      reasoning: scriptedClient(() => ({
+        fields: [
+          generatedField({
+            field_key: "note_summary",
+            title: "Note summary",
+            evidence_required: false,
+            reusable: true,
+            required_for_intent: true,
+          }),
+        ],
+      })),
     });
+    expect(schema.fields.every((field) => field.evidence_required === true)).toBe(true);
+    assertPlannedSchema(schema);
   });
 
   it("normalizes benign model field_key formatting before validation", () => {
@@ -985,7 +1013,7 @@ describe("P2.2 schema planning", () => {
     ] as const) {
       const result = normalizeModelGeneratedFieldKey(raw);
       expect(result).toEqual({ ok: true, field_key: expected });
-      const [parsed] = parseGeneratedFields({
+      const { fields: [parsed] } = parseGeneratedFields({
         fields: [
           generatedFieldPayload({
             field_key: raw,
@@ -1101,61 +1129,78 @@ describe("P2.2 schema planning", () => {
     );
   });
 
-  it("normalizes omitted, null, and true evidence_required on generated fields", () => {
-    for (const field of [
-      generatedFieldPayload({
-        field_key: "omitted_flag",
-        title: "Omitted flag",
-        required_for_intent: true,
-      }),
-      generatedField({
-        field_key: "null_flag",
-        title: "Null flag",
-        evidence_required: null,
-        required_for_intent: true,
-      }),
-      generatedField({
-        field_key: "true_flag",
-        title: "True flag",
-        evidence_required: true,
-        required_for_intent: true,
-      }),
-    ]) {
-      const [parsed] = parseGeneratedFields({ fields: [field] });
+  it("assigns evidence_required true for omitted, null, and true model values", () => {
+    for (const [field, expectIgnoredCount] of [
+      [
+        generatedFieldPayload({
+          field_key: "omitted_flag",
+          title: "Omitted flag",
+          required_for_intent: true,
+        }),
+        0,
+      ],
+      [
+        generatedField({
+          field_key: "null_flag",
+          title: "Null flag",
+          evidence_required: null,
+          required_for_intent: true,
+        }),
+        1,
+      ],
+      [
+        generatedField({
+          field_key: "true_flag",
+          title: "True flag",
+          evidence_required: true,
+          required_for_intent: true,
+        }),
+        0,
+      ],
+    ] as const) {
+      const { fields: [parsed], ignoredLegacyEvidenceFlagCount } = parseGeneratedFields({
+        fields: [field],
+      });
       expect(parsed?.evidence_required).toBe(true);
+      expect(ignoredLegacyEvidenceFlagCount).toBe(expectIgnoredCount);
     }
   });
 
-  it("rejects false and malformed evidence_required on generated fields", () => {
-    for (const field of [
-      generatedField({
-        field_key: "false_flag",
-        title: "False flag",
-        evidence_required: false,
-        required_for_intent: true,
-      }),
-      generatedField({
-        field_key: "string_flag",
-        title: "String flag",
-        evidence_required: "true",
-        required_for_intent: true,
-      }),
-      generatedField({
-        field_key: "number_flag",
-        title: "Number flag",
-        evidence_required: 1,
-        required_for_intent: true,
-      }),
-    ]) {
-      expect(() => parseGeneratedFields({ fields: [field] })).toThrow(
-        expect.objectContaining({
-          errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
-          diagnostics: expect.objectContaining({
-            reason: "evidence_required",
-            validation_boundary: "model_field_parse",
-          }),
+  it("ignores legacy non-true evidence_required values without parse failure", () => {
+    for (const [field, expectIgnoredCount] of [
+      [
+        generatedField({
+          field_key: "false_flag",
+          title: "False flag",
+          evidence_required: false,
+          required_for_intent: true,
         }),
-      );
+        1,
+      ],
+      [
+        generatedField({
+          field_key: "string_flag",
+          title: "String flag",
+          evidence_required: "false",
+          required_for_intent: true,
+        }),
+        1,
+      ],
+      [
+        generatedField({
+          field_key: "number_flag",
+          title: "Number flag",
+          evidence_required: 1,
+          required_for_intent: true,
+        }),
+        1,
+      ],
+    ] as const) {
+      const { fields: [parsed], ignoredLegacyEvidenceFlagCount } = parseGeneratedFields({
+        fields: [field],
+      });
+      expect(parsed?.evidence_required).toBe(true);
+      expect(ignoredLegacyEvidenceFlagCount).toBe(expectIgnoredCount);
     }
   });
 
