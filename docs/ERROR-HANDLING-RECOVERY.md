@@ -15,7 +15,7 @@ One consistent, production-supportable error-handling strategy across Vercel, In
 | Workflow retries | **Inngest** (native step/function retries only) |
 | Durable run status for UI and ops | **Supabase** `study_runs`, `extraction_batches` (Worker writes) |
 | Failure classification, coverage gates, merge | **Oracle Worker** |
-| Candidate extraction | **Oracle Reader** (no study pointer, no verified claims) |
+| Candidate extraction | **Oracle Reader** on the existing generic P2.2 path; **Oracle Worker** on the selected-Domain-Pack path (P2.2-PX.D, proposed — Reader prepares source text only). Neither owns the study pointer or verified claims |
 | Model access | **Oracle LiteLLM** (exclusive path; fail closed on missing alias) |
 | Browser-safe errors | **Vercel Web** (reads `study_runs`; never exposes internal diagnostics) |
 
@@ -86,6 +86,8 @@ stage?: string
 | `STUDY_SOURCE_LOCKED` | validation | false |
 
 Extend codes only via ADR and contract version bump.
+
+**Proposed, not approved (2026-10-24):** codes named in planning documents but absent from the table above — notably `PAYLOAD_TOO_LARGE` (database-first plan §3.1, P2.2-PX.D design) — are **not** part of `error-envelope@1` until an ADR approves them. Until then, designs map those conditions to an existing code plus a safe allowlisted `reason` (e.g. `EXTRACTION_FAILED` / `reason: payload_too_large`). Disposition-level validation reasons (e.g. `UNKNOWN_FACT_ID`, `MISSING_EVIDENCE`) are artifact data, not envelope codes.
 
 **P1.7-B:** `STUDY_SOURCE_LOCKED` is returned when a registered source is immutable (`study_locked_at` set) or otherwise not eligible for delete/replace (including deletion already in progress where the RPC surfaces this code). HTTP **400**, not retryable.
 

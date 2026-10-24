@@ -24,6 +24,7 @@ HiveForYou helps people understand complicated paperwork: users bring documents 
 
 - **Product name:** HiveForYou — slogan *“The complicated, made simple.”*
 - **Core is domain-neutral.** IEP, Medicaid, bankruptcy, grocery receipts, and general paperwork are in scope; optional **domain packs** add guidance but **pack-free** journeys must work.
+- **Selected-Domain-Pack extraction (PX-01, 2026-10-24):** when a reviewed Domain Pack is selected, the Pack owns the document-type taxonomy and complete fact catalog; the model identifies document types and extracts **only** catalog-defined facts, with mandatory source evidence; user intent does not create fact definitions and there is **no model-driven schema-generation stage** on that path. **Generic / no-Pack extraction design is DEFERRED** (existing implementation unchanged); the pack-free grocery acceptance bar below **remains mandatory** for release. Design: `docs/design/p2.2-px/PACK-EXTRACTION-PROMPT-ARCHITECTURE.md` (proposed).
 - **One Hive → one evolving Canonical Study.** Intents and outputs reuse that study; prior revisions remain inspectable.
 - **Trust:** No source, no supported factual claim. Missing information is named clearly.
 - **Acceptance bar (product):** L001 eight-document synthetic path with verified evidence; pack-free grocery receipts with reuse across 20→30 documents (see development plan P5 gates).
@@ -149,6 +150,7 @@ Record matches `docs/NEXT.md`. **Do not implement conflicting defaults.**
 | OD-10 | Post-create navigation (`/hives/[id]` vs `/hives`) after landing handoff | **APPROVED** (MD-03) | Navigate to `/hives/[hiveId]` |
 | OD-11 | Supabase email confirmation vs frictionless signup | **APPROVED** (MD-04) | Callback route required; confirmation toggled per environment |
 | OD-12 | Account deletion | **APPROVED** (2026-10-20); implementation deferred | Notify, 30-day retention, recovery, then permanent storage and database cleanup plus deletion audit. `hives.owner_user_id` stays `ON DELETE CASCADE`. No deletion tables in Milestone 1 |
+| PX-01 | Selected-Domain-Pack extraction | **APPROVED direction** (2026-10-24); design P2.2-PX.D **proposed**, not implemented | Pack owns taxonomy + complete fact catalog; extract only defined facts with evidence; no schema generation on that path; intent excluded from extraction prompt. Generic/no-Pack design **DEFERRED**; pack-free grocery release gate **retained** |
 
 ### 6.1 Remaining ambiguity (not P0.1 blockers)
 

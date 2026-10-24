@@ -11,7 +11,7 @@ This document describes **deployment ownership** and **architecture boundaries**
 |---|---|---|
 | `apps/web` | Vercel | All customer and professional UIs; browser-facing APIs that enqueue work and read authorized data |
 | `apps/worker` | Oracle Cloud | TypeScript orchestration, agents, validation, Canonical Study merge, Writer, persistence coordination |
-| `apps/reader` | Oracle Cloud | Python/FastAPI document extraction and candidate fact generation |
+| `apps/reader` | Oracle Cloud | Python/FastAPI source text preparation (read, OCR, page boundaries, fingerprint); candidate fact generation on the existing generic P2.2 path only. Selected-Pack extraction model calls belong to `apps/worker` (P2.2-PX.D, proposed) |
 | `packages/core` | Oracle Worker | Domain-neutral study logic (no IEP-specific rules) |
 | `packages/contracts` | Shared | Versioned HTTP and data contracts; no cross-app source imports |
 | `domain-packs` | Oracle processing | Optional declarative domain guidance (IEP first) |
@@ -24,10 +24,10 @@ This document describes **deployment ownership** and **architecture boundaries**
 
 1. **Oracle runs all processing intelligence.** Readers, processing agents, model-driven analysis, verification, and study merge logic execute on Oracle Cloud—not on Vercel and not in the browser.
 2. **Vercel runs all UIs.** Every customer and professional interface deploys to Vercel (`apps/web`).
-3. **LiteLLM gateway is the only LLM path.** All LLM requests from Worker and Reader route through the existing Oracle LiteLLM gateway. No direct provider APIs, silent fallback providers, or environment-specific bypasses.
+3. **LiteLLM gateway is the only LLM path.** All LLM requests from Worker and Reader route through the existing Oracle LiteLLM gateway. No direct provider APIs, silent fallback providers, or environment-specific bypasses. Selected-Pack extraction calls originate only from the Worker; Reader model calls are OCR (text preparation) and the unchanged generic P2.2 extraction path. Provider prompt-cache configuration belongs to the gateway alias, not application code.
 4. **Inngest owns orchestration.** Workflow scheduling, retries, and durable execution boundaries are Inngest’s responsibility. The browser does not drive multi-step processing directly.
 5. **Supabase owns durable state.** PostgreSQL (schema `hive3`), RLS, and private document storage live in Supabase. Application code does not treat local disks or Vercel as the system of record for customer documents or studies.
-6. **One product execution path.** Real user journeys and acceptance tests use the same entry point: Web → Inngest → Oracle Worker → (internal contract) → Reader → LiteLLM → back through Worker for persistence and status. Unit tests may mock externals; they must not introduce a parallel pipeline.
+6. **One product execution path.** Real user journeys and acceptance tests use the same entry point: Web → Inngest → Oracle Worker → (internal contract) → Reader → LiteLLM → back through Worker for persistence and status. On the selected-Pack path (P2.2-PX.D, proposed): Worker → Reader (read only) → Worker → LiteLLM → Worker persistence. Unit tests may mock externals; they must not introduce a parallel pipeline.
 7. **No direct browser-to-Oracle processing.** The browser must not call Worker, Reader, or LiteLLM endpoints directly. Web APIs on Vercel mediate authentication, authorization, and job enqueue/status only.
 8. **Contracts, not cross-imports.** `apps/web` does not import implementation code from `apps/worker` or `apps/reader`. Shared shapes live in `packages/contracts` with explicit versioning.
 9. **Core stays domain-neutral.** IEP or other domain rules appear only in optional `domain-packs/` material consumed during Oracle-side processing.
@@ -52,7 +52,8 @@ This document describes **deployment ownership** and **architecture boundaries**
 | Error handling & recovery | `docs/ERROR-HANDLING-RECOVERY.md` | Approved P0.2 |
 | ADR-001 | `docs/adr/ADR-001-error-handling-recovery.md` | Approved (P0.2 verified) |
 | Cursor standards | `docs/CURSOR-DEVELOPMENT-STANDARDS.md` | In repo (copied 2026-10-20) |
-| Active ticket | `docs/NEXT.md` | **P1.7** document workspace + permanent Hive deletion; blocked on Supabase apply + `v1-hives` redeploy |
+| Active ticket | `docs/NEXT.md` | **P2.2-PX.D** selected-Domain-Pack extraction design (documentation only); UX-DOC-1 paused |
+| Selected-Pack extraction design (proposed) | `docs/design/p2.2-px/PACK-EXTRACTION-PROMPT-ARCHITECTURE.md` | P2.2-PX.D; acceptance `docs/acceptance/P2.2-PX-pack-extraction-L001.md` |
 | Source inventory | `docs/PROJECT-SOURCES.md` | In repo (copied 2026-10-20) |
 | Brand (authoritative PDF) | `reference/HiveForYou brand guide.pdf` | In repo (copied from Downloads 2026-10-20) |
 | Brand (short reference) | `reference/HiveForYou-brand-guide.md` | Markdown summary for developers |

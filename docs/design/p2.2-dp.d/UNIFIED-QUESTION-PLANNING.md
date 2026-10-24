@@ -6,6 +6,7 @@
 **Normative pack instance (unchanged domain content):** `docs/design/p2.2-dp.d/iep-manifest@2.CANDIDATE.json`  
 **Qualification:** `docs/design/p2.2-dp.d/IEP-PACK-QUALIFICATION.md` §12  
 **Authority:** `docs/DOMAIN-PACK-DESIGN-GUIDE.md` §13, `docs/ARCHITECTURE.md`, `docs/ERROR-HANDLING-RECOVERY.md`
+**Superseded in part (2026-10-24):** selected-Pack extraction ownership (§11 Reader/Worker rows) follows P2.2-PX.D (`docs/design/p2.2-px/PACK-EXTRACTION-PROMPT-ARCHITECTURE.md`, proposed): Reader prepares source text; Worker owns the extraction model call; intent does not enter the extraction prompt. Planning design unchanged.
 
 This document corrects the initial P2.2-DP.D question-planning proposal. It does **not** change IEP domain intelligence: **19** document types, **27** concepts, **23** relationships, **18** investigations, **2** views, **4** canonical questions (Q01–Q04), or `domain-pack-manifest@3` / `CANDIDATE_NOT_IMPLEMENTED`.
 

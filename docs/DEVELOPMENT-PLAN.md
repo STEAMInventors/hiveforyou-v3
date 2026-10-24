@@ -2,7 +2,7 @@
 
 **Version:** 1.0 | **Date:** 2026-10-22 | **Status:** Replacement-ready plan aligned to approved Canonical Intelligence Architecture. Local ticket status below is based on Cursor/user reports and requires repository verification when executing.
 
-**Active ticket:** [`docs/NEXT.md`](./NEXT.md) — **P2.2-DP.I ACTIVE (plan only — await implementation approval)** (pack `@3` loader + unified question planning runtime). **P1.P Gate 2**, **P1.5-processing**, and **P1.P Gate 1** remain **IMPLEMENTED (repo) — live acceptance deferred**.
+**Active ticket:** [`docs/NEXT.md`](./NEXT.md) — **P2.2-PX.D ACTIVE (design / documentation only)** — selected-Domain-Pack extraction and prompt architecture. **UX-DOC-1 PAUSED.** **P2.2-DP.I** remains plan-only, awaiting implementation approval. **P1.P Gate 2**, **P1.5-processing**, and **P1.P Gate 1** remain **IMPLEMENTED (repo) — live acceptance deferred**.
 
 ## 1. Mission and release definition
 
@@ -34,7 +34,8 @@ The uploaded earlier development-plan draft and NEXT.md describe P0 as not start
 | **P2.2 Dynamic extraction** | **ACCEPTED local**, commit `f9c9bbb` | Worker planning, pack matching, Reader extraction; mocked model tests, not live integrated qualification |
 | **P2.2-DP (repo)** | **IMPLEMENTED** per `NEXT.md` | Pack/catalog L001 fixtures; distinct from **P2.2-DP.D** design closure and **P2.2-DP.I** |
 | **P2.2-DP.D** | **CLOSED (design, 2026-10-22)** | `docs/design/p2.2-dp.d/*`; candidate **`CANDIDATE_NOT_IMPLEMENTED`**; **not** P2.2-DP.I |
-| **P2.2-DP.I** | **ACTIVE (plan only)** | Repo prerequisites met (**P2.2-DP.D**, **Gate 2**, **P2.2**, **P1.5-processing**); integrated proof on live orchestration + optional **P2.3** |
+| **P2.2-DP.I** | **PARKED (plan only)** | Repo prerequisites met (**P2.2-DP.D**, **Gate 2**, **P2.2**, **P1.5-processing**); integrated proof on live orchestration + optional **P2.3** |
+| **P2.2-PX.D** | **ACTIVE (design, 2026-10-24)** | Selected-Pack extraction + prompt architecture; documentation only; P2.2-PX.I not started |
 | **P2.3 Evidence verification** | **ON HOLD** per `NEXT.md` | Resumes after P2.2-DP local acceptance; integrated path needs **P1.5-processing** |
 | P3 study, investigations, P4 outputs, P5 acceptance, P6 release | **Not verified implemented in V3** | V2 history is not V3 completion |
 
@@ -109,7 +110,9 @@ Status vocabulary: `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`, `READY_FOR_REVIEW`, 
 | Ticket | Outcome | Gate |
 |---|---|---|
 | P2.1 | Page-grounded PDF/image/DOCX Reader | Stable page/source hash, OCR/DOCX and errors; local acceptance reported at `71365af`; live wiring deferred |
-| P2.2 | Intent-driven classify → pack match → dynamic schema → candidate extract | Exact/partial/generic + mock LiteLLM, errors and security; local acceptance at `f9c9bbb` |
+| P2.2 | Intent-driven classify → pack match → dynamic schema → candidate extract | Exact/partial/generic + mock LiteLLM, errors and security; local acceptance at `f9c9bbb`. **Selected-Pack path superseded in design by P2.2-PX** (no schema generation when a pack is selected); generic path implementation unchanged, its redesign **deferred** |
+| **P2.2-PX.D** | **Selected-Domain-Pack extraction + prompt architecture (design)** | **ACTIVE (design):** `docs/design/p2.2-px/PACK-EXTRACTION-PROMPT-ARCHITECTURE.md`, `docs/acceptance/P2.2-PX-pack-extraction-L001.md`; authority docs + rules synchronized; no code, SQL, gateway or paid calls |
+| **P2.2-PX.I** | **Selected-Pack extraction implementation** | **NOT_STARTED; needs separate approval.** Prerequisites: P2.2-PX.D accepted; Gate 2b SQL (`pack_extraction_prompts`, amended `extraction_batches`) separately authorized; `WORKER_P2_EXTRACTION_LITELLM_ALIAS` (P5.3). Gate: L001 acceptance tier 1 (mocked) in repo; tier 2 live after paid-call authorization. Cache telemetry recorded, **no cache-reuse release threshold** until provider/gateway verified. `PAYLOAD_TOO_LARGE` requires ADR |
 | **P2.2-DP.D** | **Universal Domain Pack + IEP + Question Planning design** | **CLOSED (design):** `IEP-DOMAIN-INTELLIGENCE-PACK-SPEC.md`, `IEP-PACK-QUALIFICATION.md`, `UNIFIED-QUESTION-PLANNING.md`, `iep-manifest@2.CANDIDATE.json`; two views, four catalog questions (Q01–Q04); candidate remains **`CANDIDATE_NOT_IMPLEMENTED`**; runtime is **P2.2-DP.I** after **P1.P Gate 2** |
 | **P2.2-DP.I** | **Generic pack + question planning implementation** | **Prerequisites: P2.2-DP.D, P1.P Gate 2, P2.2 local path.** `@1` compatibility; `@3` loader/views/outcomes; structured equivalence + catalog selection; `plan_questions` → frozen question set → study plan compile → coverage; investigation `run_key` reuse; synthetic second pack without domain branches; **integrated** acceptance requires **P1.5-processing** + **P2.3** before verified-fact promotion |
 | P2.3 | Independent evidence verification | **Prerequisites: P2.2 extract path; integrated gate: P1.5-processing + P1.P batch/evidence persistence.** Source/hive/hash/page/quote checked; candidate never auto-promoted; schema/compile success alone is not done |
@@ -144,7 +147,7 @@ Status vocabulary: `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`, `READY_FOR_REVIEW`, 
 | Ticket | Outcome | Gate |
 |---|---|---|
 | P5.1 | Full L001 browser-to-study-to-personas qualification | Eight actual synthetic files, source chips, current/historical, progress/goal links, customer + pro reports, unacceptable errors recorded |
-| P5.2 | Pack-free grocery 20→30 and multiple intents | One study, three questions (purchase categories, organic evidence/unknown, comparable unit prices), no fabricated category/consumption claims |
+| P5.2 | Pack-free grocery 20→30 and multiple intents (**mandatory release gate**; generic extraction redesign deferred, not waived) | One study, three questions (purchase categories, organic evidence/unknown, comparable unit prices), no fabricated category/consumption claims |
 | **P5.2M** | **Medicaid dual-persona synthetic dry-run** | Same generic study/investigation contracts; applicant vs attorney output, traceable possible disclosure discrepancy; no legal adjudication or required complete Medicaid Pack |
 | **P5.2X** | **New-pack extension proof** | Install reviewed synthetic pack + metadata only; domain pill and Worker pack discovery, document matching/schema use; zero domain-specific Web/Worker/Reader/Core edits |
 | P5.3 | Reliability, privacy, model routing/cost and recovery | Real LiteLLM alias authorized, source boundaries, model/timeouts, duplicate retries, DB uncertainty, safe logs, observability, failure recovery and run-level idempotency proven |
@@ -228,7 +231,7 @@ The current uploaded project copies and local repository are **not automatically
 
 **Parking lot unless promoted by approval:** automatic pack-learning, broader domain marketplace, cross-Hive knowledge graph, autonomous legal verdicts, expansive regulatory execution, separate graph DB, multiple competing model gateways, domain-specific per-pack services and premature performance frameworks.
 
-**Immediate next action (dependency order, not parallel authorization):** Review **`NEXT.md`** **P2.2-DP.I** read-only plan → approve → implement scoped steps only; carry **Gate 1**, **Gate 2**, and **P1.5-processing live acceptance** forward as integrated-release proof; do not start **Gate 3** or **P2.3** integrated verification in parallel unless explicitly re-scoped.
+**Immediate next action (dependency order, not parallel authorization):** Review and close **P2.2-PX.D** design (active per `NEXT.md`); then resume **UX-DOC-1** or approve **P2.2-PX.I** / **P2.2-DP.I** explicitly. For **P2.2-DP.I**: review read-only plan → approve → implement scoped steps only; carry **Gate 1**, **Gate 2**, and **P1.5-processing live acceptance** forward as integrated-release proof; do not start **Gate 3** or **P2.3** integrated verification in parallel unless explicitly re-scoped.
 
 ### Dependency blockers (explicit)
 

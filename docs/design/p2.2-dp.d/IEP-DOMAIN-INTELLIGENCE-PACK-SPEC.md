@@ -8,6 +8,7 @@
 **Normative instance:** `docs/design/p2.2-dp.d/iep-manifest@2.CANDIDATE.json`  
 **Qualification:** `docs/design/p2.2-dp.d/IEP-PACK-QUALIFICATION.md`  
 **Unified question planning:** `docs/design/p2.2-dp.d/UNIFIED-QUESTION-PLANNING.md` (finalized P2.2-DP.D; does not alter pack domain content)
+**Superseded in part (2026-10-24):** extraction with a selected pack follows P2.2-PX.D (`docs/design/p2.2-px/PACK-EXTRACTION-PROMPT-ARCHITECTURE.md`, proposed) — catalog-only extraction, no dynamic/generic schema for intent fields on that path. Statements here about generic/dynamic schema apply to the deferred no-Pack path. Domain content unchanged.
 
 This specification does not change runtime code, `domain-packs/iep/1.0.0`, `domain-packs/iep/2.0.0`, `packages/contracts`, or `docs/NEXT.md`. The candidate JSON is stored under `docs/design/` so `loadDomainPacksFromRoot` cannot read it. `implementation_status` is `CANDIDATE_NOT_IMPLEMENTED`.
 

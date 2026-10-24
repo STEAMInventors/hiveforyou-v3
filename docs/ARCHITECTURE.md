@@ -13,8 +13,8 @@ A **Hive** is the access-controlled collection of source documents, intents and 
 ### Invariants
 
 1. Domain-neutral execution: no hardcoded IEP, Medicaid, bankruptcy or grocery logic in universal Web, Worker, Reader or Core processing paths.
-2. Optional packs: absent or unmatched pack never prevents generic extraction; selected *required* or pinned defective packs fail explicitly, not by silently pretending guidance was applied.
-3. Source-first trust: models propose classifications, schemas, observations and interpretations; code validates evidence; authorized professionals/users may provide attributed corrections; no unverified candidate can enter accepted source-derived study facts.
+2. Optional packs: absent or unmatched pack never prevents generic extraction; selected *required* or pinned defective packs fail explicitly, not by silently pretending guidance was applied. **Selected-Pack extraction (P2.2-PX.D, proposed design):** when a reviewed pack is selected, it owns the document-type taxonomy and complete fact catalog, and the model extracts only catalog-defined facts — no model-generated schema on that path. The generic/no-Pack design is **deferred** (existing P2.2 implementation unchanged; pack-free grocery gate retained).
+3. Source-first trust: models propose classifications, observations and interpretations (and extraction schemas on the generic path only); code validates evidence; authorized professionals/users may provide attributed corrections; no unverified candidate can enter accepted source-derived study facts.
 4. Single logical Canonical Study per Hive, with immutable revisions and preserved contradictory/obsolete evidence; never destructive overwrite.
 5. Every factual narrative statement cites verified observations, or a derived finding whose inputs and algorithm are traceable. Regulatory guidance and pack examples are **not** source evidence about the customer.
 6. One durable processing path: Next.js/Vercel → Inngest → Oracle TypeScript Worker ↔ Oracle Python Reader → Oracle LiteLLM for every model call; Supabase for auth/private storage/Postgres. No shadow engines or direct provider fallback.
@@ -40,10 +40,10 @@ flowchart TB
   Web --> I[Inngest: event publish + durable workflow and retries]
   I -->|Connect outbound WebSocket| W[Oracle TypeScript Worker: planning, verification, study, findings, writer]
   W --> S
-  W <-->|versioned internal HTTP and service auth| R[Oracle Python Reader: pages + candidate extraction]
+  W <-->|versioned internal HTTP and service auth| R[Oracle Python Reader: source text preparation; generic-path candidate extraction]
   R --> S
   W --> L[Oracle LiteLLM: all reasoning/model calls]
-  R --> L
+  R -->|OCR; generic-path extraction only| L
   L --> M[Approved configured models/providers]
 ```
 
@@ -57,8 +57,10 @@ Inngest owns workflow retry scheduling; individual Worker/Reader calls have dead
 | Plan questions (`P2.2-DP.I`; design `P2.2-DP.D`) | Worker | Verbatim intent (private store), optional pinned pack catalog → frozen **`study-question-set@1`** | One bounded LiteLLM proposal + deterministic equivalence; membership frozen before classify (**`UNIFIED-QUESTION-PLANNING.md`**) |
 | Plan coverage / compile plan | Worker | Frozen question set, prior snapshot, sources → **`study-plan@1`** (reuse, investigation schedule, budget) | Reuse verified facts/findings first; prerequisite refresh after classify does **not** mutate question set |
 | Read (`P2.1`) | Reader | Authorized source + hash → page/read artifact, quality, fingerprint | Untrusted rendered/OCR text |
-| Classify/match/schema (`P2.2`) | Worker | Read artifacts, intent ref, optional reviewed pack pin → document candidates and bounded extraction schema | Proposed classification, pack version/digest; ambiguity retained |
-| Extract candidates (`P2.2`) | Reader | Pages + validated schema → typed candidate records, source/page/quote anchors | Candidates **unverified** |
+| Classify/match/schema (`P2.2`, generic path) | Worker | Read artifacts, intent ref, optional reviewed pack pin → document candidates and bounded extraction schema | Proposed classification, pack version/digest; ambiguity retained |
+| Extract candidates (`P2.2`, generic path) | Reader | Pages + validated schema → typed candidate records, source/page/quote anchors | Candidates **unverified** |
+| Selected-Pack compile (`P2.2-PX`, proposed; stage `plan_schema`) | Worker + Core | Validated pinned pack → canonical system prompt, `prompt_digest`, stored once per digest | Deterministic; no model call; no intent or document text |
+| Selected-Pack classify + extract (`P2.2-PX`, proposed; stage `extract`) | Worker → LiteLLM | Compiled prompt + Reader pages → `pack-extraction-output@1`, fact-level validation, `extraction_batches` | Catalog-defined facts only; candidates **unverified**; Reader does text preparation only |
 | Verify (`P2.3`) | Worker | Candidates + independent source/read evidence → verified/rejected/unresolved dispositions | Trust promotion occurs here only |
 | Reconcile (`P3`) | Worker | Verified observations + accepted prior study → new proposed study snapshot | Atomically advance current pointer only on success |
 | Investigate (`P3.I`) | Worker/Core | **`study-plan@1`** + pinned snapshot → findings, gaps; emit **`study-question-coverage@1`** | Derived ≠ observed; `run_key` dedupe; budget deferral explicit |
@@ -71,6 +73,8 @@ Inngest owns workflow retry scheduling; individual Worker/Reader calls have dead
 ## 4. Model and data contracts
 
 Model calls are routed **only** through the Oracle LiteLLM gateway. Roles/aliases are configured centrally and versioned as runtime configuration; separate prompts may share the same role alias. P2.1 OCR alias and P2.2 reasoning aliases are known local designs. Lack of a configured alias is a diagnosed failure, never a direct-provider fallback. Protect prompts/source content from logs, enforce context/page coverage bounds, use structured JSON outputs, version contracts, and validate size/types/refs independently of model output.
+
+**Selected-Pack prompt architecture (P2.2-PX.D, proposed):** one versioned, byte-stable system prompt per pack version + template + output contract, compiled deterministically from validated pack data (JCS canonical JSON, `prompt_digest`), carrying universal Hive extraction rules, document types, classification rules, the complete fact catalog, evidence/missing-value rules and the output contract. Document pages and source metadata travel only in the user message; intent is excluded. Provider prompt caching of the system prefix is an optimization configured at the LiteLLM routing boundary and must never affect correctness; provider capabilities are **unverified**. Large packs use bounded, completeness-proven partitions only when necessary. Detail: `docs/design/p2.2-px/PACK-EXTRACTION-PROMPT-ARCHITECTURE.md`.
 
 **Current accepted local contracts (reported):** `reader-document-read@1`, `domain-pack-manifest@1`/`@2` (repo), `document-classification@1`, `extraction-schema@1`, `reader-candidate-extraction@1`, `reader-extract-candidates@1`, and `error-envelope@1`. **Proposed (P2.2-DP.D / P1.P; not deployed):** `study-question-set@1`, `study-plan@1`, `study-question-coverage@1`, verification dispositions, canonical assertions, findings, operator declarations, and audience projections. Contract types land in **`packages/contracts` at P2.2-DP.I**; durable storage lands at **P1.P Gate 2**. Avoid breaking existing contracts implicitly. Prefer explicit new contract versions for incompatible structures.
 
@@ -170,11 +174,11 @@ Reports must show source chips/document/page and appropriately brief quotes wher
 ## 11. Qualification gates and proving cases
 
 1. **Connectivity:** Real authorized UI → Inngest → Oracle Worker → Reader → result/status, with failure/retry/permissions checks; mocked connectivity is not E2E qualification.
-2. **IEP L001:** All eight actual files accounted for; document identities, page anchors, value support, omissions, candidate dispositions and goal/service record associations audited. V2 168 accepted facts is **diagnostic**, not a target count.
+2. **IEP L001:** Selected-Pack extraction per `docs/acceptance/P2.2-PX-pack-extraction-L001.md` (no `generate_schema` / `supplement_schema`). All eight actual files accounted for; document identities, page anchors, value support, omissions, candidate dispositions and goal/service record associations audited. V2 168 accepted facts is **diagnostic**, not a target count.
 3. **Canonical:** One Hive/one study; repeat intents and new uploads create retained revisions; current/historical/competing claims and temporal relationships accurate.
 4. **Investigation:** Correct supported and unresolved findings for compatible goal measures, planning vs delivery, amendment changes, conflicts/gaps; no unsupported verdicts.
 5. **Personas:** Customer and authorized professional reports from the same immutable snapshot, each claim traceable.
-6. **Pack-free grocery:** 20 receipts → 30 receipts, same study; changing intent (junk-food purchases → organic purchases → comparable unit prices), evidenced classification or unknown, no purchase-to-consumption assumption.
+6. **Pack-free grocery (mandatory release gate; generic extraction design deferred, not waived):** 20 receipts → 30 receipts, same study; changing intent (junk-food purchases → organic purchases → comparable unit prices), evidenced classification or unknown, no purchase-to-consumption assumption.
 7. **Cross-domain architecture:** Synthetic Medicaid transfer/application and grocery cases using the *same* generic operator/canonical contracts; Medicaid customer vs attorney outputs; no domain-specific code branch.
 8. **Operational:** Security denial, model outage, invalid schema, corrupt pack, retry, duplicate event, interrupted run and storage errors produce diagnosable recovery without corrupting accepted study.
 
@@ -194,4 +198,4 @@ Newly approved architecture requires plan/NEXT sync, architecture-and-pack contr
 
 **Approved architectural choices:** universal evidence-backed study; optional declarative Domain Intelligence Packs; five sections (Discovery, Concepts, Relationships, Investigations, Communication); generic allowlisted operator catalog; relational-backed semantic graph; audience-separated outputs sharing one truth layer; Oracle LiteLLM only; one integrated workflow.
 
-**Pending explicit design/implementation approval:** exact v2 pack schema and version; pack-to-public-catalog build/projection; typed investigation/finding contracts; precise verification and semantic support policy; transactional persistence schema and RLS; live model/provider privacy policy; collaboration/report sharing permissions; quotas/cost/performance; release and operational topology specifics. The development plan owns their gating order.
+**Pending explicit design/implementation approval:** P2.2-PX selected-Pack extraction implementation (P2.2-PX.I), `PAYLOAD_TOO_LARGE` ADR, deployed LiteLLM caching capabilities; deferred generic/no-Pack extraction design; exact v2 pack schema and version; pack-to-public-catalog build/projection; typed investigation/finding contracts; precise verification and semantic support policy; transactional persistence schema and RLS; live model/provider privacy policy; collaboration/report sharing permissions; quotas/cost/performance; release and operational topology specifics. The development plan owns their gating order.
