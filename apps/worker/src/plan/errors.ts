@@ -5,6 +5,7 @@ import {
 
 const SAFE_PLANNING_DIAGNOSTIC_KEYS = [
   "reason",
+  "field_key_category",
   "alias",
   "status",
   "duration_ms",

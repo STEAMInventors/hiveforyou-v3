@@ -17,6 +17,8 @@ export type PlanningLogEvent = {
   retryable?: boolean;
   message_safe?: string;
   failure_reason?: string;
+  /** Safe invalid-key category from planning diagnostics; never raw field keys. */
+  field_key_category?: string;
 };
 
 /** Sanitized planning log. Never include prompts, page text, or model completions. */

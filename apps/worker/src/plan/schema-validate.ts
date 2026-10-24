@@ -13,6 +13,57 @@ export const SCHEMA_LIMITS = {
 
 export const FIELD_KEY_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
 
+const FIELD_KEY_MAX_LENGTH = 64;
+
+/** Safe planning log category when a model field_key fails validation (never log raw keys). */
+export type ModelFieldKeyFailureCategory =
+  | "empty"
+  | "dot_separator"
+  | "hyphen"
+  | "invalid_prefix"
+  | "too_long"
+  | "invalid_character";
+
+export type NormalizeModelFieldKeyResult =
+  | { ok: true; field_key: string }
+  | { ok: false; category: ModelFieldKeyFailureCategory };
+
+/**
+ * Deterministic normalization for model-generated supplemental / generated schema fields only.
+ * Pack-derived and persisted field keys must already match {@link FIELD_KEY_PATTERN}.
+ */
+export function normalizeModelGeneratedFieldKey(raw: string): NormalizeModelFieldKeyResult {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) {
+    return { ok: false, category: "empty" };
+  }
+
+  const hadDot = trimmed.includes(".");
+  const hadHyphen = trimmed.includes("-");
+  const normalized = trimmed.toLowerCase().replace(/[.-]/g, "_");
+
+  if (FIELD_KEY_PATTERN.test(normalized)) {
+    return { ok: true, field_key: normalized };
+  }
+
+  if (normalized.length > FIELD_KEY_MAX_LENGTH) {
+    return { ok: false, category: "too_long" };
+  }
+  if (!/^[a-z]/.test(normalized)) {
+    return { ok: false, category: "invalid_prefix" };
+  }
+  if (/[^a-z0-9_]/.test(normalized)) {
+    return { ok: false, category: "invalid_character" };
+  }
+  if (hadDot) {
+    return { ok: false, category: "dot_separator" };
+  }
+  if (hadHyphen) {
+    return { ok: false, category: "hyphen" };
+  }
+  return { ok: false, category: "invalid_character" };
+}
+
 export const VALUE_TYPES = new Set([
   "string",
   "number",

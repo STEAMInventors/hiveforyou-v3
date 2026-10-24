@@ -7,7 +7,7 @@ import { ErrorCode } from "@hiveforyou/contracts/errors/v1";
 
 import { PlanningError } from "./errors.js";
 import {
-  FIELD_KEY_PATTERN,
+  normalizeModelGeneratedFieldKey,
   SCHEMA_LIMITS,
   VALUE_TYPES,
 } from "./schema-validate.js";
@@ -36,8 +36,12 @@ const SUPPLEMENT_SYSTEM_PROMPT = [
   "Do not include extracted values or quotes.",
 ].join(" ");
 
-function invalid(reason: string, message: string): PlanningError {
-  return new PlanningError(ErrorCode.MODEL_OUTPUT_INVALID, message, { reason });
+function invalid(
+  reason: string,
+  message: string,
+  extra: Record<string, string | number | boolean | null> = {},
+): PlanningError {
+  return new PlanningError(ErrorCode.MODEL_OUTPUT_INVALID, message, { reason, ...extra });
 }
 
 function assertEvidenceRequiredFlag(value: unknown): void {
@@ -67,13 +71,22 @@ function parseField(entry: unknown, seen: Set<string>): ExtractionSchemaFieldV1 
     throw invalid("schema_field_invalid", "Schema field must be an object.");
   }
   const raw = entry as Record<string, unknown>;
-  if (typeof raw.field_key !== "string" || !FIELD_KEY_PATTERN.test(raw.field_key)) {
-    throw invalid("invalid_field_key", "Schema field_key is invalid.");
+  if (typeof raw.field_key !== "string") {
+    throw invalid("invalid_field_key", "Schema field_key is invalid.", {
+      field_key_category: "empty",
+    });
   }
-  if (seen.has(raw.field_key)) {
+  const normalizedKey = normalizeModelGeneratedFieldKey(raw.field_key);
+  if (!normalizedKey.ok) {
+    throw invalid("invalid_field_key", "Schema field_key is invalid.", {
+      field_key_category: normalizedKey.category,
+    });
+  }
+  const field_key = normalizedKey.field_key;
+  if (seen.has(field_key)) {
     throw invalid("duplicate_field_key", "Schema field_key is duplicated.");
   }
-  seen.add(raw.field_key);
+  seen.add(field_key);
   if (typeof raw.title !== "string" || !raw.title.trim() || raw.title.length > SCHEMA_LIMITS.maxTitleLength) {
     throw invalid("invalid_title", "Schema field title is invalid.");
   }
@@ -102,7 +115,7 @@ function parseField(entry: unknown, seen: Set<string>): ExtractionSchemaFieldV1 
   }
 
   return {
-    field_key: raw.field_key,
+    field_key,
     title: raw.title.trim(),
     ...(description ? { description } : {}),
     value_type: raw.value_type as ExtractionSchemaFieldV1["value_type"],

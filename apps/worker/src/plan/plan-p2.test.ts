@@ -21,7 +21,10 @@ import { PlanningError } from "./errors.js";
 import { resolveDocumentClassification } from "./model-classify.js";
 import { parseGeneratedFields } from "./model-schema.js";
 import { planExtractionSchema, prepareExtractionPlan } from "./schema-plan.js";
-import { assertPlannedSchema } from "./schema-validate.js";
+import {
+  assertPlannedSchema,
+  normalizeModelGeneratedFieldKey,
+} from "./schema-validate.js";
 import { L001_CORPUS } from "./l001-corpus.fixture.js";
 import type { ReasoningJsonClient, ReasoningJsonRequest } from "../reasoning/types.js";
 
@@ -258,6 +261,42 @@ describe("P2.2 schema planning", () => {
           fields: [
             generatedFieldPayload({
               field_key: "evaluation_request",
+              title: "Evaluation request",
+              required_for_intent: true,
+            }),
+          ],
+        };
+      }),
+    });
+    expect(schema.provenance.match_tier).toBe("exact");
+    expect(schema.provenance.document_type_id).toBe("iep.referral");
+    const supplemental = schema.fields.find((field) => field.field_key === "evaluation_request");
+    expect(supplemental?.evidence_required).toBe(true);
+    assertPlannedSchema(schema);
+  });
+
+  it("normalizes dotted supplemental field keys on IEP v2 iep.referral (L001 reproduction)", async () => {
+    const pack = loadIepV2Pack();
+    const referralDoc = L001_CORPUS.find(
+      (doc) => doc.expected_document_type_id === "iep.referral",
+    );
+    expect(referralDoc).toBeDefined();
+    const { schema } = await prepareExtractionPlan({
+      classificationInput: {
+        source_document_id: referralDoc!.source_document_id,
+        filename: referralDoc!.filename,
+        pages: referralDoc!.pages,
+        domain_hint: "iep",
+        packs: [pack.manifest],
+      },
+      intent_text: "What is the reason for referral and evaluation request?",
+      packs: [pack],
+      reasoning: scriptedClient((request) => {
+        expect(request.task).toBe("supplement_schema");
+        return {
+          fields: [
+            generatedFieldPayload({
+              field_key: "evaluation.request",
               title: "Evaluation request",
               required_for_intent: true,
             }),
@@ -932,6 +971,130 @@ describe("P2.2 schema planning", () => {
       errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
       diagnostics: { reason: "evidence_required" },
     });
+  });
+
+  it("normalizes benign model field_key formatting before validation", () => {
+    for (const [raw, expected] of [
+      ["  Evaluation_Request  ", "evaluation_request"],
+      ["Reason-For-Referral", "reason_for_referral"],
+      ["referral.reason", "referral_reason"],
+    ] as const) {
+      const result = normalizeModelGeneratedFieldKey(raw);
+      expect(result).toEqual({ ok: true, field_key: expected });
+      const [parsed] = parseGeneratedFields({
+        fields: [
+          generatedFieldPayload({
+            field_key: raw,
+            title: "Test field",
+            required_for_intent: true,
+          }),
+        ],
+      });
+      expect(parsed?.field_key).toBe(expected);
+    }
+  });
+
+  it("rejects invalid model field keys with safe field_key_category diagnostics", () => {
+    for (const [raw, category] of [
+      ["", "empty"],
+      ["   ", "empty"],
+      ["123bad", "invalid_prefix"],
+      ["bad key", "invalid_character"],
+      ["bad@key", "invalid_character"],
+      [`a${"b".repeat(64)}`, "too_long"],
+    ] as const) {
+      expect(normalizeModelGeneratedFieldKey(raw)).toEqual({ ok: false, category });
+      expect(() =>
+        parseGeneratedFields({
+          fields: [
+            generatedFieldPayload({
+              field_key: raw,
+              title: "Bad field",
+              required_for_intent: true,
+            }),
+          ],
+        }),
+      ).toThrow(
+        expect.objectContaining({
+          errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
+          diagnostics: { reason: "invalid_field_key", field_key_category: category },
+        }),
+      );
+    }
+  });
+
+  it("logs field_key_category on plan_schema failure for invalid supplemental keys (L001)", async () => {
+    captureErrors();
+    const pack = loadIepV2Pack();
+    const referralDoc = L001_CORPUS.find(
+      (doc) => doc.expected_document_type_id === "iep.referral",
+    );
+    expect(referralDoc).toBeDefined();
+    const rawFieldKey = "bad key";
+    await expect(
+      prepareExtractionPlan({
+        classificationInput: {
+          source_document_id: referralDoc!.source_document_id,
+          filename: referralDoc!.filename,
+          pages: referralDoc!.pages,
+          domain_hint: "iep",
+          packs: [pack.manifest],
+          correlation_id: "corr-invalid-field-key",
+        },
+        intent_text: "What is the reason for referral and evaluation request?",
+        packs: [pack],
+        correlation_id: "corr-invalid-field-key",
+        reasoning: scriptedClient((request) => {
+          expect(request.task).toBe("supplement_schema");
+          return {
+            fields: [
+              generatedFieldPayload({
+                field_key: rawFieldKey,
+                title: "Bad supplemental field",
+                required_for_intent: true,
+              }),
+            ],
+          };
+        }),
+      }),
+    ).rejects.toMatchObject({
+      errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
+      diagnostics: { reason: "invalid_field_key", field_key_category: "invalid_character" },
+    });
+    expect(errorLogs).toHaveLength(1);
+    const logged = JSON.parse(errorLogs[0]!) as {
+      stage: string;
+      failure_reason: string;
+      field_key_category?: string;
+    };
+    expect(logged.stage).toBe("plan_schema");
+    expect(logged.failure_reason).toBe("invalid_field_key");
+    expect(logged.field_key_category).toBe("invalid_character");
+    expect(errorLogs.join("\n")).not.toContain(rawFieldKey);
+  });
+
+  it("rejects model field keys that collide after normalization", () => {
+    expect(() =>
+      parseGeneratedFields({
+        fields: [
+          generatedFieldPayload({
+            field_key: "evaluation.request",
+            title: "First",
+            required_for_intent: true,
+          }),
+          generatedFieldPayload({
+            field_key: "evaluation_request",
+            title: "Second",
+            required_for_intent: true,
+          }),
+        ],
+      }),
+    ).toThrow(
+      expect.objectContaining({
+        errorCode: ErrorCode.MODEL_OUTPUT_INVALID,
+        diagnostics: { reason: "duplicate_field_key" },
+      }),
+    );
   });
 
   it("normalizes omitted, null, and true evidence_required on generated fields", () => {

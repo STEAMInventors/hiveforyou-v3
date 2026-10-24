@@ -12,7 +12,7 @@ import { ErrorCode } from "@hiveforyou/contracts/errors/v1";
 import { buildFieldGuidanceForDocumentType, computeSchemaHash } from "@hiveforyou/core";
 
 import { AMBIGUITY_MULTIPLE_DOMAINS, type ClassifyDocumentInputV1 } from "./classify.js";
-import { PlanningError } from "./errors.js";
+import { PlanningError, pickSafePlanningDiagnostics } from "./errors.js";
 import { intentNeedsSupplementalFields } from "./intent-coverage.js";
 import { selectMatchTier, type MatchSelectionV1 } from "./match.js";
 import { resolveDocumentClassification } from "./model-classify.js";
@@ -293,6 +293,9 @@ export async function planExtractionSchema(
     return schema;
   } catch (error) {
     const planning = error instanceof PlanningError ? error : null;
+    const safeDiagnostics = planning
+      ? pickSafePlanningDiagnostics(planning.diagnostics)
+      : null;
     emitPlanningLog({
       level: "error",
       stage: "plan_schema",
@@ -313,6 +316,9 @@ export async function planExtractionSchema(
         typeof planning?.diagnostics.reason === "string"
           ? planning.diagnostics.reason
           : "unexpected",
+      ...(typeof safeDiagnostics?.field_key_category === "string"
+        ? { field_key_category: safeDiagnostics.field_key_category }
+        : {}),
     });
     throw error;
   }
