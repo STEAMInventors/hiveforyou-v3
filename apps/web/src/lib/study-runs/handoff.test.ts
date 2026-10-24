@@ -3,11 +3,14 @@ import { describe, expect, it } from "vitest";
 import {
   buildAnalyzeSubmitBody,
   capturedQuestionForAnalyze,
-  isAnalyzeDocumentsEnabled,
+  continueAction,
+  isQuestionChanged,
   nextDeliveryKey,
   resolveDisplayedIntent,
+  runDocumentCounts,
   shouldEnqueueStudyRun,
   studyDomainHintLabel,
+  studyRunSummaryText,
 } from "./handoff";
 
 describe("shouldEnqueueStudyRun", () => {
@@ -108,48 +111,127 @@ describe("studyDomainHintLabel", () => {
   });
 });
 
-describe("isAnalyzeDocumentsEnabled", () => {
-  it("requires a nonempty question and an idle processing state", () => {
+describe("continueAction", () => {
+  const ready = {
+    requestText: "What changed?",
+    questionChanged: false,
+    newDocumentCount: 0,
+    readyDocumentCount: 8,
+    uploadingCount: 0,
+    busy: false,
+  };
+
+  it("starts an analysis when no run exists", () => {
+    expect(continueAction({ ...ready, runStatus: null })).toEqual({ kind: "start" });
+  });
+
+  it("opens progress for an active run and never submits", () => {
+    expect(continueAction({ ...ready, runStatus: "QUEUED" })).toEqual({ kind: "view_progress" });
+    expect(continueAction({ ...ready, runStatus: "RUNNING" })).toEqual({ kind: "view_progress" });
     expect(
-      isAnalyzeDocumentsEnabled({
-        requestText: "What changed?",
-        busy: false,
-        intentLocked: false,
-        runInProgress: false,
+      continueAction({ ...ready, runStatus: "RUNNING", questionChanged: true, newDocumentCount: 2 }),
+    ).toEqual({ kind: "view_progress" });
+  });
+
+  it("shows results after success without offering a rerun when nothing changed", () => {
+    expect(continueAction({ ...ready, runStatus: "SUCCEEDED" })).toEqual({
+      kind: "view_results",
+      canAnalyzeChanges: false,
+    });
+  });
+
+  it("offers a new analysis after success only when the question or documents changed", () => {
+    expect(continueAction({ ...ready, runStatus: "SUCCEEDED", questionChanged: true })).toEqual({
+      kind: "view_results",
+      canAnalyzeChanges: true,
+    });
+    expect(continueAction({ ...ready, runStatus: "SUCCEEDED", newDocumentCount: 1 })).toEqual({
+      kind: "view_results",
+      canAnalyzeChanges: true,
+    });
+    expect(
+      continueAction({
+        ...ready,
+        runStatus: "SUCCEEDED",
+        newDocumentCount: 1,
+        uploadingCount: 1,
       }),
+    ).toEqual({ kind: "view_results", canAnalyzeChanges: false });
+    expect(
+      continueAction({ ...ready, runStatus: "SUCCEEDED", questionChanged: true, requestText: "  " }),
+    ).toEqual({ kind: "view_results", canAnalyzeChanges: false });
+  });
+
+  it("offers retry after a failed or cancelled run", () => {
+    expect(continueAction({ ...ready, runStatus: "FAILED" })).toEqual({ kind: "retry" });
+    expect(continueAction({ ...ready, runStatus: "CANCELLED" })).toEqual({ kind: "retry" });
+  });
+
+  it("disables with a reason when prerequisites are missing", () => {
+    expect(continueAction({ ...ready, runStatus: null, requestText: "   " })).toEqual({
+      kind: "disabled",
+      reason: "Add your question to continue.",
+    });
+    expect(continueAction({ ...ready, runStatus: null, uploadingCount: 1 })).toEqual({
+      kind: "disabled",
+      reason: "Wait for uploads to finish.",
+    });
+    expect(continueAction({ ...ready, runStatus: "FAILED", readyDocumentCount: 0 })).toEqual({
+      kind: "disabled",
+      reason: "Add at least one document to continue.",
+    });
+    expect(continueAction({ ...ready, runStatus: null, busy: true }).kind).toBe("disabled");
+  });
+});
+
+describe("isQuestionChanged", () => {
+  it("ignores whitespace and detects text or domain edits", () => {
+    const base = { requestText: "What changed?", domainId: "iep", lastDomainId: "iep" };
+    expect(isQuestionChanged({ ...base, lastRequestText: "  What changed? " })).toBe(false);
+    expect(isQuestionChanged({ ...base, lastRequestText: "Something else" })).toBe(true);
+    expect(
+      isQuestionChanged({ ...base, lastRequestText: "What changed?", lastDomainId: null }),
     ).toBe(true);
-    expect(
-      isAnalyzeDocumentsEnabled({
-        requestText: "   ",
-        busy: false,
-        intentLocked: false,
-        runInProgress: false,
-      }),
-    ).toBe(false);
-    expect(
-      isAnalyzeDocumentsEnabled({
-        requestText: "What changed?",
-        busy: true,
-        intentLocked: false,
-        runInProgress: false,
-      }),
-    ).toBe(false);
-    expect(
-      isAnalyzeDocumentsEnabled({
-        requestText: "What changed?",
-        busy: false,
-        intentLocked: true,
-        runInProgress: false,
-      }),
-    ).toBe(false);
-    expect(
-      isAnalyzeDocumentsEnabled({
-        requestText: "What changed?",
-        busy: false,
-        intentLocked: false,
-        runInProgress: true,
-      }),
-    ).toBe(false);
+    expect(isQuestionChanged({ ...base, lastRequestText: null })).toBe(false);
+  });
+});
+
+describe("runDocumentCounts", () => {
+  it("counts registered documents before the run and those added after it", () => {
+    const docs = [
+      { status: "registered", registered_at: "2026-10-23T10:00:00Z" },
+      { status: "registered", registered_at: "2026-10-23T11:00:00Z" },
+      { status: "registered", registered_at: "2026-10-23T13:00:00Z" },
+      { status: "pending", registered_at: null },
+      { status: "failed", registered_at: null },
+    ];
+    expect(runDocumentCounts(docs, "2026-10-23T12:00:00Z")).toEqual({ included: 2, addedSince: 1 });
+    expect(runDocumentCounts(docs, null)).toEqual({ included: 3, addedSince: 0 });
+  });
+});
+
+describe("studyRunSummaryText", () => {
+  it("describes progress without technical identifiers", () => {
+    expect(studyRunSummaryText(null, 8)).toBeNull();
+    expect(studyRunSummaryText({ status: "QUEUED", stage: "enqueue" }, 8)).toBe("Getting started…");
+    expect(studyRunSummaryText({ status: "RUNNING", stage: "extract" }, 8)).toBe(
+      "Reading your 8 documents…",
+    );
+    expect(studyRunSummaryText({ status: "RUNNING", stage: "load_sources" }, 1)).toBe(
+      "Gathering your 1 document…",
+    );
+    expect(studyRunSummaryText({ status: "RUNNING", stage: "merge_study" }, null)).toBe(
+      "Working on your documents…",
+    );
+    expect(studyRunSummaryText({ status: "FAILED", stage: "finalize" }, 8)).toBe(
+      "Your last analysis didn't finish.",
+    );
+  });
+
+  it("never claims the study is built after a successful run", () => {
+    const text = studyRunSummaryText({ status: "SUCCEEDED", stage: "finalize" }, 8) ?? "";
+    expect(text).toBe("Analysis finished. We read your 8 documents.");
+    expect(text.toLowerCase()).not.toContain("study");
   });
 });
 

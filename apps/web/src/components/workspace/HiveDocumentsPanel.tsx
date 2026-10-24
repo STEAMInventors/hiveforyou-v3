@@ -37,10 +37,16 @@ import {
 import { validateUploadFile } from "@/lib/documents/validation";
 import { formatFileSize } from "@/lib/format-file-metadata";
 
+export type HiveDocumentsSnapshot = {
+  documents: SourceDocumentV1[];
+  uploadBusy: boolean;
+};
+
 type HiveDocumentsPanelProps = {
   hiveId: string;
   initialPendingFiles?: File[];
   onPendingFilesConsumed?: () => void;
+  onSnapshotChange?: (snapshot: HiveDocumentsSnapshot) => void;
 };
 
 function statusBadgeClass(uiStatus: "uploading" | "uploaded" | "upload_failed"): string {
@@ -57,6 +63,7 @@ export function HiveDocumentsPanel({
   hiveId,
   initialPendingFiles = [],
   onPendingFilesConsumed,
+  onSnapshotChange,
 }: HiveDocumentsPanelProps) {
   const inputId = useId();
   const retryInputId = useId();
@@ -105,6 +112,14 @@ export function HiveDocumentsPanel({
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const onSnapshotChangeRef = useRef(onSnapshotChange);
+  onSnapshotChangeRef.current = onSnapshotChange;
+  useEffect(() => {
+    if (!loading) {
+      onSnapshotChangeRef.current?.({ documents, uploadBusy });
+    }
+  }, [documents, uploadBusy, loading]);
 
   const quotaExhausted = isFreeUploadQuotaExhausted(quota);
 

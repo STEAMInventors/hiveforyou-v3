@@ -1,7 +1,27 @@
 ﻿# Active ticket
 
+**Phase / Ticket:** **UX-DOC-1 — Documents → Continue → Live Hive Progress**  
+**Status:** **ACTIVE — Step 1 IMPLEMENTED (repo); awaiting user verification before Step 2** (2026-10-24). Local: `apps/web` typecheck OK, vitest **117/117**, `next build` OK. Browser check not yet run. UX investigation complete; design direction approved. Steps are approved, verified and reported one at a time.
+
+**Objective:** Replace the Analyze Documents form with one journey: question at the top (editable), a context-aware **Continue** above the document list, a brand-aligned progress modal driven only by real `study_runs` status, and an honest results handoff that never claims a Canonical Study exists before Gate 3.
+
+| Step | Scope | State |
+|------|-------|-------|
+| 1 | Web only: question card + context-aware Continue above documents; shared `useHiveStudyRun` hook (moved from `HiveProcessingPanel`); no run IDs/diagnostics in the main experience; Canonical Study tab read-only (no duplicate submit) | **Implemented (repo)** — `HiveAnalyzeHeader.tsx`, `CanonicalStudyStatusPanel.tsx`, `use-hive-study-run.ts`, `handoff.ts` (+tests); `HiveProcessingPanel.tsx` removed |
+| 2 | One active run per Hive: partial unique index + submit RPC returns the existing active run (`active_run_exists`); re-enqueue only a still-`QUEUED` run with its original key | Await approval; migration needs separate SQL authorization; **required before UI-to-result acceptance** |
+| 3 | Honeycomb progress modal (V2 SVG visual, one-shot motion per brand guide, monotonic real stages, document total; reconnect/minimize/failure/success states) | Await approval |
+| 4 | Canonical Study status handoff copy; development plan §3.1.3 + screen matrix row 11 sync | Await approval |
+
+**Constraints:** No new progress RPC (document total comes from the documents list `registered_at` vs run `created_at`; per-document "n of N" is a recorded missing signal — artifacts are owner-blocked). Processing APIs, evidence rules and domain-neutral Core unchanged. No commits, deploys, migrations or paid model calls without authorization.
+
+**Plan:** `.cursor/plans/documents_continue_journey_*.plan.md` (agent plan, revised 2026-10-24).
+
+---
+
+## Paused — Five-Feature Release Deployment (operator runbook)
+
 **Phase / Ticket:** **Five-Feature Release — Deployment** (operator runbook)  
-**Status:** **ACTIVE (runbook ready — await explicit commit/push/deploy/SQL authorization)** (2026-10-22)
+**Status:** **PAUSED while UX-DOC-1 is active (runbook unchanged — await explicit commit/push/deploy/SQL authorization)** (2026-10-22)
 
 **Release bundle (repo — not live until operator steps below):**
 

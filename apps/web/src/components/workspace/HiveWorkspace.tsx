@@ -4,14 +4,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { CanonicalStudyStatusPanel } from "@/components/workspace/CanonicalStudyStatusPanel";
 import { DeleteHiveModal } from "@/components/workspace/DeleteHiveModal";
-import { HiveDocumentsPanel } from "@/components/workspace/HiveDocumentsPanel";
-import { HiveProcessingPanel } from "@/components/workspace/HiveProcessingPanel";
+import { HiveAnalyzeHeader } from "@/components/workspace/HiveAnalyzeHeader";
+import {
+  HiveDocumentsPanel,
+  type HiveDocumentsSnapshot,
+} from "@/components/workspace/HiveDocumentsPanel";
 import { HiveWorkspaceMenu } from "@/components/workspace/HiveWorkspaceMenu";
 import { usePendingLandingUpload } from "@/components/workspace/usePendingLandingUpload";
 import { HiveCustomerShell } from "@/components/shell/HiveCustomerShell";
 import type { HiveV1 } from "@hiveforyou/contracts/hives/v1";
 import { deleteHive, HiveApiError } from "@/lib/hives/client";
+import { runDocumentCounts } from "@/lib/study-runs/handoff";
+import { useHiveStudyRun } from "@/lib/study-runs/use-hive-study-run";
 
 const TABS = ["Documents", "Canonical Study", "Reports"] as const;
 
@@ -24,6 +30,11 @@ export function HiveWorkspace({ hive }: { hive: HiveV1 }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const study = useHiveStudyRun(hive.id);
+  const [documents, setDocuments] = useState<HiveDocumentsSnapshot | null>(null);
+  const runDocumentTotal = documents
+    ? runDocumentCounts(documents.documents, study.activeRun?.created_at ?? null).included
+    : null;
 
   const handleDeleteConfirm = async () => {
     setDeleteBusy(true);
@@ -91,15 +102,24 @@ export function HiveWorkspace({ hive }: { hive: HiveV1 }) {
 
         {tab === "Documents" ? (
           <div className="flex flex-col gap-8">
+            <HiveAnalyzeHeader
+              study={study}
+              documents={documents}
+              onViewResults={() => setTab("Canonical Study")}
+            />
             <HiveDocumentsPanel
               hiveId={hive.id}
               initialPendingFiles={pending.pendingFiles}
               onPendingFilesConsumed={pending.clearPending}
+              onSnapshotChange={setDocuments}
             />
-            <HiveProcessingPanel hiveId={hive.id} />
           </div>
         ) : tab === "Canonical Study" ? (
-          <HiveProcessingPanel hiveId={hive.id} />
+          <CanonicalStudyStatusPanel
+            study={study}
+            documentCount={runDocumentTotal}
+            onGoToDocuments={() => setTab("Documents")}
+          />
         ) : (
           <section className="rounded-[18px] border border-[#E7E9ED] bg-white p-8 text-center">
             <h2 className="m-0 text-lg font-semibold text-[#1F2328]">Reports</h2>
