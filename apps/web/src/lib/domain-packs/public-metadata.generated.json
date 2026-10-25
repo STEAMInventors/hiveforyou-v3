@@ -41,5 +41,237 @@
         }
       ]
     }
+  ],
+  "packs": [
+    {
+      "pack_id": "iep",
+      "pack_version": "1.0.0",
+      "document_types": [
+        {
+          "id": "iep_initial",
+          "label": "Initial / annual IEP"
+        },
+        {
+          "id": "iep_progress_report",
+          "label": "IEP progress report"
+        }
+      ],
+      "record_types": []
+    },
+    {
+      "pack_id": "iep",
+      "pack_version": "2.0.0",
+      "document_types": [
+        {
+          "id": "iep.plan",
+          "label": "Individualized Education Program"
+        },
+        {
+          "id": "iep.amendment",
+          "label": "IEP Amendment"
+        },
+        {
+          "id": "iep.progress",
+          "label": "IEP Progress Report"
+        },
+        {
+          "id": "iep.eligibility",
+          "label": "Eligibility Determination"
+        },
+        {
+          "id": "iep.evaluation.academic",
+          "label": "Academic Evaluation"
+        },
+        {
+          "id": "iep.evaluation.psychoeducational",
+          "label": "Psychoeducational Evaluation"
+        },
+        {
+          "id": "iep.evaluation.speech_language",
+          "label": "Speech-Language Evaluation"
+        },
+        {
+          "id": "iep.evaluation.independent",
+          "label": "Independent Educational Evaluation"
+        },
+        {
+          "id": "iep.evaluation.plan",
+          "label": "Evaluation Plan"
+        },
+        {
+          "id": "iep.consent",
+          "label": "Parent Consent"
+        },
+        {
+          "id": "iep.referral",
+          "label": "Referral for Special Education Evaluation"
+        },
+        {
+          "id": "iep.notice",
+          "label": "Prior Written Notice"
+        },
+        {
+          "id": "iep.behavior.fba",
+          "label": "Functional Behavioral Assessment"
+        },
+        {
+          "id": "iep.behavior.bip",
+          "label": "Behavior Intervention Plan"
+        },
+        {
+          "id": "parent.correspondence",
+          "label": "Parent letter or email"
+        }
+      ],
+      "record_types": [
+        {
+          "id": "document_header",
+          "label": "Document header",
+          "group": "document"
+        },
+        {
+          "id": "student",
+          "label": "Student",
+          "group": "identity"
+        },
+        {
+          "id": "meeting",
+          "label": "Meeting",
+          "group": "meeting"
+        },
+        {
+          "id": "meeting_participant",
+          "label": "Meeting participant",
+          "group": "meeting"
+        },
+        {
+          "id": "eligibility",
+          "label": "Eligibility determination",
+          "group": "eligibility"
+        },
+        {
+          "id": "present_level",
+          "label": "Present level",
+          "group": "present_levels"
+        },
+        {
+          "id": "measurement",
+          "label": "Measurement",
+          "group": "measure"
+        },
+        {
+          "id": "goal",
+          "label": "Annual goal",
+          "group": "goal"
+        },
+        {
+          "id": "short_term_objective",
+          "label": "Short-term objective or benchmark",
+          "group": "goal"
+        },
+        {
+          "id": "service",
+          "label": "Service",
+          "group": "service"
+        },
+        {
+          "id": "accommodation",
+          "label": "Accommodation or modification",
+          "group": "accommodation"
+        },
+        {
+          "id": "placement",
+          "label": "Placement",
+          "group": "placement"
+        },
+        {
+          "id": "assessment_participation",
+          "label": "State or district assessment participation",
+          "group": "assessment"
+        },
+        {
+          "id": "transition",
+          "label": "Transition plan",
+          "group": "transition"
+        },
+        {
+          "id": "transfer_of_rights",
+          "label": "Transfer of rights at age of majority",
+          "group": "transition"
+        },
+        {
+          "id": "extended_school_year",
+          "label": "Extended school year",
+          "group": "service"
+        },
+        {
+          "id": "progress_entry",
+          "label": "Progress entry",
+          "group": "progress"
+        },
+        {
+          "id": "amendment_change",
+          "label": "Amendment change",
+          "group": "amendment"
+        },
+        {
+          "id": "school_action",
+          "label": "Action proposed or refused",
+          "group": "notice"
+        },
+        {
+          "id": "parent_request",
+          "label": "Parent request or concern",
+          "group": "parent"
+        },
+        {
+          "id": "consent",
+          "label": "Consent",
+          "group": "consent"
+        },
+        {
+          "id": "referral",
+          "label": "Referral",
+          "group": "referral"
+        },
+        {
+          "id": "evaluation_plan_item",
+          "label": "Planned assessment",
+          "group": "evaluation_plan"
+        },
+        {
+          "id": "evaluation_finding",
+          "label": "Evaluation finding",
+          "group": "evaluation"
+        },
+        {
+          "id": "behavior_target",
+          "label": "Target behavior",
+          "group": "behavior"
+        }
+      ]
+    },
+    {
+      "pack_id": "medicaid",
+      "pack_version": "1.0.0",
+      "document_types": [
+        {
+          "id": "medicaid.denial_letter",
+          "label": "Medicaid denial letter"
+        }
+      ],
+      "record_types": [
+        {
+          "id": "document_header",
+          "label": "Document header",
+          "group": null
+        },
+        {
+          "id": "denial_detail",
+          "label": "Denial detail",
+          "group": null
+        }
+      ]
+    }
   ]
 }

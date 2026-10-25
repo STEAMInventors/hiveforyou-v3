@@ -1,5 +1,6 @@
 "use client";
 
+import { AnalysisCompletePanel, type AnalysisQuestions } from "@/components/workspace/analysis/AnalysisCompletePanel";
 import { ExtractedFactsPanel } from "@/components/workspace/ExtractedFactsPanel";
 import { isTerminalStudyRunStatus, studyRunSummaryText } from "@/lib/study-runs/handoff";
 import type { HiveStudyRun } from "@/lib/study-runs/use-hive-study-run";
@@ -14,6 +15,15 @@ type CanonicalStudyStatusPanelProps = {
 const LINK_BUTTON =
   "mt-5 inline-flex h-10 items-center rounded-[10px] border border-[#D9DDE3] bg-white px-4 text-sm font-semibold text-[#1F2328] hover:bg-[#F4F6F8]";
 
+function analysisQuestions(study: HiveStudyRun): AnalysisQuestions {
+  const labels = study.planningSummary?.merged_question_labels ?? [];
+  if (labels.length > 0) {
+    return { heading: "Questions this study will cover", items: labels.slice(0, 8) };
+  }
+  const own = study.lastIntent.requestText?.trim();
+  return { heading: "Your question", items: own ? [own] : [] };
+}
+
 /** Read-only: submitting lives on the Documents tab so there is one way to start an analysis. */
 export function CanonicalStudyStatusPanel({
   study,
@@ -22,7 +32,17 @@ export function CanonicalStudyStatusPanel({
   onOpenProgress,
 }: CanonicalStudyStatusPanelProps) {
   const run = study.activeRun;
-  const labels = study.planningSummary?.merged_question_labels ?? [];
+
+  if (study.loaded && run?.status === "SUCCEEDED") {
+    return (
+      <AnalysisCompletePanel
+        hiveId={run.hive_id}
+        studyRunId={run.id}
+        questions={analysisQuestions(study)}
+        onGoToDocuments={onGoToDocuments}
+      />
+    );
+  }
 
   let title: string;
   let body: string;
@@ -40,11 +60,6 @@ export function CanonicalStudyStatusPanel({
     title = "Analysis in progress";
     body = studyRunSummaryText(run, documentCount) ?? "";
     action = "View progress";
-  } else if (run.status === "SUCCEEDED") {
-    title = "Analysis complete";
-    body =
-      "Your documents have been read. Your Canonical Study will be assembled from this analysis; nothing shown here is a verified finding yet.";
-    action = "Back to Documents";
   } else {
     title = "Your last analysis didn't finish";
     body = "Your documents are safe. You can try again from the Documents tab.";
@@ -58,18 +73,6 @@ export function CanonicalStudyStatusPanel({
     >
       <h2 className="m-0 text-lg font-semibold text-[#1F2328]">{title}</h2>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#4A525C]">{body}</p>
-      {run?.status === "SUCCEEDED" && labels.length > 0 ? (
-        <div className="mt-5">
-          <p className="m-0 text-sm font-semibold text-[#1F2328]">
-            Questions this study will cover
-          </p>
-          <ul className="mt-2 mb-0 list-disc pl-5 text-sm text-[#4A525C]">
-            {labels.slice(0, 8).map((label) => (
-              <li key={label}>{label}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
       {run && isTerminalStudyRunStatus(run.status) ? (
         <ExtractedFactsPanel hiveId={run.hive_id} studyRunId={run.id} />
       ) : null}

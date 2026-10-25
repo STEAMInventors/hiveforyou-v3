@@ -18,7 +18,7 @@ Legend: **Adopt** (M1) · **Defer** (later phase) · **Drop** (not in V3) · **N
 | 8 | My Hives list | `/case` → `CaseExperience` | `/hives` → `MyHivesExperience` | **Adopt** | Rename route; optional `/case` → `/hives` redirect |
 | 9 | Hive workspace shell | V2 case detail (heavy) | `/hives/[hiveId]` | **Adopt (shell only)** | Empty workspace + staged-doc summary until P1.5 upload |
 | 10 | Customer app chrome | `HiveCustomerShell` | Same pattern | **Adopt** | Nav, logout, create Hive CTA |
-| 11 | Case/study processing UI | V2 case workspace | — | **Defer** | P1.5+ end-to-end path |
+| 11 | Case/study processing UI | V2 case workspace | `reference/prototype/Living-Hive-Motion-Approved.html` (progress), `reference/prototype/Analysis-Complete-Approved.html` (results) | **Adopt (UX-DOC-1, web only)** — progress modal (Step 3) and Analysis Complete page (Step 4) bound to persisted run status and unverified selected-Pack extraction; no Canonical Study action, snapshot, charts or synthesized findings until P2.3 + P1.P Gate 3 | P1.5+ end-to-end path; Gate 3 for Canonical Study build |
 | 12 | Professional portal | V2 pro routes | — | **Defer** | P4.2+ |
 | 13 | Domain picker as requirement | Composer domain pills | Optional examples only | **Drop as requirement** | Pack-free intents; no locked domain_id on create |
 | 14 | Intake run / understanding UI | V2 intake machinery | — | **Drop** | Replaced by V3 study/run model later |

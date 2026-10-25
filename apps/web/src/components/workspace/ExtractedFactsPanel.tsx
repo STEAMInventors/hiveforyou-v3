@@ -1,74 +1,15 @@
 "use client";
 
-import type {
-  PackExtractionOwnerBatchV1,
-  PackExtractionOwnerFactV1,
-  PackExtractionOwnerViewV1,
-} from "@hiveforyou/contracts/pack-extraction/v1";
+import type { PackExtractionOwnerFactV1 } from "@hiveforyou/contracts/pack-extraction/v1";
 import { useCallback, useEffect, useState } from "react";
 
+import {
+  groupExtractionByDocument,
+  type ExtractedDocumentView,
+} from "@/lib/study-runs/analysis-view";
 import { fetchStudyRunExtraction, StudyRunApiError } from "@/lib/study-runs/client";
 
-export type ExtractedDocumentView = {
-  source_document_id: string;
-  filename: string;
-  document_type_id: string | null;
-  status: "extracted" | "extracted_with_rejections" | "unrecognized" | "failed";
-  pages: string;
-  rejection_reason_codes: string[];
-  error_reason: string | null;
-  facts: PackExtractionOwnerFactV1[];
-};
-
-function documentStatus(batches: PackExtractionOwnerBatchV1[]): ExtractedDocumentView["status"] {
-  if (batches.some((batch) => batch.status === "FAILED")) return "failed";
-  if (batches.some((batch) => batch.disposition === "VALID_WITH_REJECTIONS")) {
-    return "extracted_with_rejections";
-  }
-  if (batches.every((batch) => batch.disposition === "UNRECOGNIZED")) return "unrecognized";
-  return "extracted";
-}
-
-/** Groups page-window batches into one row per source document, preserving RPC order. */
-export function groupExtractionByDocument(view: PackExtractionOwnerViewV1): ExtractedDocumentView[] {
-  const order: string[] = [];
-  const byDoc = new Map<string, PackExtractionOwnerBatchV1[]>();
-  for (const batch of view.batches) {
-    const list = byDoc.get(batch.source_document_id);
-    if (list) {
-      list.push(batch);
-    } else {
-      order.push(batch.source_document_id);
-      byDoc.set(batch.source_document_id, [batch]);
-    }
-  }
-  return order.map((docId) => {
-    const batches = byDoc.get(docId) ?? [];
-    const first = batches[0];
-    const pageStart = Math.min(...batches.map((batch) => batch.page_start));
-    const pageEnd = Math.max(...batches.map((batch) => batch.page_end));
-    const seenFacts = new Set<string>();
-    const facts: PackExtractionOwnerFactV1[] = [];
-    for (const batch of batches) {
-      for (const fact of batch.accepted_facts ?? []) {
-        const key = `${fact.fact_id}|${JSON.stringify(fact.value ?? null)}|${fact.status}`;
-        if (seenFacts.has(key)) continue;
-        seenFacts.add(key);
-        facts.push(fact);
-      }
-    }
-    return {
-      source_document_id: docId,
-      filename: first?.filename ?? "",
-      document_type_id: batches.find((batch) => batch.primary_document_type_id)?.primary_document_type_id ?? null,
-      status: documentStatus(batches),
-      pages: pageStart === pageEnd ? `p. ${pageStart}` : `pp. ${pageStart}–${pageEnd}`,
-      rejection_reason_codes: [...new Set(batches.flatMap((batch) => batch.rejection_reason_codes))],
-      error_reason: batches.find((batch) => batch.error_reason)?.error_reason ?? null,
-      facts,
-    };
-  });
-}
+export { groupExtractionByDocument, type ExtractedDocumentView };
 
 function formatValue(value: unknown): string {
   if (value === undefined || value === null) return "";

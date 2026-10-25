@@ -114,6 +114,7 @@ User direction: design the complete V3 database first, in isolated Supabase sche
 | **Document card expand — findings** | “What we found in this document” grouped categories; provenance chips; View original / Delete | **Verified facts only** for groups/chips; chips link to page/quote metadata (not raw model JSON). Delete: existing P1.7-B flow |
 | **Canonical Study — locked/empty** | Large card “Your study starts with your documents” | No `canonical_studies` row or no successful revision (MD-02) |
 | **Canonical Study — build/processing/failed** | Build CTA, processing steps, **Try again** / Back to Documents | Bind to study run stages; failed run leaves prior revision unchanged |
+| **Canonical Study — analysis complete (pre-Gate 3)** | `reference/prototype/Analysis-Complete-Approved.html` layout and copy (UX-DOC-1 Step 4, 2026-10-25) | Persisted selected-Pack extraction via owner route only; topics/document labels from the selected Pack's generated display labels; every item labelled unverified with its quote, file and page; `NOT_FOUND` facts and set-aside counts shown honestly. **No Build CTA** until Gate 3 (informational "Next: Your Canonical Study" card only); no snapshot, charts, synthesized findings or document-date reasoning |
 | **Reports — empty** | “Reports come from your study” + CTA to study tab | No reports for revision; no fake report list |
 | **Responsive** | Prototype uses wrapping flex, `auto-fit` grids, horizontal tab scroll | Match `HiveForYou Responsive Previews.html` breakpoints where web shell lacks coverage |
 

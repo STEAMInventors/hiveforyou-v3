@@ -25,9 +25,24 @@ function loadBytes(rootDir) {
 // Minimal inline projection (avoids TS build step for web data generation).
 function project(loaded) {
   const domains = [];
+  const packs = [];
   for (const entry of loaded) {
     const manifest = JSON.parse(entry.bytes);
     if (manifest.review_status !== "reviewed") continue;
+    // Display labels only (no match rules, fields, prompts or explainers); order follows the manifest.
+    packs.push({
+      pack_id: manifest.pack_id,
+      pack_version: manifest.pack_version,
+      document_types: (manifest.document_types ?? []).map((type) => ({
+        id: type.document_type_id,
+        label: type.label,
+      })),
+      record_types: (manifest.record_types ?? []).map((type) => ({
+        id: type.record_type_id,
+        label: type.label,
+        group: type.group ?? null,
+      })),
+    });
     const surfaces = manifest.public_surfaces ?? [];
     for (const surface of surfaces) {
       domains.push({
@@ -44,9 +59,14 @@ function project(loaded) {
     }
   }
   domains.sort((a, b) => a.label.localeCompare(b.label));
-  return { contract_version: "domain-pack-public-metadata@1", domains };
+  packs.sort((a, b) =>
+    a.pack_id === b.pack_id
+      ? a.pack_version.localeCompare(b.pack_version)
+      : a.pack_id.localeCompare(b.pack_id),
+  );
+  return { contract_version: "domain-pack-public-metadata@1", domains, packs };
 }
 
 const payload = project(loadBytes(packsRoot));
 writeFileSync(outPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
-console.log(`Wrote ${outPath} (${payload.domains.length} domains)`);
+console.log(`Wrote ${outPath} (${payload.domains.length} domains, ${payload.packs.length} packs)`);

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>Analysis complete · Caleb's reevaluation · HiveForYou</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#F7F8FA;color:#1F2328;font-family:Figtree,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+*{box-sizing:border-box}
+a{color:#2F6FE4;text-decoration:none}a:hover{color:#2659C2;text-decoration:underline}
+button{font-family:inherit;color:inherit}
+button:focus-visible{outline:2px solid #3B7CF6;outline-offset:2px}
+@keyframes ac-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+[data-r~="show-m"]{display:none!important}
+@media (max-width:1023px){[data-r~="layout"]{grid-template-columns:1fr!important}[data-r~="side"]{display:none!important}[data-r~="chips"]{display:flex!important}[data-r~="wrap"]{padding-left:24px!important;padding-right:24px!important}}
+@media (max-width:767px){[data-r~="wrap"]{padding-left:16px!important;padding-right:16px!important}[data-r~="h1"]{font-size:32px!important}[data-r~="hero"]{padding:24px 20px!important;border-radius:18px!important}[data-r~="card"]{padding:20px 18px!important;border-radius:16px!important}[data-r~="quote"]{margin-left:0!important}[data-r~="sticky"]{display:flex!important}[data-r~="hide-m"]{display:none!important}[data-r~="root"] button{min-height:44px}main{padding-bottom:120px!important}}
+</style>
+</helmet>
+<div data-r="root" style="min-height:100vh;display:flex;flex-direction:column">
+<header style="background:#FFFFFF;border-bottom:1px solid #E8EAEE">
+  <div data-r="wrap" style="max-width:1200px;margin:0 auto;padding:0 32px;height:64px;display:flex;align-items:center;gap:20px">
+    <img src="assets/hiveforyou-logo.svg" alt="HiveForYou" style="height:26px;display:block">
+    <div data-r="hide-m" style="display:flex;align-items:center;gap:8px;font:500 14px Figtree;color:#6B7280"><span>My Hives</span><span>/</span><span>Caleb's reevaluation</span><span>/</span><span style="color:#1F2328">Analysis</span></div>
+    <div style="flex:1"></div>
+    <span style="width:34px;height:34px;border-radius:50%;background:#1F2328;color:#FFFFFF;font:600 13px Outfit;display:flex;align-items:center;justify-content:center">JE</span>
+  </div>
+</header>
+
+<main data-r="wrap" style="max-width:1200px;width:100%;margin:0 auto;padding:32px 32px 96px;display:flex;flex-direction:column;gap:28px">
+  <a href="#" onClick="{{ back }}" style="display:inline-flex;align-items:center;gap:6px;font:600 14.5px Figtree;color:#4A525C;align-self:flex-start;min-height:32px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>Back to Documents</a>
+
+  <section data-r="hero" data-screen-label="Analysis hero" style="background:#FFFFFF;border:1px solid #E7E9ED;border-radius:24px;padding:36px 40px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:36px">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <span style="display:inline-flex;align-self:flex-start;align-items:center;gap:8px;height:30px;padding:0 12px;border-radius:999px;background:#EAF6EE;color:#1E7A41;font:600 13px Figtree"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>Analysis complete</span>
+      <h1 data-r="h1" style="margin:0;font:600 40px/1.1 Outfit,sans-serif;letter-spacing:-0.025em;text-wrap:balance">We've read Caleb's 9 documents</h1>
+      <p style="margin:0;font:400 17.5px/1.6 Figtree;color:#2E343B;max-width:560px">Here's what we found on each page, sorted into topics. Your Canonical Study will be assembled from this analysis. Until then, nothing here is a verified finding yet; each item shows the exact words it was read from.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;padding-top:6px">
+        <button onClick="{{ build }}" style="min-height:48px;padding:0 22px;border:none;border-radius:12px;background:#2F6FE4;color:#FFFFFF;font:600 15.5px Figtree;cursor:pointer;display:flex;align-items:center;gap:10px" style-hover="background:#2659C2">Build my Canonical Study<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></button>
+        <button onClick="{{ goNotFound }}" style="min-height:48px;padding:0 18px;border:1px solid #D9DDE3;border-radius:12px;background:#FFFFFF;font:600 15.5px Figtree;cursor:pointer" style-hover="background:#F4F6F8">What we couldn't find</button>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;background:#F7F8FA;border-radius:18px;padding:22px 24px">
+      <span style="font:600 13px Figtree;color:#6B7280">Questions this study will cover</span>
+      <sc-for list="{{ questions }}" as="q" hint-placeholder-count="3">
+        <div style="display:flex;gap:12px;align-items:flex-start;padding-top:12px;border-top:1px solid #E7E9ED"><span style="font:600 15px Outfit;color:#2F6FE4;min-width:16px">{{ q.n }}</span><span style="font:500 16px/1.45 Figtree">{{ q.t }}</span></div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section data-screen-label="Snapshot" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:1px;background:#E7E9ED;border:1px solid #E7E9ED;border-radius:18px;overflow:hidden">
+    <sc-for list="{{ snapshot }}" as="s" hint-placeholder-count="6">
+      <div style="background:#FFFFFF;padding:16px 18px;display:flex;flex-direction:column;gap:4px"><span style="font:600 12.5px Figtree;color:#6B7280">{{ s.k }}</span><span style="font:600 15.5px/1.35 Figtree">{{ s.v }}</span></div>
+    </sc-for>
+  </section>
+
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px 24px;font:400 14px/1.5 Figtree;color:#4A525C">
+    <span style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:#2FA35A"></span><strong style="font-weight:600;color:#1F2328">Observed</strong> quoted directly from the page</span>
+    <span style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:50%;border:2px solid #E0A21A;background:#FFFFFF"></span><strong style="font-weight:600;color:#1F2328">Uncertain</strong> the page only partly supports it</span>
+    <span style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:2px;border:1.5px dashed #9AA3AE"></span><strong style="font-weight:600;color:#1F2328">Not found</strong> we looked, it isn't stated</span>
+  </div>
+
+  <div data-r="layout" style="display:grid;grid-template-columns:240px minmax(0,1fr);gap:36px;align-items:start">
+    <nav data-r="side" aria-label="Topics" style="position:sticky;top:20px;display:flex;flex-direction:column;gap:2px">
+      <div style="display:flex;padding:3px;border-radius:11px;background:#EDEFF2;margin-bottom:14px">
+        <sc-for list="{{ views }}" as="v" hint-placeholder-count="2"><button onClick="{{ v.go }}" aria-pressed="{{ v.on }}" style="flex:1;height:36px;border:none;border-radius:8px;background:{{ v.bg }};box-shadow:{{ v.sh }};font:600 13.5px Figtree;color:{{ v.fg }};cursor:pointer">{{ v.label }}</button></sc-for>
+      </div>
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="8">
+        <button onClick="{{ n.go }}" style="display:flex;align-items:center;gap:10px;min-height:40px;padding:0 12px;border:none;border-radius:10px;background:{{ n.bg }};text-align:left;font:{{ n.font }};color:{{ n.fg }};cursor:pointer" style-hover="background:#EEF0F3"><span style="flex:1">{{ n.label }}</span><span style="font:500 12.5px Figtree;color:#9AA3AE">{{ n.count }}</span></button>
+      </sc-for>
+    </nav>
+
+    <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+      <div data-r="chips" style="display:none;flex-direction:column;gap:12px">
+        <div style="display:flex;padding:3px;border-radius:11px;background:#EDEFF2">
+          <sc-for list="{{ views }}" as="v" hint-placeholder-count="2"><button onClick="{{ v.go }}" style="flex:1;height:40px;border:none;border-radius:8px;background:{{ v.bg }};box-shadow:{{ v.sh }};font:600 14px Figtree;color:{{ v.fg }};cursor:pointer">{{ v.label }}</button></sc-for>
+        </div>
+        <sc-if value="{{ byTopic }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px">
+            <sc-for list="{{ nav }}" as="n" hint-placeholder-count="8"><button onClick="{{ n.go }}" style="flex:none;height:38px;padding:0 14px;border:1px solid #E1E4E9;border-radius:999px;background:#FFFFFF;font:600 13.5px Figtree;cursor:pointer;white-space:nowrap">{{ n.label }}</button></sc-for>
+          </div>
+        </sc-if>
+      </div>
+
+      <sc-if value="{{ byTopic }}" hint-placeholder-val="{{ true }}">
+        <section id="t-reading" data-r="card" data-screen-label="Reading measures" style="background:#FFFFFF;border:1px solid #E7E9ED;border-radius:20px;padding:28px 30px;display:flex;flex-direction:column;gap:22px">
+          <div style="display:flex;flex-direction:column;gap:6px"><h2 style="margin:0;font:600 24px Outfit,sans-serif;letter-spacing:-0.015em">How Caleb's reading was measured</h2><p style="margin:0;font:400 15.5px/1.55 Figtree;color:#4A525C">The documents measure reading in two different ways, so we show them separately rather than as one trend.</p></div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <span style="font:600 15px Figtree">Reading speed · words read correctly in one minute</span>
+            <div role="img" aria-label="62 words per minute at the 2023 IEP, 91 on October 15 2024, 104 on September 29 2026. 2023 goal was 95." style="position:relative;height:96px;margin:0 14px">
+              <div style="position:absolute;left:0;right:0;top:46px;height:2px;background:#D9DDE3"></div>
+              <sc-for list="{{ ticks }}" as="t" hint-placeholder-count="7"><span style="position:absolute;left:{{ t.l }};top:42px;width:1px;height:10px;background:#C3C9D1"></span><span style="position:absolute;left:{{ t.l }};top:58px;transform:translateX(-50%);font:500 11.5px Figtree;color:#9AA3AE">{{ t.v }}</span></sc-for>
+              <span style="position:absolute;left:79.17%;top:30px;height:34px;border-left:2px dashed #9AA3AE"></span>
+              <span style="position:absolute;left:79.17%;top:78px;transform:translateX(-50%);font:600 12px Figtree;color:#6B7280;white-space:nowrap">95 · 2023 goal</span>
+              <sc-for list="{{ wcpm }}" as="w" hint-placeholder-count="3">
+                <span style="position:absolute;left:{{ w.l }};top:38px;width:18px;height:18px;transform:translateX(-50%);border-radius:50%;background:{{ w.c }};border:3px solid #FFFFFF;box-shadow:0 0 0 1px {{ w.c }}"></span>
+                <span style="position:absolute;left:{{ w.l }};top:6px;transform:translateX(-50%);font:600 16px Outfit;color:#1F2328">{{ w.v }}</span>
+              </sc-for>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:10px">
+              <sc-for list="{{ wcpm }}" as="w" hint-placeholder-count="3"><div style="display:flex;gap:10px;align-items:flex-start"><span style="width:10px;height:10px;border-radius:50%;background:{{ w.c }};margin-top:5px;flex:none"></span><span style="display:flex;flex-direction:column;gap:1px"><span style="font:600 14.5px Figtree">{{ w.v }} · {{ w.when }}</span><span style="font:400 13.5px Figtree;color:#6B7280">{{ w.src }}</span></span></div></sc-for>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;padding-top:18px;border-top:1px solid #EEF0F3">
+            <span style="font:600 15px Figtree">Understanding what he reads · questions answered correctly</span>
+            <div role="img" aria-label="60 percent at the start of the 2026 IEP. Goal 80 percent by October 20 2027." style="position:relative;height:80px;margin:0 14px">
+              <div style="position:absolute;left:0;right:0;top:40px;height:10px;border-radius:5px;background:#EDEFF2"></div>
+              <div style="position:absolute;left:60%;width:20%;top:40px;height:10px;background:repeating-linear-gradient(135deg,#D6E3FC 0 5px,#FFFFFF 5px 10px)"></div>
+              <div style="position:absolute;left:0;width:60%;top:40px;height:10px;border-radius:5px 0 0 5px;background:#3B7CF6"></div>
+              <span style="position:absolute;left:60%;top:6px;transform:translateX(-50%);font:600 16px Outfit;white-space:nowrap">60%</span>
+              <span style="position:absolute;left:60%;top:56px;transform:translateX(-50%);font:500 12px Figtree;color:#6B7280;white-space:nowrap">starting point</span>
+              <span style="position:absolute;left:80%;top:28px;height:34px;border-left:2px dashed #2F6FE4"></span>
+              <span style="position:absolute;left:80%;top:6px;transform:translateX(-50%);font:600 16px Outfit;color:#2456B8;white-space:nowrap">80%</span>
+              <span style="position:absolute;left:80%;top:64px;transform:translateX(-50%);font:500 12px Figtree;color:#2456B8;white-space:nowrap">goal by Oct 20, 2027</span>
+            </div>
+            <p style="margin:6px 0 0;font:400 14.5px/1.55 Figtree;color:#4A525C">The academic reevaluation also gave a reading comprehension <strong style="font-weight:600;color:#1F2328">standard score of 78</strong>.</p>
+            <button onClick="{{ toggleSS }}" aria-expanded="{{ ssOpen }}" style="align-self:flex-start;border:none;background:none;padding:0;font:600 14px Figtree;color:#2F6FE4;cursor:pointer;display:flex;align-items:center;gap:6px;min-height:32px">What's a standard score?<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transform:{{ ssChev }};transition:transform .2s"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+            <sc-if value="{{ ssOpen }}" hint-placeholder-val="{{ false }}"><p style="margin:0;padding:14px 16px;border-radius:12px;background:#F7F8FA;font:400 14.5px/1.6 Figtree;color:#2E343B;animation:ac-in .2s ease-out">It compares a student's result with others the same age on that test. Many tests set the average at 100. The document doesn't name the test, so ask the evaluator what 78 means for Caleb. <span style="color:#6B7280">General explanation, not from Caleb's documents.</span></p></sc-if>
+          </div>
+          <div style="display:flex;flex-direction:column;border-top:1px solid #EEF0F3">
+            <sc-for list="{{ readingFacts }}" as="f" hint-placeholder-count="4">
+              <div style="border-bottom:1px solid #F0F2F5">
+                <button onClick="{{ f.toggle }}" aria-expanded="{{ f.open }}" style="width:100%;display:flex;gap:12px;align-items:flex-start;padding:14px 0;border:none;background:none;text-align:left;cursor:pointer" style-hover="background:#FAFBFC">
+                  <span style="width:10px;height:10px;border-radius:50%;background:{{ f.dotBg }};border:{{ f.dotBd }};margin-top:6px;flex:none"></span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px"><span style="font:500 15.5px/1.5 Figtree;color:#1F2328">{{ f.t }}</span><span style="display:flex;flex-wrap:wrap;gap:6px 10px;font:500 13px Figtree;color:#6B7280"><span>{{ f.src }}</span><sc-if value="{{ f.unc }}" hint-placeholder-val="{{ false }}"><span style="color:#875700;font-weight:600">Uncertain</span></sc-if></span></span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA3AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:{{ f.chev }};transition:transform .2s;flex:none;margin-top:3px"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </button>
+                <sc-if value="{{ f.open }}" hint-placeholder-val="{{ false }}"><div data-r="quote" style="margin:0 0 14px 22px;padding:14px 16px;border-radius:12px;background:#FFFAEB;box-shadow:inset 3px 0 0 #F6B826;display:flex;flex-direction:column;gap:8px;animation:ac-in .18s ease-out"><span style="font:500 15px/1.6 Figtree;color:#1F2328">“{{ f.q }}”</span><span style="font:500 12.5px Figtree;color:#6B7280">{{ f.meta }}</span></div></sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+
+        <sc-for list="{{ topics }}" as="tp" hint-placeholder-count="5">
+          <section id="{{ tp.id }}" data-r="card" style="background:#FFFFFF;border:1px solid #E7E9ED;border-radius:20px;padding:28px 30px;display:flex;flex-direction:column;gap:18px">
+            <div style="display:flex;flex-direction:column;gap:6px"><h2 style="margin:0;font:600 24px Outfit,sans-serif;letter-spacing:-0.015em">{{ tp.title }}</h2><p style="margin:0;font:400 15.5px/1.55 Figtree;color:#4A525C">{{ tp.lede }}</p></div>
+            <sc-for list="{{ tp.groups }}" as="g" hint-placeholder-count="2">
+              <div style="display:flex;flex-direction:column">
+                <div style="display:flex;align-items:center;gap:10px;padding-bottom:4px"><span style="font:600 14px Figtree;color:#4A525C">{{ g.label }}</span><sc-if value="{{ g.hasTag }}" hint-placeholder-val="{{ false }}"><span style="height:22px;padding:0 9px;border-radius:999px;background:{{ g.tagBg }};color:{{ g.tagFg }};font:600 12px Figtree;display:inline-flex;align-items:center">{{ g.tag }}</span></sc-if></div>
+                <sc-for list="{{ g.facts }}" as="f" hint-placeholder-count="2">
+                  <div style="border-bottom:1px solid #F0F2F5">
+                    <button onClick="{{ f.toggle }}" aria-expanded="{{ f.open }}" style="width:100%;display:flex;gap:12px;align-items:flex-start;padding:14px 0;border:none;background:none;text-align:left;cursor:pointer" style-hover="background:#FAFBFC">
+                      <span style="width:10px;height:10px;border-radius:50%;background:{{ f.dotBg }};border:{{ f.dotBd }};margin-top:6px;flex:none"></span>
+                      <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px"><span style="font:500 15.5px/1.5 Figtree;color:#1F2328">{{ f.t }}</span><span style="display:flex;flex-wrap:wrap;gap:6px 10px;font:500 13px Figtree;color:#6B7280"><span>{{ f.src }}</span><sc-if value="{{ f.unc }}" hint-placeholder-val="{{ false }}"><span style="color:#875700;font-weight:600">Uncertain</span></sc-if></span></span>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA3AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:{{ f.chev }};transition:transform .2s;flex:none;margin-top:3px"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <sc-if value="{{ f.open }}" hint-placeholder-val="{{ false }}"><div data-r="quote" style="margin:0 0 14px 22px;padding:14px 16px;border-radius:12px;background:#FFFAEB;box-shadow:inset 3px 0 0 #F6B826;display:flex;flex-direction:column;gap:8px;animation:ac-in .18s ease-out"><span style="font:500 15px/1.6 Figtree;color:#1F2328">“{{ f.q }}”</span><span style="font:500 12.5px Figtree;color:#6B7280">{{ f.meta }}</span></div></sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </section>
+        </sc-for>
+
+        <section id="t-missing" data-r="card" data-screen-label="Not found" style="background:#FFFFFF;border:1.5px dashed #C9CFD8;border-radius:20px;padding:28px 30px;display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:6px"><h2 style="margin:0;font:600 24px Outfit,sans-serif;letter-spacing:-0.015em">What we couldn't find</h2><p style="margin:0;font:400 15.5px/1.55 Figtree;color:#4A525C">We looked for these and they aren't stated in the documents. That doesn't mean something is wrong; they may be worth asking about.</p></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px">
+            <sc-for list="{{ missing }}" as="m" hint-placeholder-count="6"><div style="display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:12px;background:#F7F8FA"><span style="width:10px;height:10px;border-radius:2px;border:1.5px dashed #9AA3AE;margin-top:6px;flex:none"></span><span style="display:flex;flex-direction:column;gap:3px"><span style="font:600 15px/1.45 Figtree">{{ m.t }}</span><span style="font:400 13.5px/1.45 Figtree;color:#6B7280">{{ m.w }}</span></span></div></sc-for>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;padding-top:16px;border-top:1px solid #EEF0F3">
+            <span style="font:600 15px Figtree">How cleanly we could read things</span>
+            <div style="display:flex;gap:12px;align-items:flex-start"><span style="width:10px;height:10px;border-radius:50%;border:2px solid #E0A21A;margin-top:6px;flex:none"></span><span style="font:400 15px/1.55 Figtree;color:#2E343B"><strong style="font-weight:600">3 items are marked Uncertain.</strong> The page supports them only partly, for example the test is described but not named. They're labelled where they appear.</span></div>
+            <div style="display:flex;gap:12px;align-items:flex-start"><span style="width:10px;height:10px;border-radius:50%;background:#C3C9D1;margin-top:6px;flex:none"></span><span style="font:400 15px/1.55 Figtree;color:#2E343B"><strong style="font-weight:600">Some items from the 2026 IEP were set aside</strong> because the words we extracted couldn't be matched to the page. They aren't shown and won't be used in your study.</span></div>
+          </div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{ byDoc }}" hint-placeholder-val="{{ false }}">
+        <section data-screen-label="By document" style="display:flex;flex-direction:column;gap:12px">
+          <sc-for list="{{ eras }}" as="e" hint-placeholder-count="2">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <span style="font:600 14px Figtree;color:#6B7280;padding:8px 2px 2px">{{ e.label }}</span>
+              <sc-for list="{{ e.docs }}" as="d" hint-placeholder-count="4">
+                <div style="background:#FFFFFF;border:1px solid #E7E9ED;border-radius:16px;overflow:hidden">
+                  <button onClick="{{ d.toggle }}" aria-expanded="{{ d.open }}" style="width:100%;display:flex;align-items:center;gap:14px;padding:16px 18px;border:none;background:none;text-align:left;cursor:pointer" style-hover="background:#FAFBFC">
+                    <span style="width:44px;flex:none;display:flex;flex-direction:column;align-items:flex-start"><span style="font:600 12px Figtree;color:#9AA3AE">{{ d.month }}</span><span style="font:600 17px Outfit">{{ d.year }}</span></span>
+                    <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px"><span style="font:600 16px Figtree">{{ d.title }}</span><span style="font:400 13px Figtree;color:#6B7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.file }} · {{ d.pages }}</span></span>
+                    <span data-r="hide-m" style="font:500 13px Figtree;color:#6B7280;white-space:nowrap">{{ d.count }}</span>
+                    <sc-if value="{{ d.flag }}" hint-placeholder-val="{{ false }}"><span style="height:24px;padding:0 9px;border-radius:999px;background:#FEF5E1;color:#875700;font:600 12px Figtree;display:inline-flex;align-items:center;white-space:nowrap">{{ d.flagText }}</span></sc-if>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA3AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:{{ d.chev }};transition:transform .2s;flex:none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </button>
+                  <sc-if value="{{ d.open }}" hint-placeholder-val="{{ false }}">
+                    <div style="border-top:1px solid #EEF0F3;padding:4px 18px 16px;display:flex;flex-direction:column;animation:ac-in .18s ease-out">
+                      <sc-for list="{{ d.facts }}" as="f" hint-placeholder-count="3">
+                        <div style="border-bottom:1px solid #F0F2F5">
+                          <button onClick="{{ f.toggle }}" style="width:100%;display:flex;gap:12px;align-items:flex-start;padding:12px 0;border:none;background:none;text-align:left;cursor:pointer"><span style="width:10px;height:10px;border-radius:50%;background:{{ f.dotBg }};border:{{ f.dotBd }};margin-top:6px;flex:none"></span><span style="flex:1;display:flex;flex-direction:column;gap:3px"><span style="font:500 15px/1.5 Figtree">{{ f.t }}</span><span style="font:500 12.5px Figtree;color:#6B7280">p. {{ f.p }} · {{ f.topic }}</span></span></button>
+                          <sc-if value="{{ f.open }}" hint-placeholder-val="{{ false }}"><div style="margin:0 0 12px 22px;padding:12px 14px;border-radius:12px;background:#FFFAEB;box-shadow:inset 3px 0 0 #F6B826;font:500 14.5px/1.6 Figtree">“{{ f.q }}”</div></sc-if>
+                        </div>
+                      </sc-for>
+                      <sc-if value="{{ d.hasMissing }}" hint-placeholder-val="{{ false }}"><span style="padding-top:12px;font:400 13.5px/1.5 Figtree;color:#6B7280"><strong style="font-weight:600;color:#4A525C">Not stated:</strong> {{ d.missing }}</span></sc-if>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+          <div style="display:flex;gap:12px;align-items:center;padding:14px 18px;border:1.5px dashed #C9CFD8;border-radius:14px;font:400 14.5px/1.5 Figtree;color:#4A525C"><span style="width:10px;height:10px;border-radius:2px;border:1.5px dashed #9AA3AE;flex:none"></span>No documents dated between October 2024 and September 2026 are in this Hive.</div>
+        </section>
+      </sc-if>
+
+      <section style="background:#1F2328;color:#FFFFFF;border-radius:20px;padding:28px 30px;display:flex;flex-wrap:wrap;align-items:center;gap:20px">
+        <div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:6px"><span style="font:600 22px Outfit,sans-serif">Next: your Canonical Study</span><span style="font:400 15px/1.55 Figtree;color:#C9CED6">Hive checks these items against each other, connects them across time, and answers the three questions above. Every finding keeps its source.</span></div>
+        <button onClick="{{ build }}" style="min-height:48px;padding:0 22px;border:none;border-radius:12px;background:#FFFFFF;color:#1F2328;font:600 15.5px Figtree;cursor:pointer" style-hover="background:#E8EBEF">Build my Canonical Study</button>
+      </section>
+    </div>
+  </div>
+</main>
+
+<div data-r="sticky" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:20;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:#FFFFFF;border-top:1px solid #E7E9ED;box-shadow:0 -8px 24px rgba(31,35,40,.08)">
+  <button onClick="{{ build }}" style="flex:1;min-height:50px;border:none;border-radius:12px;background:#2F6FE4;color:#FFFFFF;font:600 16px Figtree;cursor:pointer">Build my Canonical Study</button>
+</div>
+<sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}"><div role="status" style="position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:30;width:max-content;max-width:calc(100vw - 32px);background:#1F2328;color:#FFFFFF;border-radius:12px;padding:12px 18px;font:500 14.5px Figtree;animation:ac-in .2s ease-out">{{ toast }}</div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const D={
+ d1:{file:'01_prior_eligibility_determination.pdf',title:'Eligibility determination',m:'Oct',y:'2023',pages:'pp. 1–2',era:0},
+ d2:{file:'02_prior_iep.pdf',title:'IEP (2023–24)',m:'Oct',y:'2023',pages:'pp. 1–2',era:0},
+ d3:{file:'03_annual_progress_report.pdf',title:'Annual progress report',m:'Oct',y:'2024',pages:'p. 1',era:0},
+ d4:{file:'04_reevaluation_plan.pdf',title:'Reevaluation plan',m:'Sep',y:'2026',pages:'pp. 1–2',era:1},
+ d5:{file:'05_psychoeducational_reevaluation.pdf',title:'Psychoeducational reevaluation',m:'Sep',y:'2026',pages:'pp. 1–2',era:1},
+ d6:{file:'06_academic_reevaluation.pdf',title:'Academic reevaluation',m:'Sep',y:'2026',pages:'pp. 1–2',era:1},
+ d7:{file:'07_speech_language_review.pdf',title:'Speech-language review',m:'Oct',y:'2026',pages:'p. 1',era:1},
+ d8:{file:'08_reevaluation_eligibility_determination.pdf',title:'Reevaluation eligibility determination',m:'Oct',y:'2026',pages:'pp. 1–2',era:1,flagText:'2 uncertain'},
+ d9:{file:'09_reevaluation_iep.pdf',title:'IEP (2026–27)',m:'Oct',y:'2026',pages:'pp. 1–3',era:1,flagText:'Some items set aside'}
+};
+D.d6.flagText='1 uncertain';
+const MISSING_DOC={d2:'minutes per week, who provides instruction, conditions on accommodations, names of meeting participants.',d9:'minutes per week, who provides instruction, conditions on accommodations, meeting purpose, names of meeting participants.',d6:'the name of the tests used.',d4:'which assessment covers the speech-language review.',d1:'a secondary eligibility category.',d8:'a secondary eligibility category.'};
+// [id, topic, text, doc, page, quote, status, field]
+const F=[
+ ['r1','reading','Reading speed when the 2023 IEP was written: 62 words correct per minute','d2',1,'Present levels document an oral reading fluency baseline of 62 WCPM.','O','measurement.value'],
+ ['r2','reading','Read 91 words correct per minute on October 15, 2024','d3',1,'On 2024-10-15, Caleb read grade-level connected text at 91 WCPM.','O','measurement.value'],
+ ['r3','reading','Read 104 words correct per minute on September 29, 2026','d6',1,'Oral Reading Fluency 104 WCPM','O','measurement.value'],
+ ['r4','reading','Reading accuracy: 97%','d6',1,'Reading accuracy 97%','O','measurement.value'],
+ ['r5','reading','Reading comprehension standard score: 78','d6',1,'Reading comprehension standard score of 78','O','measurement.value'],
+ ['r6','reading','Answers comprehension questions correctly 60% of the time on grade-level passages','d9',1,'On grade-level reading passages, Caleb answers comprehension questions with 60% accuracy.','O','present_level.statement'],
+ ['r7','reading','Reads faster and more accurately, but still has difficulty understanding grade-level passages','d6',1,'Caleb Nguyen reads connected text with improved rate and accuracy but continues to have difficulty constructing meaning from grade-level passages.','O','evaluation_finding.finding'],
+ ['r8','reading','The comprehension test used was a standardized achievement subtest','d6',1,'Reading comprehension, measured with a standardized achievement subtest, yielded a standard score of 78','U','measurement.measure.instrument'],
+ ['g1','goals','Read at least 95 words correct per minute across three probes in a row','d2',1,'Given a grade-level connected text passage, Caleb will read at least 95 words correct per minute (WCPM) across three consecutive probes.','O','goal.statement','old'],
+ ['g2','goals','Started at 62; target date October 23, 2024','d2',2,'Target Date: 2024-10-23','O','goal.target_date','old'],
+ ['g8','goals','Progress reported at least once a year','d2',2,'Progress toward the annual goal will be measured using oral-reading-fluency probes and reported at least annually, concurrent with report periods.','O','goal.reporting_frequency','old'],
+ ['g3','goals','The October 2024 report described meaningful progress; the target had not yet been met','d3',1,'This result shows meaningful progress toward the annual target of 95 WCPM. The annual target has not yet been met.','O','progress_entry.reported_status','old'],
+ ['g4','goals','Answer comprehension questions (literal and inferential) with at least 80% accuracy on three weekly probes in a row','d9',1,'Given a grade-level informational or literary passage, Caleb will answer comprehension questions (literal and inferential) with at least 80% accuracy on three consecutive weekly probes.','O','goal.statement','new'],
+ ['g5','goals','Starts at 60% accuracy; target date October 20, 2027','d9',2,'Target: 80% accuracy','O','goal.target_value','new'],
+ ['g7','goals','Measured with grade-level passage questions and reported every quarter','d9',2,'Progress toward the annual comprehension goal will be measured using grade-level passage questions and reported quarterly, concurrent with report periods.','O','goal.reporting_frequency','new'],
+ ['s1','support','Specialized reading instruction: 5 sessions a week, 45 minutes each, in the special education setting','d2',2,'Specialized reading instruction is provided 5 sessions per week for 45 minutes per session in the special education setting.','O','service','old'],
+ ['a1','support','Extended time (1.5x) on classroom and district assessments','d2',2,'Extended time (1.5x) on classroom and district assessments.','O','accommodation','old'],
+ ['s2','support','Specialized reading instruction: 5 sessions a week, 45 minutes each, in the special education setting','d9',2,'Specialized reading instruction 5x/week 45 minutes per session special education setting 2026-10-21','O','service','new'],
+ ['a2','support','Extended time (1.5x) on classroom and district assessments','d9',2,'Extended time (1.5x) on classroom and district assessments.','O','accommodation','new'],
+ ['a3','support','Added: text-to-speech for long content-area passages','d9',2,'Text-to-speech for lengthy content-area passages is added so that length of assigned reading does not prevent access to content-area material.','O','accommodation','new'],
+ ['e0','evals','The reevaluation planned to look at reading (achievement, comprehension, fluency), cognitive context, speech-language, and existing records','d4',1,'A reevaluation is being planned to review current educational needs related to reading fluency and other reading performance.','O','evaluation_plan_item','plan'],
+ ['e1','evals','Cognitive ability is broadly within the average range','d5',1,'Cognitive ability is broadly within the average range. Performance across verbal reasoning, visual-spatial reasoning, and working-memory tasks was consistent with age expectations.','O','evaluation_finding.finding','psy'],
+ ['e2','evals','No general cognitive limitation is identified as the main reason for the reading concern','d5',1,'No global cognitive limitation is identified as the primary explanation for the documented reading concern.','O','evaluation_finding.finding','psy'],
+ ['e3','evals','Recommended finishing the academic reading assessment before the eligibility meeting','d5',2,'Complete current academic achievement assessment, including reading comprehension and fluency, before the reevaluation eligibility meeting.','O','evaluation_finding.recommendation','psy'],
+ ['e6','evals','Recommends teaching focused on understanding grade-level text, practice with literal and inferential questions, and continued progress checks','d6',2,'Instructional planning should emphasize reading comprehension of connected grade-level text. … explicit instruction in constructing meaning from connected text • guided practice with literal and inferential questions • continued progress monitoring of reading comprehension','O','evaluation_finding.recommendation','acad'],
+ ['e4','evals','Speech is clear enough for class, and language is broadly functional. No separate speech-language need.','d7',1,'Speech intelligibility is adequate for classroom participation. Receptive and expressive language observed during this review are broadly functional for classroom communication. No separate speech-language educational need is identified from this review.','O','evaluation_finding.finding','slp'],
+ ['e5','evals','No speech-language service is recommended','d7',1,'No speech-language service is recommended.','O','evaluation_finding.recommendation','slp'],
+ ['e7','evals','The speech review doesn\u2019t decide whether a reading disability is present','d7',1,'The documented reading concern for Caleb Nguyen is not treated as resolved by this review. A speech-language review does not determine whether a reading disability is present.','O','evaluation_finding.finding','slp'],
+ ['el1','elig','Eligible for special education: Specific Learning Disability (SLD) – Reading','d1',1,'[X] Eligible for special education','O','eligibility.decision','old'],
+ ['el2','elig','The need at that time: reading fluency','d1',2,'The team determined that Caleb requires specially designed instruction to address the documented reading-fluency need.','O','eligibility.basis','old'],
+ ['el3','elig','Continues to meet criteria for special education; category unchanged','d8',1,'[X] Student continues to meet criteria for special education','O','eligibility.decision','new'],
+ ['el4','elig','The need now: reading comprehension','d8',2,'The team determined that Caleb continues to require specially designed instruction to address the documented reading comprehension need. The eligibility category has not changed.','O','eligibility.basis','new'],
+ ['el6','elig','The comprehension test it cites was a standardized achievement subtest','d8',1,'Reading comprehension, measured with a standardized achievement subtest, yielded a standard score of 78','U','measurement.measure.instrument','new'],
+ ['el5','elig','The reading scores it relies on are dated September 29, 2026','d8',1,'Academic Reevaluation - 2026-09-29','U','measurement.observed_on','new'],
+ ['m1','meet','IEP meeting on October 24, 2023','d2',2,'Date: 2023-10-24','O','meeting.meeting_date'],
+ ['m2','meet','IEP meeting on October 21, 2026','d9',2,'Date: 2026-10-21','O','meeting.meeting_date'],
+ ['m3','meet','Signed at both meetings by: parent/guardian, general education teacher, special education teacher, district representative','d9',2,'Parent/Guardian: [Synthetic signature omitted]','O','meeting_participant.role']
+];
+const TOPICS=[
+ {id:'t-goals',key:'goals',nav:'Goals',title:'Goals in each IEP',lede:'Each IEP sets a goal and how it will be checked. The goal changed from reading speed to understanding.',groups:[['old','2023–24 IEP','Earlier'],['new','2026–27 IEP','Current']]},
+ {id:'t-support',key:'support',nav:'Support',title:'Support Caleb gets',lede:'Instruction and accommodations written into each IEP.',groups:[['old','2023–24 IEP','Earlier'],['new','2026–27 IEP','Current']]},
+ {id:'t-evals',key:'evals',nav:'Evaluations',title:'What the evaluations found',lede:'The 2026 reevaluation looked at reading, thinking skills and speech-language.',groups:[['plan','Reevaluation plan · Sep 8, 2026'],['psy','Psychoeducational · Sep 22, 2026'],['acad','Academic · Sep 29, 2026'],['slp','Speech-language · Oct 6, 2026']]},
+ {id:'t-elig',key:'elig',nav:'Eligibility',title:'Eligibility decisions',lede:'Whether Caleb qualifies for special education, and why.',groups:[['old','October 12, 2023'],['new','October 14, 2026','Current']]},
+ {id:'t-meet',key:'meet',nav:'Meetings',title:'Meetings and people',lede:'When IEP meetings happened and who signed. Names are not recorded.',groups:[[null,'IEP meetings']]}
+];
+const MISSING=[
+ {t:'Total minutes of reading instruction per week',w:'Both IEPs give sessions and minutes per session, not a weekly total.'},
+ {t:'Who provides the reading instruction',w:'No provider role in either IEP.'},
+ {t:'When accommodations apply',w:'No conditions are written for extended time or text-to-speech.'},
+ {t:'Names of the tests used',w:'Academic reevaluation and eligibility documents.'},
+ {t:'Purpose of the IEP meetings',w:'Neither IEP states it.'},
+ {t:'Names of people at the meetings',w:'Signatures are omitted; only roles are listed.'},
+ {t:'When the 62 words-per-minute baseline was measured',w:'The 2023 IEP gives the number, not the date.'},
+ {t:'Records from October 2024 to September 2026',w:'No documents from this period are in the Hive.'}
+];
+const TOPIC_NAME={reading:'Reading',goals:'Goals',support:'Support',evals:'Evaluations',elig:'Eligibility',meet:'Meetings'};
+class Component extends DCLogic {
+  state={view:'topic',open:{},openDoc:{d9:true},ss:false,toast:null};
+  toastMsg(t){this.setState({toast:t});clearTimeout(this.tt);this.tt=setTimeout(()=>this.setState({toast:null}),2400);}
+  componentWillUnmount(){clearTimeout(this.tt);}
+  go(id){this.setState({view:'topic'},()=>{const el=document.getElementById(id);if(el)window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-16,behavior:'smooth'});});}
+  renderVals(){
+    const s=this.state;
+    const mk=a=>{const [id,topic,t,doc,p,q,st,field]=a;const open=!!s.open[id];const unc=st==='U';return {t,q,p:String(p),topic:TOPIC_NAME[topic],src:D[doc].title+' · p. '+p,open,unc,chev:open?'rotate(180deg)':'none',dotBg:unc?'#FFFFFF':'#2FA35A',dotBd:unc?'2px solid #E0A21A':'none',meta:(unc?'Uncertain':'Observed')+' · '+D[doc].file+' · page '+p+' · field '+field,toggle:()=>this.setState(x=>({open:{...x.open,[id]:!x.open[id]}}))};};
+    const readingFacts=F.filter(f=>f[1]==='reading').map(mk);
+    const topics=TOPICS.map(tp=>({id:tp.id,title:tp.title,lede:tp.lede,groups:tp.groups.map(([k,label,tag])=>({label,tag:tag||'',hasTag:!!tag,tagBg:tag==='Current'?'#EEF4FF':'#F1F3F6',tagFg:tag==='Current'?'#2456B8':'#4A525C',facts:F.filter(f=>f[1]===tp.key&&(k===null||f[8]===k)).map(mk)}))}));
+    const count=k=>String(F.filter(f=>f[1]===k).length);
+    const navItems=[['t-reading','Reading',count('reading')],...TOPICS.map(t=>[t.id,t.nav,count(t.key)]),['t-missing','Not found',String(MISSING.length)]];
+    const nav=navItems.map(([id,label,c])=>({label,count:c,bg:'transparent',fg:'#1F2328',font:'600 14.5px Figtree',go:()=>this.go(id)}));
+    const views=[['topic','By topic'],['doc','By document']].map(([k,label])=>{const on=s.view===k;return {label,on,bg:on?'#FFFFFF':'transparent',fg:on?'#1F2328':'#6B7280',sh:on?'0 1px 3px rgba(31,35,40,.12)':'none',go:()=>this.setState({view:k})};});
+    const docs=Object.keys(D).map(id=>{const d=D[id];const open=!!s.openDoc[id];const facts=F.filter(f=>f[3]===id).map(mk);return {era:d.era,title:d.title,file:d.file,pages:d.pages,month:d.m,year:d.y,count:facts.length+(facts.length===1?' item':' items'),flag:!!d.flagText,flagText:d.flagText||'',open,chev:open?'rotate(180deg)':'none',facts,hasMissing:!!MISSING_DOC[id],missing:MISSING_DOC[id]||'',toggle:()=>this.setState(x=>({openDoc:{...x.openDoc,[id]:!x.openDoc[id]}}))};});
+    const eras=[{label:'2023–2024 · first eligibility and IEP',docs:docs.filter(d=>d.era===0)},{label:'2026 · reevaluation',docs:docs.filter(d=>d.era===1)}];
+    return {
+      questions:['How well does the IEP address the child\u2019s documented educational needs?','How is the child progressing, and what has changed over time?','Is my child progressing?'].map((t,i)=>({n:String(i+1),t})),
+      snapshot:[{k:'Student',v:'Caleb Nguyen'},{k:'Grade',v:'5 (in 2026 documents)'},{k:'School',v:'Synthetic Elementary School'},{k:'District',v:'Synthetic District'},{k:'Eligibility category',v:'Specific Learning Disability – Reading'},{k:'Current IEP',v:'Oct 21, 2026 – Oct 20, 2027'}],
+      ticks:[0,20,40,60,80,100,120].map(v=>({v:String(v),l:(v/120*100)+'%'})),
+      wcpm:[{v:'62',l:(62/120*100)+'%',c:'#9AA3AE',when:'2023 IEP baseline',src:'IEP (2023–24) · p. 1 · date not stated'},{v:'91',l:(91/120*100)+'%',c:'#3B7CF6',when:'Oct 15, 2024',src:'Annual progress report · p. 1'},{v:'104',l:(104/120*100)+'%',c:'#2FA35A',when:'Sep 29, 2026',src:'Academic reevaluation · p. 1'}],
+      readingFacts,topics,nav,views,byTopic:s.view==='topic',byDoc:s.view==='doc',eras,missing:MISSING,
+      ssOpen:s.ss,ssChev:s.ss?'rotate(180deg)':'none',toggleSS:()=>this.setState(x=>({ss:!x.ss})),
+      goNotFound:()=>this.go('t-missing'),
+      build:()=>this.toastMsg('Building your Canonical Study…'),back:e=>{e.preventDefault();this.toastMsg('Back to Documents isn\u2019t part of this mockup');},
+      toast:s.toast
+    };
+  }
+}
+
+</script>
+</body>
+</html>
