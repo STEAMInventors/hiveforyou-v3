@@ -44,8 +44,11 @@ export {
   type PackExtractionValidationOutcome,
 } from "./validate-extraction.js";
 export {
+  DEFAULT_PACK_EXTRACTION_CONCURRENCY,
   MAX_EXTRACTION_JSON_BYTES,
+  MAX_PACK_EXTRACTION_CONCURRENCY,
   packExtractionEnabled,
+  readPackExtractionConcurrency,
   resolvePackExtractionRoute,
   resolveSelectedPack,
   runPackExtractionForSources,

@@ -42,6 +42,30 @@ import { validatePackExtractionOutput } from "./validate-extraction.js";
 /** Complete candidate JSON above this size is not stored (no truncation, no Storage spill). */
 export const MAX_EXTRACTION_JSON_BYTES = 1_048_576;
 
+/** Default document-level concurrency until provider rate limits are verified. */
+export const DEFAULT_PACK_EXTRACTION_CONCURRENCY = 2;
+
+/** Hard upper bound on concurrent documents per run to avoid gateway/Reader stampedes. */
+export const MAX_PACK_EXTRACTION_CONCURRENCY = 4;
+
+function clampPackExtractionConcurrency(value: number | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return DEFAULT_PACK_EXTRACTION_CONCURRENCY;
+  }
+  const integer = Math.trunc(value);
+  if (integer < 1) {
+    return DEFAULT_PACK_EXTRACTION_CONCURRENCY;
+  }
+  return Math.min(integer, MAX_PACK_EXTRACTION_CONCURRENCY);
+}
+
+/** Reads `WORKER_P2_EXTRACTION_CONCURRENCY` (supported 1..4; default 2). */
+export function readPackExtractionConcurrency(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env.WORKER_P2_EXTRACTION_CONCURRENCY?.trim();
+  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  return clampPackExtractionConcurrency(parsed);
+}
+
 export type LoadedPackForSelection = {
   manifest: NormalizedDomainPackManifest;
   digest: string;
@@ -155,6 +179,8 @@ export type RunPackExtractionInput = {
   correlationId: string;
   ownerUserId: string;
   sources: WorkerRegisteredSourceRowV1[];
+  /** Max concurrent documents (1..4); defaults to `readPackExtractionConcurrency()`. */
+  concurrency?: number;
 };
 
 type PackExtractionLogEvent = {
@@ -559,112 +585,253 @@ async function extractWindow(
   return batch;
 }
 
+type PackExtractionRunSummaryLogEvent = {
+  level: "info" | "error";
+  event: "pack_extraction_run_summary";
+  correlation_id: string;
+  study_run_id: string;
+  prompt_digest: string;
+  pack_id: string;
+  pack_version: string;
+  concurrency_limit: number;
+  max_in_flight_documents: number;
+  source_count: number;
+  documents_completed: number;
+  unusable_document_count: number;
+  duration_ms: number;
+  error_code?: string | null;
+  retryable?: boolean | null;
+};
+
+function emitPackExtractionRunSummaryLog(event: PackExtractionRunSummaryLogEvent): void {
+  const line = JSON.stringify({
+    timestamp: new Date().toISOString(),
+    service: "worker",
+    stage: "extract",
+    ...event,
+  });
+  if (event.level === "error") {
+    console.error(line);
+    return;
+  }
+  console.info(line);
+}
+
+async function extractSourceDocument(
+  input: RunPackExtractionInput,
+  source: WorkerRegisteredSourceRowV1,
+): Promise<PackExtractionDocumentSummary> {
+  const readerSource = toReaderSource(source, input.ownerUserId);
+  const read = await input.reader.readDocument({
+    source: readerSource,
+    correlationId: input.correlationId,
+    studyRunId: input.studyRunId,
+    extractionBatchId: source.source_document_id,
+  });
+  if (read.status !== "SUCCEEDED") {
+    throw new PlanningError(ErrorCode.EXTRACTION_FAILED, "A document could not be read.", {
+      reason: "source_read_failed",
+    });
+  }
+
+  const pageText = new Map(read.pages.map((page) => [page.page_number, page.text]));
+  let windows: PackExtractionWindow[];
+  try {
+    windows = planPackExtractionWindows({
+      promptDigest: input.compiled.prompt_digest,
+      promptTokens: input.compiled.estimated_prompt_tokens,
+      read,
+      budget: input.budget,
+    });
+  } catch (error) {
+    if (!(error instanceof PlanningError)) {
+      throw error;
+    }
+    const base = batchBase(input, source, read, {
+      page_start: 1,
+      page_end: Math.max(1, read.page_count),
+      is_partial: false,
+    });
+    const { batch } = await putPackExtractionBatch(
+      input.persistence,
+      input.studyRunId,
+      failedBatch(base, {
+        modelAlias: input.modelAlias,
+        errorCode: ErrorCode.EXTRACTION_FAILED,
+        errorReason: "context_budget_exceeded",
+      }),
+    );
+    emitPackExtractionLog({
+      level: "error",
+      correlation_id: input.correlationId,
+      study_run_id: input.studyRunId,
+      source_document_id: source.source_document_id,
+      extraction_batch_id: batch.id,
+      prompt_digest: input.compiled.prompt_digest,
+      pack_id: input.compiled.pack_id,
+      pack_version: input.compiled.pack_version,
+      page_start: base.page_start,
+      page_end: base.page_end,
+      outcome: "failed",
+      disposition: "UNUSABLE",
+      facts_accepted: 0,
+      facts_rejected: 0,
+      records_rejected: 0,
+      error_code: ErrorCode.EXTRACTION_FAILED,
+      error_reason: "context_budget_exceeded",
+    });
+    return {
+      source_document_id: source.source_document_id,
+      document_type_id: null,
+      domain_id: input.domainId,
+      pack_id: input.compiled.pack_id,
+      candidate_field_count: 0,
+      disposition: "UNUSABLE",
+      window_count: 0,
+    };
+  }
+
+  const batches: PackExtractionBatchSummary[] = [];
+  for (const window of windows) {
+    batches.push(await extractWindow(input, source, read, window, pageText));
+  }
+
+  const disposition = documentDisposition(batches.map((batch) => batch.disposition));
+  return {
+    source_document_id: source.source_document_id,
+    document_type_id: batches.find((batch) => batch.primary_document_type_id)?.primary_document_type_id ?? null,
+    domain_id: input.domainId,
+    pack_id: input.compiled.pack_id,
+    candidate_field_count: batches.reduce(
+      (sum, batch) => sum + batch.validation_json.counts.facts_accepted,
+      0,
+    ),
+    disposition,
+    window_count: windows.length,
+  };
+}
+
+function errorMetadata(error: unknown): { errorCode: string | null; retryable: boolean | null } {
+  if (error && typeof error === "object") {
+    const code = (error as { errorCode?: unknown }).errorCode;
+    const retryable = (error as { retryable?: unknown }).retryable;
+    return {
+      errorCode: typeof code === "string" ? code : null,
+      retryable: typeof retryable === "boolean" ? retryable : null,
+    };
+  }
+  return { errorCode: null, retryable: null };
+}
+
 /**
  * Selected-Pack extract stage: Reader text preparation, then one Worker-owned extraction call
- * per document window, fact-level validation and idempotent batch persistence. Retryable
- * failures propagate (Inngest retries; committed windows replay without a model call).
+ * per document window, fact-level validation and idempotent batch persistence.
+ * Independent documents run concurrently up to `concurrency` (1..4, default 2); windows within a
+ * document run sequentially. On a thrown error, scheduling stops and in-flight documents finish
+ * and persist their batches before the error propagates.
  */
 export async function runPackExtractionForSources(
   input: RunPackExtractionInput,
 ): Promise<{ documents: PackExtractionDocumentSummary[]; unusableDocumentCount: number }> {
-  const documents: PackExtractionDocumentSummary[] = [];
-  let unusableDocumentCount = 0;
+  const startedAt = Date.now();
+  const concurrencyLimit =
+    input.concurrency !== undefined
+      ? clampPackExtractionConcurrency(input.concurrency)
+      : readPackExtractionConcurrency();
+  const sourceCount = input.sources.length;
+  const workerCount = Math.min(concurrencyLimit, Math.max(1, sourceCount));
 
-  for (const source of input.sources) {
-    const readerSource = toReaderSource(source, input.ownerUserId);
-    const read = await input.reader.readDocument({
-      source: readerSource,
-      correlationId: input.correlationId,
-      studyRunId: input.studyRunId,
-      extractionBatchId: source.source_document_id,
-    });
-    if (read.status !== "SUCCEEDED") {
-      throw new PlanningError(ErrorCode.EXTRACTION_FAILED, "A document could not be read.", {
-        reason: "source_read_failed",
-      });
-    }
+  const summaries: Array<PackExtractionDocumentSummary | undefined> = new Array(sourceCount);
+  let nextIndex = 0;
+  let inFlightDocuments = 0;
+  let maxInFlightDocuments = 0;
+  let documentsCompleted = 0;
+  let firstError: unknown = null;
+  let hasError = false;
 
-    const pageText = new Map(read.pages.map((page) => [page.page_number, page.text]));
-    let windows: PackExtractionWindow[];
-    try {
-      windows = planPackExtractionWindows({
-        promptDigest: input.compiled.prompt_digest,
-        promptTokens: input.compiled.estimated_prompt_tokens,
-        read,
-        budget: input.budget,
-      });
-    } catch (error) {
-      if (!(error instanceof PlanningError)) {
-        throw error;
+  const runWorker = async (): Promise<void> => {
+    while (!hasError) {
+      const index = nextIndex;
+      if (index >= sourceCount) {
+        return;
       }
-      const base = batchBase(input, source, read, {
-        page_start: 1,
-        page_end: Math.max(1, read.page_count),
-        is_partial: false,
-      });
-      const { batch } = await putPackExtractionBatch(
-        input.persistence,
-        input.studyRunId,
-        failedBatch(base, {
-          modelAlias: input.modelAlias,
-          errorCode: ErrorCode.EXTRACTION_FAILED,
-          errorReason: "context_budget_exceeded",
-        }),
-      );
-      emitPackExtractionLog({
-        level: "error",
-        correlation_id: input.correlationId,
-        study_run_id: input.studyRunId,
-        source_document_id: source.source_document_id,
-        extraction_batch_id: batch.id,
-        prompt_digest: input.compiled.prompt_digest,
-        pack_id: input.compiled.pack_id,
-        pack_version: input.compiled.pack_version,
-        page_start: base.page_start,
-        page_end: base.page_end,
-        outcome: "failed",
-        disposition: "UNUSABLE",
-        facts_accepted: 0,
-        facts_rejected: 0,
-        records_rejected: 0,
-        error_code: ErrorCode.EXTRACTION_FAILED,
-        error_reason: "context_budget_exceeded",
-      });
-      unusableDocumentCount += 1;
-      documents.push({
-        source_document_id: source.source_document_id,
-        document_type_id: null,
-        domain_id: input.domainId,
-        pack_id: input.compiled.pack_id,
-        candidate_field_count: 0,
-        disposition: "UNUSABLE",
-        window_count: 0,
-      });
-      continue;
+      nextIndex += 1;
+      const source = input.sources[index]!;
+      inFlightDocuments += 1;
+      if (inFlightDocuments > maxInFlightDocuments) {
+        maxInFlightDocuments = inFlightDocuments;
+      }
+      try {
+        const summary = await extractSourceDocument(input, source);
+        summaries[index] = summary;
+        documentsCompleted += 1;
+      } catch (error) {
+        if (!hasError) {
+          hasError = true;
+          firstError = error;
+        }
+      } finally {
+        inFlightDocuments -= 1;
+      }
     }
+  };
 
-    const batches: PackExtractionBatchSummary[] = [];
-    for (const window of windows) {
-      batches.push(await extractWindow(input, source, read, window, pageText));
-    }
-
-    const disposition = documentDisposition(batches.map((batch) => batch.disposition));
-    if (disposition === "UNUSABLE") {
-      unusableDocumentCount += 1;
-    }
-    documents.push({
-      source_document_id: source.source_document_id,
-      document_type_id: batches.find((batch) => batch.primary_document_type_id)?.primary_document_type_id ?? null,
-      domain_id: input.domainId,
-      pack_id: input.compiled.pack_id,
-      candidate_field_count: batches.reduce(
-        (sum, batch) => sum + batch.validation_json.counts.facts_accepted,
-        0,
-      ),
-      disposition,
-      window_count: windows.length,
-    });
+  if (sourceCount > 0) {
+    await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
   }
+
+  let unusableDocumentCount = 0;
+  for (const summary of summaries) {
+    if (summary?.disposition === "UNUSABLE") {
+      unusableDocumentCount += 1;
+    }
+  }
+
+  const durationMs = Date.now() - startedAt;
+  if (hasError) {
+    const meta = errorMetadata(firstError);
+    emitPackExtractionRunSummaryLog({
+      level: "error",
+      event: "pack_extraction_run_summary",
+      correlation_id: input.correlationId,
+      study_run_id: input.studyRunId,
+      prompt_digest: input.compiled.prompt_digest,
+      pack_id: input.compiled.pack_id,
+      pack_version: input.compiled.pack_version,
+      concurrency_limit: concurrencyLimit,
+      max_in_flight_documents: maxInFlightDocuments,
+      source_count: sourceCount,
+      documents_completed: documentsCompleted,
+      unusable_document_count: unusableDocumentCount,
+      duration_ms: durationMs,
+      error_code: meta.errorCode,
+      retryable: meta.retryable,
+    });
+    throw firstError;
+  }
+
+  emitPackExtractionRunSummaryLog({
+    level: "info",
+    event: "pack_extraction_run_summary",
+    correlation_id: input.correlationId,
+    study_run_id: input.studyRunId,
+    prompt_digest: input.compiled.prompt_digest,
+    pack_id: input.compiled.pack_id,
+    pack_version: input.compiled.pack_version,
+    concurrency_limit: concurrencyLimit,
+    max_in_flight_documents: maxInFlightDocuments,
+    source_count: sourceCount,
+    documents_completed: documentsCompleted,
+    unusable_document_count: unusableDocumentCount,
+    duration_ms: durationMs,
+  });
+
+  const documents = summaries.map((summary, idx) => {
+    if (!summary) {
+      throw new Error(`Missing extraction summary at index ${idx}`);
+    }
+    return summary;
+  });
 
   return { documents, unusableDocumentCount };
 }

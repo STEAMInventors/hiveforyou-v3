@@ -396,11 +396,24 @@ export class FakeExtractionStore {
   /** Same projection as `hive3_p2px_owner_list_extraction_batches` (owner check elided). */
   ownerView(studyRunId: string): Record<string, unknown> {
     const hiveId = this.runHive.get(studyRunId) ?? "";
+    const runSources = this.sources.get(studyRunId) ?? [];
+    const sourceOrder = new Map(runSources.map((s, idx) => [s.source_document_id, idx]));
+    const orderedBatches = [...this.batchesFor(studyRunId)].sort((a, b) => {
+      const orderA = sourceOrder.get(a.source_document_id);
+      const orderB = sourceOrder.get(b.source_document_id);
+      if (orderA !== undefined && orderB !== undefined && orderA !== orderB) {
+        return orderA - orderB;
+      }
+      if (a.source_document_id !== b.source_document_id) {
+        return a.source_document_id.localeCompare(b.source_document_id);
+      }
+      return a.page_start - b.page_start;
+    });
     return {
       contract_version: "pack-extraction-owner-view@1",
       study_run_id: studyRunId,
       hive_id: hiveId,
-      batches: this.batchesFor(studyRunId).map((b) => {
+      batches: orderedBatches.map((b) => {
         const validation = b.validation_json as { counts?: unknown; rejections?: Array<{ reason_code: string }> };
         return {
           batch_id: b.id,

@@ -20,7 +20,10 @@ import {
 } from "./pack-extraction.fixture.js";
 import { planPackExtractionWindows } from "./plan-windows.js";
 import {
+  DEFAULT_PACK_EXTRACTION_CONCURRENCY,
   MAX_EXTRACTION_JSON_BYTES,
+  MAX_PACK_EXTRACTION_CONCURRENCY,
+  readPackExtractionConcurrency,
   resolvePackExtractionRoute,
   resolveSelectedPack,
   runPackExtractionForSources,
@@ -56,6 +59,7 @@ async function run(input: {
   extraction?: ReturnType<typeof fakeExtractionClient>;
   budget?: { maxContextTokens: number; outputReserveTokens: number };
   docs?: L001CorpusDocument[];
+  concurrency?: number;
 }) {
   const extraction = input.extraction ?? fakeExtractionClient(input.responder, input.docs);
   const reader = fakeReader(input.docs);
@@ -72,6 +76,7 @@ async function run(input: {
     correlationId: `corr-${input.runId}`,
     ownerUserId: "owner-1",
     sources: input.sources,
+    concurrency: input.concurrency,
   });
   return { result, extraction, reader };
 }
@@ -366,5 +371,281 @@ describe("resolvePackExtractionRoute", () => {
     ).toThrowError(
       expect.objectContaining({ errorCode: ErrorCode.INVALID_REQUEST, diagnostics: { reason: "pack_invalid" } }),
     );
+  });
+});
+
+describe("runPackExtractionForSources — bounded concurrency (P2.2-PX.P)", () => {
+  const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  it("parses WORKER_P2_EXTRACTION_CONCURRENCY with default 2 and clamps to 1..4", () => {
+    expect(DEFAULT_PACK_EXTRACTION_CONCURRENCY).toBe(2);
+    expect(MAX_PACK_EXTRACTION_CONCURRENCY).toBe(4);
+    expect(readPackExtractionConcurrency({})).toBe(2);
+    expect(readPackExtractionConcurrency({ WORKER_P2_EXTRACTION_CONCURRENCY: "invalid" })).toBe(2);
+    expect(readPackExtractionConcurrency({ WORKER_P2_EXTRACTION_CONCURRENCY: "0" })).toBe(2);
+    expect(readPackExtractionConcurrency({ WORKER_P2_EXTRACTION_CONCURRENCY: "-3" })).toBe(2);
+    expect(readPackExtractionConcurrency({ WORKER_P2_EXTRACTION_CONCURRENCY: "1" })).toBe(1);
+    expect(readPackExtractionConcurrency({ WORKER_P2_EXTRACTION_CONCURRENCY: "2" })).toBe(2);
+    expect(readPackExtractionConcurrency({ WORKER_P2_EXTRACTION_CONCURRENCY: "3" })).toBe(3);
+    expect(readPackExtractionConcurrency({ WORKER_P2_EXTRACTION_CONCURRENCY: "4" })).toBe(4);
+    expect(readPackExtractionConcurrency({ WORKER_P2_EXTRACTION_CONCURRENCY: "99" })).toBe(4);
+  });
+
+  it.each([1, 2, 4])("enforces maximum active document concurrency = %i across 8 L001 documents", async (concurrency) => {
+    const { store, sources } = setup(`run-c${concurrency}`);
+    let activeCalls = 0;
+    let maxObservedCalls = 0;
+
+    const responder: FakeModelResponder = async (input, doc) => {
+      activeCalls += 1;
+      if (activeCalls > maxObservedCalls) {
+        maxObservedCalls = activeCalls;
+      }
+      await delay(15);
+      activeCalls -= 1;
+      return plausibleOutput(input, doc);
+    };
+
+    const { result, extraction } = await run({
+      store,
+      runId: `run-c${concurrency}`,
+      sources,
+      responder,
+      concurrency,
+    });
+
+    expect(maxObservedCalls).toBe(concurrency);
+    expect(extraction.calls).toHaveLength(8);
+    expect(result.unusableDocumentCount).toBe(0);
+    expect(result.documents.map((d) => d.source_document_id)).toEqual(
+      L001_CORPUS.map((doc) => doc.source_document_id),
+    );
+
+    const summaryLogs = logLines
+      .map((line) => JSON.parse(line) as Record<string, unknown>)
+      .filter((entry) => entry.event === "pack_extraction_run_summary");
+    expect(summaryLogs).toHaveLength(1);
+    expect(summaryLogs[0]).toMatchObject({
+      level: "info",
+      correlation_id: `corr-run-c${concurrency}`,
+      study_run_id: `run-c${concurrency}`,
+      concurrency_limit: concurrency,
+      max_in_flight_documents: concurrency,
+      source_count: 8,
+      documents_completed: 8,
+      unusable_document_count: 0,
+    });
+    expect(typeof summaryLogs[0]!.duration_ms).toBe("number");
+  });
+
+  it("preserves input order in result.documents and ownerView when documents complete in reverse order", async () => {
+    const { store, sources } = setup("run-reverse");
+    store.sources.set("run-reverse", sources);
+    const completionOrder: string[] = [];
+
+    const responder: FakeModelResponder = async (input, doc) => {
+      const idx = L001_CORPUS.findIndex((d) => d.source_document_id === doc.source_document_id);
+      await delay((8 - idx) * 6);
+      completionOrder.push(doc.source_document_id);
+      return plausibleOutput(input, doc);
+    };
+
+    const { result } = await run({
+      store,
+      runId: "run-reverse",
+      sources,
+      responder,
+      concurrency: 4,
+    });
+
+    expect(completionOrder).not.toEqual(L001_CORPUS.map((d) => d.source_document_id));
+    expect(result.documents.map((d) => [d.source_document_id, d.document_type_id])).toEqual(
+      L001_CORPUS.map((doc) => [doc.source_document_id, doc.expected_document_type_id]),
+    );
+
+    const view = parsePackExtractionOwnerViewV1(store.ownerView("run-reverse"));
+    expect(view.ok).toBe(true);
+    if (!view.ok) return;
+    expect(view.value.batches.map((b) => b.source_document_id)).toEqual(
+      L001_CORPUS.map((doc) => doc.source_document_id),
+    );
+  });
+
+  it("keeps Mode B page windows strictly sequential per document while running documents in parallel", async () => {
+    const multiDocA: L001CorpusDocument = {
+      ...L001_CORPUS[7]!,
+      source_document_id: "l001-08-a",
+      filename: "08a_initial_iep.pdf",
+    };
+    const multiDocB: L001CorpusDocument = {
+      ...L001_CORPUS[7]!,
+      source_document_id: "l001-08-b",
+      filename: "08b_initial_iep.pdf",
+    };
+    const twoMultiPageDocs = [multiDocA, multiDocB];
+    const { store, sources } = setup("run-mode-b-parallel", HIVE, twoMultiPageDocs);
+
+    const [whole0] = planPackExtractionWindows({
+      promptDigest: compiled.prompt_digest,
+      promptTokens: 0,
+      read: readResponse(twoMultiPageDocs[0]!, sources[0]!),
+      budget: { maxContextTokens: 1_000_000, outputReserveTokens: 0 },
+    });
+    const tightBudget = {
+      maxContextTokens: compiled.estimated_prompt_tokens + 64 + whole0!.estimatedInputTokens - 1,
+      outputReserveTokens: 64,
+    };
+
+    let activeTotal = 0;
+    let maxActiveTotal = 0;
+    const activePerDoc = new Map<string, number>();
+    const maxActivePerDoc = new Map<string, number>();
+    const windowSequencePerDoc = new Map<string, number[]>();
+
+    const responder: FakeModelResponder = async (input, doc) => {
+      activeTotal += 1;
+      maxActiveTotal = Math.max(maxActiveTotal, activeTotal);
+      const docInFlight = (activePerDoc.get(doc.source_document_id) ?? 0) + 1;
+      activePerDoc.set(doc.source_document_id, docInFlight);
+      maxActivePerDoc.set(
+        doc.source_document_id,
+        Math.max(maxActivePerDoc.get(doc.source_document_id) ?? 0, docInFlight),
+      );
+      const seq = windowSequencePerDoc.get(doc.source_document_id) ?? [];
+      seq.push(input.source_metadata.window.page_start);
+      windowSequencePerDoc.set(doc.source_document_id, seq);
+
+      await delay(12);
+
+      activePerDoc.set(doc.source_document_id, (activePerDoc.get(doc.source_document_id) ?? 1) - 1);
+      activeTotal -= 1;
+      return plausibleOutput(input, doc);
+    };
+
+    const { result } = await run({
+      store,
+      runId: "run-mode-b-parallel",
+      sources,
+      responder,
+      budget: tightBudget,
+      docs: twoMultiPageDocs,
+      concurrency: 2,
+    });
+
+    expect(maxActiveTotal).toBe(2);
+    for (const doc of twoMultiPageDocs) {
+      expect(maxActivePerDoc.get(doc.source_document_id)).toBe(1);
+      const seq = windowSequencePerDoc.get(doc.source_document_id) ?? [];
+      expect(seq.length).toBeGreaterThanOrEqual(2);
+      expect(seq).toEqual([...seq].sort((a, b) => a - b));
+    }
+    expect(result.documents.map((d) => d.source_document_id)).toEqual(
+      twoMultiPageDocs.map((d) => d.source_document_id),
+    );
+  });
+
+  it("on a 429 rate-limit error at concurrency 4, stops scheduling new documents, drains and persists in-flight batches, and replays them on retry", async () => {
+    const { store, sources } = setup("run-429-drain");
+    const startedDocs: string[] = [];
+
+    const firstAttemptResponder: FakeModelResponder = async (input, doc) => {
+      startedDocs.push(doc.source_document_id);
+      if (doc.source_document_id === "l001-02") {
+        await delay(5);
+        throw new PlanningError(ErrorCode.MODEL_UNAVAILABLE, "Gateway rate limited.", {
+          reason: "gateway_status",
+          status: 429,
+        });
+      }
+      await delay(25);
+      return plausibleOutput(input, doc);
+    };
+
+    const error = await run({
+      store,
+      runId: "run-429-drain",
+      sources,
+      responder: firstAttemptResponder,
+      concurrency: 4,
+    }).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(PlanningError);
+    expect(error).toMatchObject({
+      errorCode: ErrorCode.MODEL_UNAVAILABLE,
+      retryable: true,
+    });
+
+    expect(startedDocs).toHaveLength(4);
+    const persistedAfterFirst = store.batchesFor("run-429-drain");
+    expect(persistedAfterFirst).toHaveLength(3);
+    expect(persistedAfterFirst.map((b) => b.source_document_id).sort()).toEqual([
+      "l001-01",
+      "l001-03",
+      "l001-04",
+    ]);
+
+    const errorSummaryLogs = logLines
+      .map((line) => JSON.parse(line) as Record<string, unknown>)
+      .filter((entry) => entry.event === "pack_extraction_run_summary" && entry.level === "error");
+    expect(errorSummaryLogs).toHaveLength(1);
+    expect(errorSummaryLogs[0]).toMatchObject({
+      study_run_id: "run-429-drain",
+      concurrency_limit: 4,
+      max_in_flight_documents: 4,
+      source_count: 8,
+      documents_completed: 3,
+      error_code: ErrorCode.MODEL_UNAVAILABLE,
+      retryable: true,
+    });
+
+    const retry = await run({
+      store,
+      runId: "run-429-drain",
+      sources,
+      concurrency: 4,
+    });
+
+    expect(retry.extraction.calls).toHaveLength(5);
+    expect(retry.result.unusableDocumentCount).toBe(0);
+    expect(retry.result.documents.map((d) => d.source_document_id)).toEqual(
+      L001_CORPUS.map((doc) => doc.source_document_id),
+    );
+    expect(store.batchesFor("run-429-drain")).toHaveLength(8);
+  });
+
+  it("isolates partial unusable documents under concurrency 4 while persisting all 8 batches", async () => {
+    const { store, sources } = setup("run-partial-unusable");
+    const responder: FakeModelResponder = async (input, doc) => {
+      await delay(8);
+      if (doc.source_document_id === "l001-03" || doc.source_document_id === "l001-06") {
+        return { contract_version: "wrong" };
+      }
+      return plausibleOutput(input, doc);
+    };
+
+    const { result, extraction } = await run({
+      store,
+      runId: "run-partial-unusable",
+      sources,
+      responder,
+      concurrency: 4,
+    });
+
+    expect(extraction.calls).toHaveLength(8);
+    expect(result.unusableDocumentCount).toBe(2);
+    expect(result.documents.map((d) => [d.source_document_id, d.disposition])).toEqual(
+      L001_CORPUS.map((doc) => [
+        doc.source_document_id,
+        doc.source_document_id === "l001-03" || doc.source_document_id === "l001-06"
+          ? "UNUSABLE"
+          : doc.source_document_id === "l001-08"
+            ? "VALID_WITH_REJECTIONS"
+            : "VALID",
+      ]),
+    );
+    const batches = store.batchesFor("run-partial-unusable");
+    expect(batches).toHaveLength(8);
+    expect(batches.filter((b) => b.status === "FAILED")).toHaveLength(2);
+    expect(batches.filter((b) => b.status === "SUCCEEDED")).toHaveLength(6);
   });
 });

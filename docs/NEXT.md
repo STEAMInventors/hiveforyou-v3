@@ -1,7 +1,14 @@
 ﻿# Active ticket
 
+**Phase / Ticket:** **P2.2-PX.P — Bounded parallel extraction**
+**Status:** **IN_PROGRESS (repo implemented 2026-10-25 — awaiting user review/closure)** — bounded document-level concurrency (`WORKER_P2_EXTRACTION_CONCURRENCY`, supported `1..4`, default `2`) on the selected-Pack extraction path (`runPackExtractionForSources`). Sequential Mode B windows per document, input-order output preservation, in-flight drain + persistence on retryable failure, and sanitized run-level summary telemetry. No migrations, deploys, pushes or paid model calls without separate authorization.
+
+---
+
+## Paused — UX-DOC-1 (2026-10-25)
+
 **Phase / Ticket:** **UX-DOC-1 — Documents → Continue → Live Hive Progress**
-**Status:** **ACTIVE (2026-10-25)** — resumed after **P2.2-PX.I** closure. Step 1 **IMPLEMENTED (repo)**; awaiting user verification before Step 2 approval. No migrations, deploys, pushes or paid model calls without separate authorization.
+**Status:** **PAUSED (2026-10-25)** — paused while **P2.2-PX.P** is active. Step 1 **IMPLEMENTED (repo)**; awaiting user verification before Step 2 approval. No migrations, deploys, pushes or paid model calls without separate authorization.
 
 **Objective:** Replace the Analyze Documents form with one journey: question at the top (editable), a context-aware **Continue** above the document list, a brand-aligned progress modal driven only by real `study_runs` status, and an honest results handoff that never claims a Canonical Study exists before Gate 3.
 
