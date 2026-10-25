@@ -222,6 +222,41 @@ describe("HiveProgressModal accessibility", () => {
     expect(document.querySelector('[data-testid="progress-last-update"]')?.textContent).toBe("Last update just now");
   });
 
+  it("plays arrivals only for the displayed run and seals only on a live move past reading", () => {
+    renderModal(baseRun());
+    rerender({ readingArrival: { runId: "run-other", seq: 1, kind: "single", finished: 1 } });
+    expect(honeycomb()?.getAttribute("data-effect")).toBe("none");
+
+    rerender({ readingArrival: { runId: "run-1", seq: 2, kind: "batch", finished: 4 } });
+    expect(honeycomb()?.getAttribute("data-effect")).toBe("batch");
+
+    rerender({ run: baseRun({ stage: "finalize" }) });
+    expect(honeycomb()?.getAttribute("data-effect")).toBe("seal");
+    expect(document.querySelector("h2")?.textContent).toBe("Building your Hive");
+  });
+
+  it("does not seal or replay when the modal opens already past reading", () => {
+    const reopened = {
+      run: baseRun({ stage: "finalize" }),
+      readingArrival: { runId: "run-1", seq: 3, kind: "single" as const, finished: 8 },
+    };
+    rerender(reopened);
+    expect(honeycomb()?.getAttribute("data-effect")).toBe("none");
+    rerender(reopened);
+    expect(honeycomb()?.getAttribute("data-effect")).toBe("none");
+  });
+
+  it("keeps the announced text unchanged by an arrival", () => {
+    renderModal(baseRun());
+    rerender({ readingProgress: { documents_total: 8, documents_finished: 3, documents_unusable: 0 } });
+    const live = document.querySelector('[aria-live="polite"]')?.textContent;
+    rerender({
+      readingProgress: { documents_total: 8, documents_finished: 3, documents_unusable: 0 },
+      readingArrival: { runId: "run-1", seq: 4, kind: "single", finished: 3 },
+    });
+    expect(document.querySelector('[aria-live="polite"]')?.textContent).toBe(live);
+  });
+
   it("keeps reconnect messaging and the last known counts when polling fails", () => {
     renderModal(baseRun());
     rerender({

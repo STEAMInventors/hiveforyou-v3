@@ -4,9 +4,11 @@ import {
   buildAnalyzeSubmitBody,
   buildStudyProgressChecklist,
   capturedQuestionForAnalyze,
+  classifyReadingArrival,
   continueAction,
   formatTimeSinceUpdate,
   isQuestionChanged,
+  isReadingStageComplete,
   isStudyRunUpdateStale,
   latestActivityIso,
   mergeMonotonicReadingProgress,
@@ -22,8 +24,86 @@ import {
   studyRunReadingProgressLine,
   studyRunStageDetail,
   studyRunStaleNotice,
+  studyRunStatusDecision,
   studyRunSummaryText,
 } from "./handoff";
+
+describe("living hive events (UX-DOC-1 Step 3)", () => {
+  it("only a continuous, increasing observation with a prior count is an arrival", () => {
+    expect(classifyReadingArrival({ previousFinished: null, nextFinished: 5, continuous: true })).toBeNull();
+    expect(classifyReadingArrival({ previousFinished: 3, nextFinished: 3, continuous: true })).toBeNull();
+    expect(classifyReadingArrival({ previousFinished: 3, nextFinished: 2, continuous: true })).toBeNull();
+    expect(classifyReadingArrival({ previousFinished: 3, nextFinished: 4, continuous: false })).toBeNull();
+    expect(classifyReadingArrival({ previousFinished: 0, nextFinished: 1, continuous: true })).toEqual({
+      kind: "single",
+      count: 1,
+    });
+    expect(classifyReadingArrival({ previousFinished: 3, nextFinished: 6, continuous: true })).toEqual({
+      kind: "batch",
+      count: 3,
+    });
+  });
+
+  it("reading is complete only once the monotonic stage is past extract", () => {
+    const index = (stage: string) => mergeMonotonicStageIndex(-1, stage);
+    expect(isReadingStageComplete(-1)).toBe(false);
+    expect(isReadingStageComplete(index("plan_schema"))).toBe(false);
+    expect(isReadingStageComplete(index("extract"))).toBe(false);
+    expect(isReadingStageComplete(index("finalize"))).toBe(true);
+    expect(isReadingStageComplete(mergeMonotonicStageIndex(index("finalize"), "extract"))).toBe(true);
+  });
+
+  describe("status response ordering", () => {
+    const running = { id: "run-1", status: "RUNNING" };
+    const succeeded = { id: "run-1", status: "SUCCEEDED" };
+
+    it("applies newer responses in order", () => {
+      expect(studyRunStatusDecision({ requestSeq: 1, latestSettledSeq: 0, current: running, next: running })).toBe(
+        "apply",
+      );
+      expect(
+        studyRunStatusDecision({ requestSeq: 2, latestSettledSeq: 1, current: running, next: succeeded }),
+      ).toBe("apply");
+      expect(studyRunStatusDecision({ requestSeq: 1, latestSettledSeq: 0, current: null, next: running })).toBe(
+        "apply",
+      );
+    });
+
+    it("ignores a response older than the latest settled poll", () => {
+      expect(
+        studyRunStatusDecision({ requestSeq: 1, latestSettledSeq: 2, current: succeeded, next: running }),
+      ).toBe("stale");
+      expect(studyRunStatusDecision({ requestSeq: 2, latestSettledSeq: 2, current: running, next: running })).toBe(
+        "stale",
+      );
+    });
+
+    it("never moves a finished run back to active, even from a fresh response", () => {
+      expect(
+        studyRunStatusDecision({ requestSeq: 3, latestSettledSeq: 2, current: succeeded, next: running }),
+      ).toBe("keep_current");
+      expect(
+        studyRunStatusDecision({
+          requestSeq: 3,
+          latestSettledSeq: 2,
+          current: { id: "run-1", status: "FAILED" },
+          next: { id: "run-1", status: "QUEUED" },
+        }),
+      ).toBe("keep_current");
+    });
+
+    it("keeps the watched run when a response belongs to another run", () => {
+      expect(
+        studyRunStatusDecision({
+          requestSeq: 3,
+          latestSettledSeq: 2,
+          current: running,
+          next: { id: "run-0", status: "RUNNING" },
+        }),
+      ).toBe("keep_current");
+    });
+  });
+});
 
 describe("live progress copy (UX-DOC-1 Step 3)", () => {
   const running = (stage: string) => ({ status: "RUNNING", stage });

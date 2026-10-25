@@ -1,13 +1,14 @@
-import type { CSSProperties } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 
 /** Same geometry as `public/brand/hiveforyou-motion.svg`, inlined so CSS can loop it while active. */
 const HEX = "0.00,-17.60 15.24,-8.80 15.24,8.80 0.00,17.60 -15.24,8.80 -15.24,-8.80";
 
+/** Clockwise from top; `ix`/`iy` point toward the centre of the mark for the reading-complete seal. */
 const CELLS = [
-  { x: 120.0, y: 50.0, color: "#3B7CF6", sx: -70, sy: -28, sr: -48, delay: 0.1, breathe: 1.0 },
-  { x: 137.3, y: 80.0, color: "#EF5143", sx: 78, sy: -30, sr: 62, delay: 0.16, breathe: 1.3 },
-  { x: 120.0, y: 110.0, color: "#F6B826", sx: 70, sy: 10, sr: -35, delay: 0.22, breathe: 1.6 },
-  { x: 102.7, y: 80.0, color: "#2FA35A", sx: -82, sy: 34, sr: 40, delay: 0.28, breathe: 1.9 },
+  { x: 120.0, y: 50.0, color: "#3B7CF6", sx: -70, sy: -28, sr: -48, delay: 0.1, breathe: 1.0, ix: 0, iy: 1.5 },
+  { x: 137.3, y: 80.0, color: "#EF5143", sx: 78, sy: -30, sr: 62, delay: 0.16, breathe: 1.3, ix: -1.5, iy: 0 },
+  { x: 120.0, y: 110.0, color: "#F6B826", sx: 70, sy: 10, sr: -35, delay: 0.22, breathe: 1.6, ix: 0, iy: -1.5 },
+  { x: 102.7, y: 80.0, color: "#2FA35A", sx: -82, sy: 34, sr: 40, delay: 0.28, breathe: 1.9, ix: 1.5, iy: 0 },
 ] as const;
 
 const NOISE = [
@@ -23,8 +24,93 @@ const NOISE = [
   { t: "translate(66.9 134.7) rotate(23)", fill: "#DADEE3", opacity: 1, shape: <rect x="-8.4" y="-8.4" width="16.7" height="16.7" rx="2" /> },
 ];
 
-/** Assembles once on mount; cells breathe only while `active` (a nonterminal, running study run). */
-export function HoneycombActivity({ active, className }: { active: boolean; className?: string }) {
+/** Must match the keyframe timings in `hiveforyou.css`; the effect layer is removed after this. */
+export const HONEYCOMB_EFFECT_MS = { single: 900, batch: 950, seal: 700 } as const;
+
+type EffectKind = keyof typeof HONEYCOMB_EFFECT_MS;
+type Effect = { kind: EffectKind; id: number; cell: number };
+
+export type HoneycombArrival = { seq: number; kind: "single" | "batch"; finished: number };
+
+type CellMotion = { className: string | null; delayMs: number; echo: boolean };
+
+function cellMotion(effect: Effect | null, index: number): CellMotion {
+  if (!effect) {
+    return { className: null, delayMs: 0, echo: false };
+  }
+  if (effect.kind === "seal") {
+    return { className: "hfy-cell-seal", delayMs: 0, echo: false };
+  }
+  if (effect.kind === "batch") {
+    return { className: "hfy-cell-snap hfy-cell-snap--batch", delayMs: index * 70, echo: true };
+  }
+  if (index === effect.cell) {
+    return { className: "hfy-cell-snap", delayMs: 0, echo: true };
+  }
+  const clockwiseDistance = (index - effect.cell + CELLS.length) % CELLS.length;
+  return { className: "hfy-cell-nudge", delayMs: 200 + (clockwiseDistance - 1) * 60, echo: false };
+}
+
+/**
+ * Assembles once on mount; cells breathe only while `active` (a nonterminal, running study run).
+ * `arrival` events newer than the one present at mount play once; `readingDone` turning true while
+ * active plays the seal. Nothing replays on remount, and everything stops when `active` turns false.
+ */
+export function HoneycombActivity({
+  active,
+  arrival = null,
+  readingDone = false,
+  className,
+}: {
+  active: boolean;
+  arrival?: HoneycombArrival | null;
+  readingDone?: boolean;
+  className?: string;
+}) {
+  const seenSeqRef = useRef(arrival?.seq ?? 0);
+  const readingDoneRef = useRef(readingDone);
+  const sealIdRef = useRef(0);
+  const [effect, setEffect] = useState<Effect | null>(null);
+
+  const arrivalSeq = arrival?.seq ?? 0;
+  const arrivalKind = arrival?.kind ?? "single";
+  const arrivalFinished = arrival?.finished ?? 0;
+
+  useEffect(() => {
+    if (arrivalSeq <= seenSeqRef.current) {
+      return;
+    }
+    seenSeqRef.current = arrivalSeq;
+    if (!active) {
+      return;
+    }
+    const cell = (((arrivalFinished - 1) % CELLS.length) + CELLS.length) % CELLS.length;
+    setEffect({ kind: arrivalKind, id: arrivalSeq, cell });
+  }, [active, arrivalFinished, arrivalKind, arrivalSeq]);
+
+  useEffect(() => {
+    const crossed = readingDone && !readingDoneRef.current;
+    readingDoneRef.current = readingDone;
+    if (crossed && active) {
+      sealIdRef.current -= 1;
+      setEffect({ kind: "seal", id: sealIdRef.current, cell: 0 });
+    }
+  }, [active, readingDone]);
+
+  useEffect(() => {
+    if (!active) {
+      setEffect(null);
+    }
+  }, [active]);
+
+  useEffect(() => {
+    if (!effect) {
+      return;
+    }
+    const timer = window.setTimeout(() => setEffect(null), HONEYCOMB_EFFECT_MS[effect.kind] + 100);
+    return () => window.clearTimeout(timer);
+  }, [effect]);
+
   return (
     <svg
       viewBox="0 0 240 160"
@@ -33,6 +119,7 @@ export function HoneycombActivity({ active, className }: { active: boolean; clas
       className={`hfy-mark--assemble${active ? " hfy-mark--active" : ""}${className ? ` ${className}` : ""}`}
       data-testid="progress-honeycomb"
       data-active={active ? "true" : "false"}
+      data-effect={effect?.kind ?? "none"}
     >
       {NOISE.map((n) => (
         <g key={n.t} transform={n.t}>
@@ -41,31 +128,56 @@ export function HoneycombActivity({ active, className }: { active: boolean; clas
           </g>
         </g>
       ))}
-      {CELLS.map((c) => (
-        <g key={c.color} transform={`translate(${c.x} ${c.y})`}>
-          <g
-            className="hfy-cell"
-            style={
-              {
-                "--sx": `${c.sx}px`,
-                "--sy": `${c.sy}px`,
-                "--sr": `${c.sr}deg`,
-                animationDelay: `${c.delay}s`,
-              } as CSSProperties
-            }
-          >
-            <polygon
-              className="hfy-cell-fill"
-              points={HEX}
-              fill={c.color}
-              stroke={c.color}
-              strokeWidth={1.5}
-              strokeLinejoin="round"
-              style={{ animationDelay: `${c.breathe}s` }}
-            />
+      {CELLS.map((c, index) => {
+        const motion = cellMotion(effect, index);
+        return (
+          <g key={c.color} transform={`translate(${c.x} ${c.y})`}>
+            <g
+              className="hfy-cell"
+              style={
+                {
+                  "--sx": `${c.sx}px`,
+                  "--sy": `${c.sy}px`,
+                  "--sr": `${c.sr}deg`,
+                  animationDelay: `${c.delay}s`,
+                } as CSSProperties
+              }
+            >
+              {motion.echo && effect ? (
+                <polygon
+                  key={`echo-${effect.id}`}
+                  className={`hfy-cell-echo${effect.kind === "batch" ? " hfy-cell-echo--batch" : ""}`}
+                  points={HEX}
+                  fill={c.color}
+                  data-testid="honeycomb-echo"
+                />
+              ) : null}
+              <g
+                className={motion.className ?? undefined}
+                style={
+                  motion.className
+                    ? ({
+                        "--ix": `${c.ix}px`,
+                        "--iy": `${c.iy}px`,
+                        animationDelay: `${motion.delayMs}ms`,
+                      } as CSSProperties)
+                    : undefined
+                }
+              >
+                <polygon
+                  className="hfy-cell-fill"
+                  points={HEX}
+                  fill={c.color}
+                  stroke={c.color}
+                  strokeWidth={1.5}
+                  strokeLinejoin="round"
+                  style={{ animationDelay: `${c.breathe}s` }}
+                />
+              </g>
+            </g>
           </g>
-        </g>
-      ))}
+        );
+      })}
     </svg>
   );
 }

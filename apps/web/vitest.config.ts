@@ -11,6 +11,8 @@ export default defineConfig({
     environmentMatchGlobs: [
       ["**/modal-focus.test.ts", "happy-dom"],
       ["**/HiveProgressModal.test.tsx", "happy-dom"],
+      ["**/HoneycombActivity.test.tsx", "happy-dom"],
+      ["**/use-hive-study-run.test.tsx", "happy-dom"],
     ],
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     setupFiles: ["./vitest.setup.ts"],

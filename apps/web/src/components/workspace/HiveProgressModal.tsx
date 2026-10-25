@@ -5,13 +5,14 @@ import type { StudyRunSafeV1 } from "@hiveforyou/contracts/study-runs/v1";
 import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
 
-import { HoneycombActivity } from "@/components/workspace/HoneycombActivity";
+import { type HoneycombArrival, HoneycombActivity } from "@/components/workspace/HoneycombActivity";
 import { handleModalTabKeyDown, safeReturnFocus } from "@/lib/a11y/modal-focus";
 import { brand } from "@/lib/brand/paths";
 import {
   buildStudyProgressChecklist,
   formatTimeSinceUpdate,
   type HiveProgressPollState,
+  isReadingStageComplete,
   isStudyRunUpdateStale,
   isTerminalStudyRunStatus,
   latestActivityIso,
@@ -34,6 +35,7 @@ type HiveProgressModalProps = {
   questionCount?: number | null;
   readingProgress?: ReadingProgressCounts | null;
   readingProgressObservedAt?: number | null;
+  readingArrival?: (HoneycombArrival & { runId: string }) | null;
   pollState: HiveProgressPollState;
   lastPollSuccessAt: number | null;
   returnFocusRef: React.RefObject<HTMLElement | null>;
@@ -53,6 +55,7 @@ export function HiveProgressModal({
   questionCount = null,
   readingProgress = null,
   readingProgressObservedAt = null,
+  readingArrival = null,
   pollState,
   lastPollSuccessAt,
   returnFocusRef,
@@ -132,6 +135,7 @@ export function HiveProgressModal({
     isStudyRunUpdateStale(activityIso, nowMs);
   const checklist = buildStudyProgressChecklist(maxStageRef.current.index, run);
   const showHoneycomb = run.status !== StudyRunStatus.QUEUED;
+  const arrival = readingArrival && readingArrival.runId === run.id ? readingArrival : null;
 
   let footer: React.ReactNode;
   if (run.status === StudyRunStatus.SUCCEEDED) {
@@ -196,7 +200,13 @@ export function HiveProgressModal({
           <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left">
             <div className="relative h-[88px] w-[132px] shrink-0 sm:mr-5">
               {showHoneycomb ? (
-                <HoneycombActivity key={run.id} active={active} className="h-[88px] w-[132px]" />
+                <HoneycombActivity
+                  key={run.id}
+                  active={active}
+                  arrival={arrival}
+                  readingDone={isReadingStageComplete(maxStageRef.current.index)}
+                  className="h-[88px] w-[132px]"
+                />
               ) : (
                 <Image
                   src={brand.mark}

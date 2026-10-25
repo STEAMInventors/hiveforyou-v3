@@ -411,6 +411,19 @@
   /* Processing only (brand guide amendment 2026-10-25): cells breathe while a run is active; remove the class to hold */
   .hfy-mark--active .hfy-cell-fill { animation: hfy-cell-breathe 2.4s ease-in-out 1s infinite; }
   @media (prefers-reduced-motion: reduce) { .hfy-mark--active .hfy-cell-fill { animation: none; } }
+  /* Event motion (UX-DOC-1): one snap + same-colour echo per newly observed finished document, one combined
+     pulse for a multi-document jump, one inward seal when reading ends. Uniform scale/translate only. */
+  .hfy-cell-snap, .hfy-cell-nudge, .hfy-cell-seal, .hfy-cell-echo { transform-box: fill-box; transform-origin: center; }
+  .hfy-cell-snap { animation: hfy-cell-snap 520ms ease-in-out both; }
+  .hfy-cell-snap--batch { animation-duration: 400ms; }
+  .hfy-cell-nudge { animation: hfy-cell-nudge 400ms ease-in-out both; }
+  .hfy-cell-seal { animation: hfy-cell-seal 700ms var(--hfy-ease-settle) both; }
+  .hfy-cell-echo { opacity: 0; pointer-events: none; --echo-o: .45; --echo-s: 1.7; animation: hfy-cell-echo 780ms 120ms var(--hfy-ease-out) both; }
+  .hfy-cell-echo--batch { --echo-o: .35; --echo-s: 1.5; animation-duration: 700ms; animation-delay: 210ms; }
+  @media (prefers-reduced-motion: reduce) {
+    .hfy-cell-snap, .hfy-cell-nudge, .hfy-cell-seal { animation: none; }
+    .hfy-cell-echo { display: none; }
+  }
 
   /* ---------- Spinner (on-brand, four colours) ---------- */
   .hfy-spinner { width: 20px; height: 20px; border-radius: 999px; background: conic-gradient(var(--hfy-blue) 0 25%, var(--hfy-coral) 0 50%, var(--hfy-honey) 0 75%, var(--hfy-leaf) 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px)); mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px)); animation: hfy-spin .9s linear infinite; }
@@ -424,6 +437,10 @@
   @keyframes hfy-cell-in { from { transform: translate(var(--sx, 0), var(--sy, 0)) rotate(var(--sr, 0deg)) scale(.8); } }
   @keyframes hfy-noise-out { to { transform: scale(.2); opacity: 0; } }
   @keyframes hfy-cell-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+  @keyframes hfy-cell-snap { 0%, 100% { transform: scale(1); } 23% { transform: scale(.9); } 69% { transform: scale(1.08); } }
+  @keyframes hfy-cell-nudge { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+  @keyframes hfy-cell-seal { 0%, 100% { transform: translate(0, 0); } 40% { transform: translate(var(--ix, 0), var(--iy, 0)); } }
+  @keyframes hfy-cell-echo { from { opacity: var(--echo-o, .45); transform: scale(1); } to { opacity: 0; transform: scale(var(--echo-s, 1.7)); } }
 }
 
 /* ==========================================================================

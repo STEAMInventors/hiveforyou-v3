@@ -341,6 +341,54 @@ export function mergeMonotonicReadingProgress<T extends ReadingProgressCounts>(
   return previous;
 }
 
+export type ReadingArrivalKind = "single" | "batch";
+
+/**
+ * A newly observed increase in finished documents. Only an uninterrupted observation with a prior
+ * count qualifies; first load, reopen and reconnect only set the baseline.
+ */
+export function classifyReadingArrival(input: {
+  previousFinished: number | null;
+  nextFinished: number;
+  continuous: boolean;
+}): { kind: ReadingArrivalKind; count: number } | null {
+  const { previousFinished, nextFinished, continuous } = input;
+  if (!continuous || previousFinished == null || nextFinished <= previousFinished) {
+    return null;
+  }
+  const count = nextFinished - previousFinished;
+  return { kind: count === 1 ? "single" : "batch", count };
+}
+
+/** True once the monotonic checklist has moved past reading. */
+export function isReadingStageComplete(maxStageIndex: number): boolean {
+  return maxStageIndex > studyProgressStageIndex("extract");
+}
+
+/**
+ * Status polls can resolve out of order. A response older than the latest settled poll is `stale`
+ * and ignored entirely. A fresh response is applied unless it belongs to another run or would move a
+ * finished run back to an active one (`keep_current`).
+ */
+export function studyRunStatusDecision(input: {
+  requestSeq: number;
+  latestSettledSeq: number;
+  current: { id: string; status: string } | null;
+  next: { id: string; status: string };
+}): "stale" | "keep_current" | "apply" {
+  const { requestSeq, latestSettledSeq, current, next } = input;
+  if (requestSeq <= latestSettledSeq) {
+    return "stale";
+  }
+  if (current && current.id !== next.id) {
+    return "keep_current";
+  }
+  if (current && isTerminalStudyRunStatus(current.status) && !isTerminalStudyRunStatus(next.status)) {
+    return "keep_current";
+  }
+  return "apply";
+}
+
 export function studyRunStaleNotice(stage: string): string {
   if (stage === "extract") {
     return "Reading can take several minutes per document. We haven't recorded a new update in a few minutes — we're still checking.";

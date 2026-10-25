@@ -13,12 +13,15 @@ import {
   ANALYZE_MISSING_QUESTION_MESSAGE,
   buildAnalyzeSubmitBody,
   capturedQuestionForAnalyze,
+  classifyReadingArrival,
   type HiveProgressPollState,
   intentSignature,
   isTerminalStudyRunStatus,
   mergeMonotonicReadingProgress,
   nextDeliveryKey,
+  type ReadingArrivalKind,
   resolveDisplayedIntent,
+  studyRunStatusDecision,
 } from "@/lib/study-runs/handoff";
 import {
   fetchHiveProcessingHandoff,
@@ -68,6 +71,15 @@ function writeMinimizedRunIds(hiveId: string, ids: Set<string>): void {
 
 export type HiveStudyRun = ReturnType<typeof useHiveStudyRun>;
 
+/** One newly observed increase in finished documents; `seq` only grows, so consumers can skip seen events. */
+export type ReadingArrival = {
+  runId: string;
+  seq: number;
+  kind: ReadingArrivalKind;
+  count: number;
+  finished: number;
+};
+
 function pollStateFromFailures(failures: number, authExpired: boolean): HiveProgressPollState {
   if (authExpired) {
     return "auth_expired";
@@ -100,8 +112,15 @@ export function useHiveStudyRun(hiveId: string) {
   const [authPollExpired, setAuthPollExpired] = useState(false);
   const [readingProgress, setReadingProgress] = useState<PackExtractionProgressV1 | null>(null);
   const [readingProgressObservedAt, setReadingProgressObservedAt] = useState<number | null>(null);
+  const [readingArrival, setReadingArrival] = useState<ReadingArrival | null>(null);
   const readingProgressRef = useRef<PackExtractionProgressV1 | null>(null);
   const readingProgressFetchedAtRef = useRef(0);
+  /** Bumped whenever observation is interrupted; the next progress result after a bump is only a baseline. */
+  const progressEpochRef = useRef(0);
+  const progressObservedEpochRef = useRef(-1);
+  const arrivalSeqRef = useRef(0);
+  const statusRequestSeqRef = useRef(0);
+  const statusSettledSeqRef = useRef(0);
   const progressOpenRef = useRef(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollFailuresRef = useRef(0);
@@ -137,12 +156,18 @@ export function useHiveStudyRun(hiveId: string) {
     }
   }, []);
 
+  const breakProgressContinuity = useCallback(() => {
+    progressEpochRef.current += 1;
+  }, []);
+
   const resetReadingProgress = useCallback(() => {
+    breakProgressContinuity();
     readingProgressRef.current = null;
     readingProgressFetchedAtRef.current = 0;
     setReadingProgress(null);
     setReadingProgressObservedAt(null);
-  }, []);
+    setReadingArrival(null);
+  }, [breakProgressContinuity]);
 
   /** Optional signal: failures keep the last known counts and never affect status polling. */
   const maybeRefreshReadingProgress = useCallback(
@@ -156,9 +181,11 @@ export function useHiveStudyRun(hiveId: string) {
         return;
       }
       readingProgressFetchedAtRef.current = Date.now();
+      const epoch = progressEpochRef.current;
       try {
         const next = await fetchStudyRunExtractionProgress(hiveId, run.id);
-        if (next.study_run_id !== activeRunRef.current?.id) {
+        const current = activeRunRef.current;
+        if (next.study_run_id !== current?.id) {
           return;
         }
         const previous = readingProgressRef.current;
@@ -168,25 +195,61 @@ export function useHiveStudyRun(hiveId: string) {
         }
         readingProgressRef.current = merged;
         setReadingProgress(merged);
+
+        const sameEpoch = epoch === progressEpochRef.current;
+        const arrival = classifyReadingArrival({
+          previousFinished: previous?.documents_finished ?? null,
+          nextFinished: merged.documents_finished,
+          continuous: sameEpoch && progressObservedEpochRef.current === epoch,
+        });
+        if (sameEpoch) {
+          progressObservedEpochRef.current = epoch;
+        }
+        if (arrival && current.stage === "extract" && !isTerminalStudyRunStatus(current.status)) {
+          arrivalSeqRef.current += 1;
+          setReadingArrival({
+            runId: current.id,
+            seq: arrivalSeqRef.current,
+            kind: arrival.kind,
+            count: arrival.count,
+            finished: merged.documents_finished,
+          });
+        }
       } catch {
         // progress is supplementary; status polling owns reconnect messaging
+        breakProgressContinuity();
       }
     },
-    [hiveId],
+    [breakProgressContinuity, hiveId],
   );
 
   const refreshRun = useCallback(
     async (studyRunId: string) => {
+      statusRequestSeqRef.current += 1;
+      const requestSeq = statusRequestSeqRef.current;
       try {
         const result = await fetchStudyRunStatus(hiveId, studyRunId);
+        const decision = studyRunStatusDecision({
+          requestSeq,
+          latestSettledSeq: statusSettledSeqRef.current,
+          current: activeRunRef.current,
+          next: result.study_run,
+        });
+        if (decision === "stale") {
+          return;
+        }
+        statusSettledSeqRef.current = requestSeq;
         pollFailuresRef.current = 0;
         setPollFailures(0);
         setAuthPollExpired(false);
         setLastPollSuccessAt(Date.now());
+        setStatusNote(null);
+        if (decision === "keep_current") {
+          return;
+        }
         setActiveRun(result.study_run);
         activeRunRef.current = result.study_run;
         setPlanningSummary(result.planning_summary);
-        setStatusNote(null);
         void maybeRefreshReadingProgress(result.study_run);
         if (isTerminalStudyRunStatus(result.study_run.status)) {
           stopPolling();
@@ -198,6 +261,11 @@ export function useHiveStudyRun(hiveId: string) {
           }
         }
       } catch (err) {
+        if (requestSeq <= statusSettledSeqRef.current) {
+          throw err;
+        }
+        statusSettledSeqRef.current = requestSeq;
+        breakProgressContinuity();
         if (err instanceof StudyRunApiError && err.envelope.error_code === ErrorCode.AUTH_FAILED) {
           setAuthPollExpired(true);
           setStatusNote("Sign in again to see live updates.");
@@ -210,7 +278,7 @@ export function useHiveStudyRun(hiveId: string) {
         throw err;
       }
     },
-    [hiveId, maybeRefreshReadingProgress, stopPolling],
+    [breakProgressContinuity, hiveId, maybeRefreshReadingProgress, stopPolling],
   );
 
   const startPolling = useCallback(
@@ -305,14 +373,18 @@ export function useHiveStudyRun(hiveId: string) {
 
   useEffect(() => {
     const onVisible = () => {
+      if (document.visibilityState !== "visible") {
+        breakProgressContinuity();
+        return;
+      }
       const run = activeRunRef.current;
-      if (document.visibilityState === "visible" && run && !isTerminalStudyRunStatus(run.status)) {
+      if (run && !isTerminalStudyRunStatus(run.status)) {
         void refreshRun(run.id).catch(() => undefined);
       }
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [refreshRun]);
+  }, [breakProgressContinuity, refreshRun]);
 
   const saveQuestion = useCallback(
     (nextText: string) => {
@@ -329,10 +401,11 @@ export function useHiveStudyRun(hiveId: string) {
     }
     minimizedRunIdsRef.current.delete(run.id);
     writeMinimizedRunIds(hiveId, minimizedRunIdsRef.current);
+    breakProgressContinuity();
     progressOpenRef.current = true;
     setProgressOpen(true);
     void maybeRefreshReadingProgress(run);
-  }, [hiveId, maybeRefreshReadingProgress]);
+  }, [breakProgressContinuity, hiveId, maybeRefreshReadingProgress]);
 
   const minimizeProgress = useCallback(() => {
     const run = activeRunRef.current;
@@ -340,8 +413,9 @@ export function useHiveStudyRun(hiveId: string) {
       minimizedRunIdsRef.current.add(run.id);
       writeMinimizedRunIds(hiveId, minimizedRunIdsRef.current);
     }
+    breakProgressContinuity();
     setProgressOpen(false);
-  }, [hiveId]);
+  }, [breakProgressContinuity, hiveId]);
 
   /** Attaches to a run another tab already started instead of submitting a second one. */
   const submit = useCallback(async () => {
@@ -428,6 +502,7 @@ export function useHiveStudyRun(hiveId: string) {
     lastPollSuccessAt,
     readingProgress,
     readingProgressObservedAt,
+    readingArrival,
     progressReturnFocusRef,
     saveQuestion,
     submit,
