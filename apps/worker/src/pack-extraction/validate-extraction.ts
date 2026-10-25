@@ -42,12 +42,18 @@ export type PackExtractionClassificationSummaryV1 = {
   document_type_ids: string[];
 };
 
+export type PackExtractionFactIdResolutionCountsV1 = {
+  exact: number;
+  normalized: number;
+};
+
 export type PackExtractionValidationOutcome =
   | {
       usable: true;
       validation: PackExtractionValidationV1;
       classification: PackExtractionClassificationSummaryV1;
       acceptedFacts: AcceptedPackFactV1[];
+      factIdResolution: PackExtractionFactIdResolutionCountsV1;
     }
   | {
       usable: false;
@@ -97,6 +103,35 @@ function indexCatalog(catalog: PackFactCatalogBody): CatalogIndex {
     }
   }
   return { recordTypes, factOwner };
+}
+
+export type PackCatalogFactIdResolution =
+  | { kind: "resolved"; catalogFactId: string; mode: "exact" | "normalized" }
+  | { kind: "wrong_record_type"; catalogFactId: string }
+  | { kind: "unknown" };
+
+/**
+ * Map an emitted facts-map key to a catalog `fact_id` for the containing record type.
+ * Exact catalog IDs win; otherwise try `<record_type_id>.<emitted_key>` when catalog-owned.
+ */
+export function resolvePackCatalogFactId(
+  index: CatalogIndex,
+  recordTypeId: string,
+  emittedKey: string,
+): PackCatalogFactIdResolution {
+  const exactOwner = index.factOwner.get(emittedKey);
+  if (exactOwner) {
+    if (exactOwner.recordTypeId !== recordTypeId) {
+      return { kind: "wrong_record_type", catalogFactId: emittedKey };
+    }
+    return { kind: "resolved", catalogFactId: emittedKey, mode: "exact" };
+  }
+  const prefixedId = `${recordTypeId}.${emittedKey}`;
+  const prefixedOwner = index.factOwner.get(prefixedId);
+  if (prefixedOwner && prefixedOwner.recordTypeId === recordTypeId) {
+    return { kind: "resolved", catalogFactId: prefixedId, mode: "normalized" };
+  }
+  return { kind: "unknown" };
 }
 
 /** Whitespace- and Unicode-compatibility-normalized form used for the structural quote guard. */
@@ -312,6 +347,8 @@ type WalkState = {
   recordsAccepted: number;
   recordsRejected: number;
   factsRejected: number;
+  factIdsExact: number;
+  factIdsNormalized: number;
 };
 
 function reject(state: WalkState, path: string, reason: PackExtractionValidationReasonCodeV1): void {
@@ -322,20 +359,27 @@ function validateFact(
   state: WalkState,
   path: string,
   recordTypeId: string,
-  factId: string,
+  emittedKey: string,
   raw: unknown,
   base: Omit<AcceptedPackFactV1, "fact_id" | "status" | "evidence">,
 ): void {
-  const owner = state.index.factOwner.get(factId);
-  if (!owner) {
+  const resolved = resolvePackCatalogFactId(state.index, recordTypeId, emittedKey);
+  if (resolved.kind === "unknown") {
     reject(state, path, "UNKNOWN_FACT_ID");
     state.factsRejected += 1;
     return;
   }
-  if (owner.recordTypeId !== recordTypeId) {
+  if (resolved.kind === "wrong_record_type") {
     reject(state, path, "FACT_NOT_IN_RECORD_TYPE");
     state.factsRejected += 1;
     return;
+  }
+  const factId = resolved.catalogFactId;
+  const owner = state.index.factOwner.get(factId)!;
+  if (resolved.mode === "exact") {
+    state.factIdsExact += 1;
+  } else {
+    state.factIdsNormalized += 1;
   }
   if (!isRecord(raw)) {
     reject(state, path, "TYPE_MISMATCH");
@@ -504,6 +548,8 @@ export function validatePackExtractionOutput(
     recordsAccepted: 0,
     recordsRejected: 0,
     factsRejected: 0,
+    factIdsExact: 0,
+    factIdsNormalized: 0,
   };
 
   let disposition: PackExtractionDispositionV1;
@@ -530,5 +576,9 @@ export function validatePackExtractionOutput(
     },
     classification: classification.summary,
     acceptedFacts: state.accepted,
+    factIdResolution: {
+      exact: state.factIdsExact,
+      normalized: state.factIdsNormalized,
+    },
   };
 }

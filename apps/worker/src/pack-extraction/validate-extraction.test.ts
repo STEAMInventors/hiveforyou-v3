@@ -5,6 +5,7 @@ import { parsePackExtractionValidationV1 } from "@hiveforyou/contracts/pack-extr
 import { loadIep200 } from "./pack-extraction.fixture.js";
 import {
   normalizeQuoteText,
+  resolvePackCatalogFactId,
   validatePackExtractionOutput,
   type PackExtractionValidationContext,
 } from "./validate-extraction.js";
@@ -117,6 +118,26 @@ describe("validatePackExtractionOutput — accepted path", () => {
     ]);
   });
 
+  it("accepts catalog facts when the model emits short field keys", () => {
+    const result = validatePackExtractionOutput(
+      output([
+        header({
+          title: observed("Individualized Education Program", 1, "Individualized Education Program"),
+          subtype: observed("annual", 1, "Annual review meeting"),
+        }),
+      ]),
+      ctx(),
+    );
+    expect(result.usable).toBe(true);
+    if (!result.usable) return;
+    expect(result.validation.disposition).toBe("VALID");
+    expect(result.factIdResolution).toEqual({ exact: 0, normalized: 2 });
+    expect(result.acceptedFacts.map((f) => f.fact_id).sort()).toEqual([
+      "document_header.subtype",
+      "document_header.title",
+    ]);
+  });
+
   it("validates child records and records the parent link", () => {
     const result = validatePackExtractionOutput(
       output([
@@ -141,6 +162,43 @@ describe("validatePackExtractionOutput — accepted path", () => {
     if (!result.usable) return;
     expect(result.acceptedFacts.find((f) => f.record_local_id === "o1")).toMatchObject({
       parent_record_local_id: "g1",
+    });
+  });
+});
+
+describe("resolvePackCatalogFactId", () => {
+  const catalogIndex = () => {
+    const { compiled } = loadIep200();
+    const catalog = compiled.catalog.catalog;
+    const recordTypes = new Map(catalog.record_types.map((r) => [r.record_type_id, r]));
+    const factOwner = new Map<
+      string,
+      { recordTypeId: string; fact: (typeof catalog.record_types)[0]["facts"][0] }
+    >();
+    for (const record of catalog.record_types) {
+      for (const fact of record.facts) {
+        factOwner.set(fact.fact_id, { recordTypeId: record.record_type_id, fact });
+      }
+    }
+    return { recordTypes, factOwner };
+  };
+
+  it("resolves exact and prefixed identifiers deterministically", () => {
+    const index = catalogIndex();
+    expect(resolvePackCatalogFactId(index, "document_header", "document_header.title")).toEqual({
+      kind: "resolved",
+      catalogFactId: "document_header.title",
+      mode: "exact",
+    });
+    expect(resolvePackCatalogFactId(index, "document_header", "title")).toEqual({
+      kind: "resolved",
+      catalogFactId: "document_header.title",
+      mode: "normalized",
+    });
+    expect(resolvePackCatalogFactId(index, "document_header", "invented")).toEqual({ kind: "unknown" });
+    expect(resolvePackCatalogFactId(index, "document_header", "student.name")).toEqual({
+      kind: "wrong_record_type",
+      catalogFactId: "student.name",
     });
   });
 });
@@ -190,6 +248,28 @@ describe("validatePackExtractionOutput — per-candidate rejections preserve val
       expect(result.acceptedFacts.map((f) => f.fact_id)).toEqual(["document_header.subtype"]);
     });
   }
+
+  it("mixes exact keys, normalized keys, and rejections with resolution counts", () => {
+    const result = validatePackExtractionOutput(
+      output([
+        header({
+          "document_header.title": observed("Individualized Education Program", 1, "Individualized Education Program"),
+          subtype: observed("annual", 1, "Annual review meeting"),
+          "document_header.invented": observed("x", 1, "Student"),
+        }),
+      ]),
+      ctx(),
+    );
+    expect(result.usable).toBe(true);
+    if (!result.usable) return;
+    expect(result.validation.disposition).toBe("VALID_WITH_REJECTIONS");
+    expect(result.factIdResolution).toEqual({ exact: 1, normalized: 1 });
+    expect(result.validation.counts.facts_rejected).toBe(1);
+    expect(result.acceptedFacts.map((f) => f.fact_id).sort()).toEqual([
+      "document_header.subtype",
+      "document_header.title",
+    ]);
+  });
 
   it("rejects unknown record types, invalid segments and duplicate non-repeatable records", () => {
     const result = validatePackExtractionOutput(
