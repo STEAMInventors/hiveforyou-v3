@@ -2,7 +2,7 @@
 
 **Version:** 1.0 | **Date:** 2026-10-22 | **Status:** Replacement-ready plan aligned to approved Canonical Intelligence Architecture. Local ticket status below is based on Cursor/user reports and requires repository verification when executing.
 
-**Active ticket:** [`docs/NEXT.md`](./NEXT.md) — **UX-DOC-1 ACTIVE (2026-10-25)**. **P2.2-PX.I CLOSED (2026-10-25)** — selected-Pack extraction implementation and **live L001 extraction qualification** (Worker **`03dcc59`**, study run **`c8fd4586-1ca8-4851-b7f9-b70cff453c7e`**, 8/8 **`VALID`** batches, 260 accepted facts, zero rejections); **not** P2.3 verification, Gate 3, or P5.1. **P2.2-PX.D** design closed. **P2.2-DP.I** remains plan-only. **P1.P Gate 2**, **P1.5-processing**, and **P1.P Gate 1** remain **IMPLEMENTED (repo) — integrated live acceptance deferred**.
+**Active ticket:** [`docs/NEXT.md`](./NEXT.md) — **UX-DOC-1 ACTIVE (2026-10-25)** (Step 3 live progress modal implemented in repo; migration `20261025120000` not applied; release order migration → Worker → web; user-approved active-only honeycomb loop with reduced-motion support — brand PDF synchronization pending). **P2.2-PX.P CLOSED (2026-10-25)** — Worker **`e3a5d14`** live on Oracle; study run **`49543887-b363-43e1-81e6-5c4c05854b32`**, 8/8 documents, 0 unusable, `concurrency_limit=2`, `max_in_flight_documents=2`, `duration_ms=128086`, 268 accepted / 1 rejected (`QUOTE_NOT_IN_PAGE`) candidates (operator-reported). **P2.2-PX.I CLOSED (2026-10-25)** — selected-Pack extraction implementation and **live L001 extraction qualification** (Worker **`03dcc59`**, study run **`c8fd4586-1ca8-4851-b7f9-b70cff453c7e`**, 8/8 **`VALID`** batches, 260 accepted facts, zero rejections); **not** P2.3 verification, Gate 3, or P5.1. **P2.2-PX.D** design closed. **P2.2-DP.I** remains plan-only. **P1.P Gate 2**, **P1.5-processing**, and **P1.P Gate 1** remain **IMPLEMENTED (repo) — integrated live acceptance deferred**.
 
 ## 1. Mission and release definition
 
@@ -232,7 +232,7 @@ The current uploaded project copies and local repository are **not automatically
 
 **Parking lot unless promoted by approval:** automatic pack-learning, broader domain marketplace, cross-Hive knowledge graph, autonomous legal verdicts, expansive regulatory execution, separate graph DB, multiple competing model gateways, domain-specific per-pack services and premature performance frameworks.
 
-**Immediate next action (dependency order, not parallel authorization):** **UX-DOC-1** active per `NEXT.md` (Step 1 repo verification, then approve Step 2+ individually). **P2.2-PX.I** closed — next extraction work is **P2.3** (on hold) or **P2.2-DP.I** only after explicit approval. Carry **Gate 1**, **Gate 2**, and **P1.5-processing live acceptance** forward as integrated-release proof; do not start **Gate 3** or full **P2.3** integrated verification in parallel unless explicitly re-scoped.
+**Immediate next action (dependency order, not parallel authorization):** **UX-DOC-1** active per `NEXT.md` (Step 3 release: migration → Worker → web → browser check; Step 2 still required before UI-to-result acceptance; approve remaining steps individually). **P2.2-PX.I** and **P2.2-PX.P** closed — next extraction work is **P2.3** (on hold) or **P2.2-DP.I** only after explicit approval. Carry **Gate 1**, **Gate 2**, and **P1.5-processing live acceptance** forward as integrated-release proof; do not start **Gate 3** or full **P2.3** integrated verification in parallel unless explicitly re-scoped.
 
 ### Dependency blockers (explicit)
 

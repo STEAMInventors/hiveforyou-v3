@@ -1,6 +1,7 @@
 "use client";
 
 import { ErrorCode } from "@hiveforyou/contracts/errors/v1";
+import type { PackExtractionProgressV1 } from "@hiveforyou/contracts/pack-extraction/v1";
 import type {
   StudyRunPlanningSummarySafeV1,
   StudyRunSafeV1,
@@ -15,11 +16,13 @@ import {
   type HiveProgressPollState,
   intentSignature,
   isTerminalStudyRunStatus,
+  mergeMonotonicReadingProgress,
   nextDeliveryKey,
   resolveDisplayedIntent,
 } from "@/lib/study-runs/handoff";
 import {
   fetchHiveProcessingHandoff,
+  fetchStudyRunExtractionProgress,
   fetchStudyRunStatus,
   StudyRunApiError,
   submitStudyRun,
@@ -27,6 +30,7 @@ import {
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_FAILURES_BEFORE_NOTICE = 3;
+const READING_PROGRESS_INTERVAL_MS = 15_000;
 
 function minimizedStorageKey(hiveId: string): string {
   return `hfy-progress-minimized-${hiveId}`;
@@ -94,6 +98,11 @@ export function useHiveStudyRun(hiveId: string) {
   const [lastPollSuccessAt, setLastPollSuccessAt] = useState<number | null>(null);
   const [pollFailures, setPollFailures] = useState(0);
   const [authPollExpired, setAuthPollExpired] = useState(false);
+  const [readingProgress, setReadingProgress] = useState<PackExtractionProgressV1 | null>(null);
+  const [readingProgressObservedAt, setReadingProgressObservedAt] = useState<number | null>(null);
+  const readingProgressRef = useRef<PackExtractionProgressV1 | null>(null);
+  const readingProgressFetchedAtRef = useRef(0);
+  const progressOpenRef = useRef(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollFailuresRef = useRef(0);
   const activeRunRef = useRef<StudyRunSafeV1 | null>(null);
@@ -104,6 +113,7 @@ export function useHiveStudyRun(hiveId: string) {
   const progressReturnFocusRef = useRef<HTMLElement | null>(null);
 
   activeRunRef.current = activeRun;
+  progressOpenRef.current = progressOpen;
 
   useEffect(() => {
     minimizedRunIdsRef.current = readMinimizedRunIds(hiveId);
@@ -127,6 +137,44 @@ export function useHiveStudyRun(hiveId: string) {
     }
   }, []);
 
+  const resetReadingProgress = useCallback(() => {
+    readingProgressRef.current = null;
+    readingProgressFetchedAtRef.current = 0;
+    setReadingProgress(null);
+    setReadingProgressObservedAt(null);
+  }, []);
+
+  /** Optional signal: failures keep the last known counts and never affect status polling. */
+  const maybeRefreshReadingProgress = useCallback(
+    async (run: StudyRunSafeV1) => {
+      if (
+        !progressOpenRef.current ||
+        run.stage !== "extract" ||
+        isTerminalStudyRunStatus(run.status) ||
+        Date.now() - readingProgressFetchedAtRef.current < READING_PROGRESS_INTERVAL_MS
+      ) {
+        return;
+      }
+      readingProgressFetchedAtRef.current = Date.now();
+      try {
+        const next = await fetchStudyRunExtractionProgress(hiveId, run.id);
+        if (next.study_run_id !== activeRunRef.current?.id) {
+          return;
+        }
+        const previous = readingProgressRef.current;
+        const merged = mergeMonotonicReadingProgress(previous, next);
+        if (merged.documents_finished > (previous?.documents_finished ?? 0)) {
+          setReadingProgressObservedAt(Date.now());
+        }
+        readingProgressRef.current = merged;
+        setReadingProgress(merged);
+      } catch {
+        // progress is supplementary; status polling owns reconnect messaging
+      }
+    },
+    [hiveId],
+  );
+
   const refreshRun = useCallback(
     async (studyRunId: string) => {
       try {
@@ -136,8 +184,10 @@ export function useHiveStudyRun(hiveId: string) {
         setAuthPollExpired(false);
         setLastPollSuccessAt(Date.now());
         setActiveRun(result.study_run);
+        activeRunRef.current = result.study_run;
         setPlanningSummary(result.planning_summary);
         setStatusNote(null);
+        void maybeRefreshReadingProgress(result.study_run);
         if (isTerminalStudyRunStatus(result.study_run.status)) {
           stopPolling();
           setLocked(false);
@@ -160,7 +210,7 @@ export function useHiveStudyRun(hiveId: string) {
         throw err;
       }
     },
-    [hiveId, stopPolling],
+    [hiveId, maybeRefreshReadingProgress, stopPolling],
   );
 
   const startPolling = useCallback(
@@ -178,6 +228,10 @@ export function useHiveStudyRun(hiveId: string) {
 
   const attachToRun = useCallback(
     (run: StudyRunSafeV1, summary: StudyRunPlanningSummarySafeV1 | null, openProgress = true) => {
+      if (activeRunRef.current?.id !== run.id) {
+        resetReadingProgress();
+      }
+      activeRunRef.current = run;
       setActiveRun(run);
       setPlanningSummary(summary);
       if (!isTerminalStudyRunStatus(run.status)) {
@@ -188,7 +242,7 @@ export function useHiveStudyRun(hiveId: string) {
         }
       }
     },
-    [maybeOpenProgress, startPolling],
+    [maybeOpenProgress, resetReadingProgress, startPolling],
   );
 
   useEffect(() => {
@@ -275,8 +329,10 @@ export function useHiveStudyRun(hiveId: string) {
     }
     minimizedRunIdsRef.current.delete(run.id);
     writeMinimizedRunIds(hiveId, minimizedRunIdsRef.current);
+    progressOpenRef.current = true;
     setProgressOpen(true);
-  }, [hiveId]);
+    void maybeRefreshReadingProgress(run);
+  }, [hiveId, maybeRefreshReadingProgress]);
 
   const minimizeProgress = useCallback(() => {
     const run = activeRunRef.current;
@@ -370,6 +426,8 @@ export function useHiveStudyRun(hiveId: string) {
     progressOpen,
     pollState,
     lastPollSuccessAt,
+    readingProgress,
+    readingProgressObservedAt,
     progressReturnFocusRef,
     saveQuestion,
     submit,

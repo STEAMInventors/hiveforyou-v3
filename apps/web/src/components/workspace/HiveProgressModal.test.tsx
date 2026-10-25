@@ -137,29 +137,100 @@ describe("HiveProgressModal accessibility", () => {
     expect(returnFocusRef.current?.isConnected).toBe(false);
   });
 
-  it("uses static brand mark while queued and motion asset while running", () => {
-    renderModal(baseRun({ status: "QUEUED", stage: "enqueue" }));
-    let images = document.querySelectorAll('[data-testid="brand-image"]');
-    expect(images.length).toBe(1);
-
+  function rerender(props: Partial<React.ComponentProps<typeof HiveProgressModal>>) {
     act(() => {
       root.render(
         <HiveProgressModal
           open
-          run={baseRun({ status: "RUNNING", stage: "extract" })}
+          run={baseRun()}
           documentCount={3}
           pollState="ok"
           lastPollSuccessAt={Date.now()}
           returnFocusRef={{ current: returnFocus }}
           onMinimize={vi.fn()}
           onViewResults={vi.fn()}
+          {...props}
         />,
       );
     });
+  }
 
-    images = document.querySelectorAll('[data-testid="brand-image"]');
-    expect(images.length).toBe(1);
-    const pulse = document.querySelector(".animate-pulse");
-    expect(pulse).toBeTruthy();
+  const honeycomb = () => document.querySelector('[data-testid="progress-honeycomb"]');
+
+  it("uses the static brand mark while queued and a looping honeycomb while running", () => {
+    renderModal(baseRun({ status: "QUEUED", stage: "enqueue" }));
+    expect(document.querySelectorAll('[data-testid="brand-image"]').length).toBe(1);
+    expect(honeycomb()).toBeNull();
+
+    rerender({ run: baseRun({ status: "RUNNING", stage: "extract" }) });
+    expect(document.querySelectorAll('[data-testid="brand-image"]').length).toBe(0);
+    expect(honeycomb()?.getAttribute("data-active")).toBe("true");
+    expect(honeycomb()?.getAttribute("class")).toContain("hfy-mark--active");
+    expect(document.querySelector(".motion-safe\\:animate-pulse")).toBeTruthy();
+    expect(document.querySelector(".animate-pulse")).toBeNull();
+  });
+
+  it("stops the loop and holds the honeycomb when the run succeeds or fails", () => {
+    renderModal(baseRun());
+    rerender({ run: baseRun({ status: "SUCCEEDED", stage: "finalize" }) });
+    expect(honeycomb()?.getAttribute("data-active")).toBe("false");
+    expect(honeycomb()?.getAttribute("class")).not.toContain("hfy-mark--active");
+
+    rerender({
+      run: baseRun({ status: "FAILED", stage: "extract", error_message_safe: "2 of 8 documents could not be extracted." }),
+    });
+    expect(honeycomb()?.getAttribute("data-active")).toBe("false");
+    expect(document.querySelector('[role="alert"]')?.textContent).toBe("2 of 8 documents could not be extracted.");
+  });
+
+  it("shows real reading counts and stage detail during extract, and none before the first finished document", () => {
+    renderModal(baseRun());
+    expect(document.querySelector('[data-testid="progress-stage-detail"]')?.textContent).toContain("page by page");
+    expect(document.querySelector('[data-testid="progress-reading"]')).toBeNull();
+
+    rerender({ readingProgress: { documents_total: 8, documents_finished: 0, documents_unusable: 0 } });
+    expect(document.querySelector('[data-testid="progress-reading"]')).toBeNull();
+
+    rerender({ readingProgress: { documents_total: 8, documents_finished: 3, documents_unusable: 0 } });
+    expect(document.querySelector('[data-testid="progress-reading"]')?.textContent).toBe(
+      "Finished reading 3 of 8 documents.",
+    );
+    expect(document.body.textContent).not.toMatch(/%/);
+  });
+
+  it("shows the recorded question count after question planning", () => {
+    renderModal(baseRun({ stage: "plan_questions" }));
+    rerender({ run: baseRun({ stage: "plan_questions" }), questionCount: 4 });
+    expect(document.querySelector('[data-testid="progress-questions"]')).toBeNull();
+    rerender({ run: baseRun({ stage: "load_sources" }), questionCount: 4 });
+    expect(document.querySelector('[data-testid="progress-questions"]')?.textContent).toBe(
+      "We'll look for answers to 4 questions.",
+    );
+  });
+
+  it("uses extract-specific stale copy, and a newly finished document counts as fresh activity", () => {
+    const old = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    renderModal(baseRun({ updated_at: old }));
+    expect(document.body.textContent).toContain("Reading can take several minutes per document.");
+
+    rerender({
+      run: baseRun({ updated_at: old }),
+      readingProgress: { documents_total: 8, documents_finished: 2, documents_unusable: 0 },
+      readingProgressObservedAt: Date.now(),
+    });
+    expect(document.body.textContent).not.toContain("Reading can take several minutes per document.");
+    expect(document.querySelector('[data-testid="progress-last-update"]')?.textContent).toBe("Last update just now");
+  });
+
+  it("keeps reconnect messaging and the last known counts when polling fails", () => {
+    renderModal(baseRun());
+    rerender({
+      pollState: "reconnecting",
+      readingProgress: { documents_total: 8, documents_finished: 5, documents_unusable: 0 },
+    });
+    expect(document.body.textContent).toContain("We're having trouble reaching HiveForYou");
+    expect(document.querySelector('[data-testid="progress-reading"]')?.textContent).toBe(
+      "Finished reading 5 of 8 documents.",
+    );
   });
 });

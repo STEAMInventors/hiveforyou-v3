@@ -137,6 +137,9 @@ export function HiveWorkspace({ hive }: { hive: HiveV1 }) {
         open={study.progressOpen && study.activeRun != null}
         run={study.activeRun}
         documentCount={runDocumentTotal}
+        questionCount={study.planningSummary?.merged_question_count ?? null}
+        readingProgress={study.readingProgress}
+        readingProgressObservedAt={study.readingProgressObservedAt}
         pollState={study.pollState}
         lastPollSuccessAt={study.lastPollSuccessAt}
         returnFocusRef={study.progressReturnFocusRef}

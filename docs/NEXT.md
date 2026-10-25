@@ -1,14 +1,31 @@
 ﻿# Active ticket
 
-**Phase / Ticket:** **P2.2-PX.P — Bounded parallel extraction**
-**Status:** **IN_PROGRESS (repo implemented 2026-10-25 — awaiting user review/closure)** — bounded document-level concurrency (`WORKER_P2_EXTRACTION_CONCURRENCY`, supported `1..4`, default `2`) on the selected-Pack extraction path (`runPackExtractionForSources`). Sequential Mode B windows per document, input-order output preservation, in-flight drain + persistence on retryable failure, and sanitized run-level summary telemetry. No migrations, deploys, pushes or paid model calls without separate authorization.
+**Phase / Ticket:** **UX-DOC-1 — Documents → Continue → Live Hive Progress**
+**Status:** **ACTIVE (2026-10-25)** — Step 1 **IMPLEMENTED (repo)**; Step 3 live progress modal **IMPLEMENTED (repo 2026-10-25) — awaiting user verification**. Step 3 migration `20261025120000` is **repo only — not applied**. No migrations applied, deploys, pushes or paid model calls without separate authorization.
 
 ---
 
-## Paused — UX-DOC-1 (2026-10-25)
+## Closed — P2.2-PX.P (2026-10-25)
 
-**Phase / Ticket:** **UX-DOC-1 — Documents → Continue → Live Hive Progress**
-**Status:** **PAUSED (2026-10-25)** — paused while **P2.2-PX.P** is active. Step 1 **IMPLEMENTED (repo)**; awaiting user verification before Step 2 approval. No migrations, deploys, pushes or paid model calls without separate authorization.
+**Phase / Ticket:** **P2.2-PX.P — Bounded parallel extraction**
+**Status:** **CLOSED (implementation + live qualification, user-reported 2026-10-25)** — bounded document-level concurrency (`WORKER_P2_EXTRACTION_CONCURRENCY`, supported `1..4`, default `2`) on the selected-Pack extraction path (`runPackExtractionForSources`). Sequential Mode B windows per document, input-order output preservation, in-flight drain + persistence on retryable failure, and sanitized run-level summary telemetry.
+
+**Live qualification (operator-reported):**
+
+| Check | Result |
+|-------|--------|
+| Deployed Worker SHA (Oracle) | **`e3a5d14`** (`perf(p2px): add bounded parallel document extraction`) |
+| Study run | **`49543887-b363-43e1-81e6-5c4c05854b32`** |
+| Documents | **8 / 8** completed; **0** unusable |
+| Concurrency | `concurrency_limit=2`, `max_in_flight_documents=2` |
+| Duration | `duration_ms=128086` |
+| Extraction candidates | **268** accepted, **1** rejected (`QUOTE_NOT_IN_PAGE`) |
+
+**Does not close:** P2.3 evidence verification, P1.P Gate 3, P2.4 / P5.1 product qualification, pack-free grocery gate (P5.2), Gate 1 / Gate 2 / P1.5-processing integrated live acceptance.
+
+---
+
+## UX-DOC-1 — plan
 
 **Objective:** Replace the Analyze Documents form with one journey: question at the top (editable), a context-aware **Continue** above the document list, a brand-aligned progress modal driven only by real `study_runs` status, and an honest results handoff that never claims a Canonical Study exists before Gate 3.
 
@@ -16,10 +33,14 @@
 |------|-------|-------|
 | 1 | Web only: question card + context-aware Continue above documents; shared `useHiveStudyRun` hook; no run IDs/diagnostics in the main experience; Canonical Study tab read-only (no duplicate submit) | **Implemented (repo)** — `HiveAnalyzeHeader.tsx`, `CanonicalStudyStatusPanel.tsx`, `use-hive-study-run.ts`, `handoff.ts` (+tests); `HiveProcessingPanel.tsx` removed |
 | 2 | One active run per Hive: partial unique index + submit RPC returns the existing active run (`active_run_exists`); re-enqueue only a still-`QUEUED` run with its original key | Await approval; migration needs separate SQL authorization; **required before UI-to-result acceptance** |
-| 3 | Honeycomb progress modal (V2 SVG visual, one-shot motion per brand guide, monotonic real stages, document total; reconnect/minimize/failure/success states) | Await approval |
+| 3 | Live progress modal: honeycomb loops subtly only while the run is active (stops on success/failure/cancel; static under reduced motion — brand guide amended 2026-10-25); stage-specific copy tied to real `study_runs` status and planning summary; extract-stage stale copy; per-document "finished reading X of N" from Worker completion markers via a counts-only owner RPC; reconnect/minimize/failure/success states | **Implemented (repo 2026-10-25) — awaiting verification.** Web: `HoneycombActivity.tsx`, `HiveProgressModal.tsx`, `handoff.ts`, `use-hive-study-run.ts`, `extraction/progress` route. Contracts: `pack-extraction-progress@1`. Worker: `pack-extraction-document@1:<source_document_id>` run artifact per finished document (selected-Pack path only). SQL: `supabase/migrations/20261025120000_hive3_uxdoc1_extraction_progress.sql` + `supabase/qualification/uxdoc1_extraction_progress_assertions_readonly.sql` — **not applied**; until applied and the Worker is deployed the modal shows no document count. |
 | 4 | Canonical Study status handoff copy; development plan §3.1.3 + screen matrix row 11 sync | Await approval |
 
-**Constraints:** No new progress RPC (document total comes from the documents list `registered_at` vs run `created_at`; per-document "n of N" is a recorded missing signal — artifacts are owner-blocked). Processing APIs, evidence rules and domain-neutral Core unchanged.
+**Animation approval (user, 2026-10-25):** subtle continuous honeycomb animation is approved **only while processing is active**; it stops on success, failure or cancel and is static under `prefers-reduced-motion`. Progress messages stay tied to actual system status, not timers. `reference/HiveForYou-brand-guide.md` is amended; **`reference/HiveForYou brand guide.pdf` has NOT been updated and still says "never loop" — PDF synchronization pending (brand owner).**
+
+**Step 3 release scope (approved; not yet deployed):** apply migration `20261025120000` and run `uxdoc1_extraction_progress_assertions_readonly.sql` → deploy Worker (marker write on top of live `e3a5d14`) → deploy web → browser check on a live selected-Pack L001 run (count rises to N and never exceeds it, loop stops on terminal state, reduced motion static, minimize/reconnect, non-owner denied, pack-free run shows no count). Each step needs separate authorization.
+
+**Constraints:** Progress counts come only from durable Worker markers (no timers, percentages or inferred completion). Pack-free runs show no per-document count (generic path unchanged; redesign deferred). Processing APIs other than the new read-only owner RPC, evidence rules and domain-neutral Core unchanged.
 
 **Plan:** `.cursor/plans/documents_continue_journey_*.plan.md` (agent plan, revised 2026-10-24).
 
@@ -75,7 +96,9 @@
 
 ## UX-DOC-1 (detail — active ticket at top)
 
-Local verification (2026-10-24): `apps/web` typecheck OK, vitest **117/117**, `next build` OK. Browser check not yet run. UX investigation complete; design direction approved. Steps are approved, verified and reported one at a time.
+Local verification (2026-10-24): `apps/web` typecheck OK, vitest **117/117**, `next build` OK. Browser check not yet run.
+
+Step 3 local verification (2026-10-25): typecheck OK in `packages/contracts`, `apps/worker`, `apps/web`; vitest contracts `pack-extraction/v1` **20/20**, worker **236 passed / 1 skipped**, web **158/158**; `next build` OK (new route `/api/v1/hives/[hiveId]/study-runs/[studyRunId]/extraction/progress`). Not yet done: browser check, migration apply + `uxdoc1_extraction_progress_assertions_readonly.sql`, Worker deploy, live run with a visible count. Brand PDF still says "never loop" (markdown summary amended; PDF synchronization pending). UX investigation complete; design direction approved. Steps are approved, verified and reported one at a time.
 
 ---
 

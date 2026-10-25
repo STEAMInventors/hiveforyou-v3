@@ -10,10 +10,12 @@ const sendStudyRunQueuedEvent = vi.fn();
 const requireAuthenticatedUser = vi.fn();
 const createServerSupabaseClient = vi.fn();
 const getStudyRunExtractionForOwner = vi.fn();
+const getStudyRunExtractionProgressForOwner = vi.fn();
 
 vi.mock("@/lib/study-runs/repository", () => ({
   submitStudyProcessing,
   getStudyRunExtractionForOwner,
+  getStudyRunExtractionProgressForOwner,
   getStudyRunForOwner: vi.fn(),
   getStudyRunPlanningSummaryForOwner: vi.fn(),
   getHiveProcessingHandoff: vi.fn(),
@@ -218,5 +220,78 @@ describe("handleGetStudyRunExtraction", () => {
     const { handleGetStudyRunExtraction } = await loadStudyRunRoutes();
     const response = await handleGetStudyRunExtraction(correlationId, hiveId, studyRunId);
     expect(response.status).toBe(403);
+  });
+});
+
+describe("handleGetStudyRunExtractionProgress", () => {
+  const progress = {
+    contract_version: "pack-extraction-progress@1",
+    study_run_id: studyRunId,
+    hive_id: hiveId,
+    documents_total: 8,
+    documents_finished: 3,
+    documents_unusable: 0,
+  };
+
+  beforeEach(() => {
+    getStudyRunExtractionProgressForOwner.mockReset();
+    requireAuthenticatedUser.mockReset();
+    createServerSupabaseClient.mockReset();
+    requireAuthenticatedUser.mockResolvedValue({ ok: true, userId: "user-1" });
+    createServerSupabaseClient.mockResolvedValue({});
+  });
+
+  it("returns counts only for the owner's run", async () => {
+    getStudyRunExtractionProgressForOwner.mockResolvedValue({ ok: true, data: progress });
+    const { handleGetStudyRunExtractionProgress } = await loadStudyRunRoutes();
+    const response = await handleGetStudyRunExtractionProgress(correlationId, hiveId, studyRunId);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(progress);
+    expect(getStudyRunExtractionProgressForOwner).toHaveBeenCalledWith({}, studyRunId);
+  });
+
+  it("rejects malformed ids before any database call", async () => {
+    const { handleGetStudyRunExtractionProgress } = await loadStudyRunRoutes();
+    const response = await handleGetStudyRunExtractionProgress(correlationId, "bad", studyRunId);
+    expect(response.status).toBe(400);
+    expect(getStudyRunExtractionProgressForOwner).not.toHaveBeenCalled();
+  });
+
+  it("requires sign-in", async () => {
+    requireAuthenticatedUser.mockResolvedValue({ ok: false });
+    const { handleGetStudyRunExtractionProgress } = await loadStudyRunRoutes();
+    const response = await handleGetStudyRunExtractionProgress(correlationId, hiveId, studyRunId);
+    expect(response.status).toBe(401);
+    expect(getStudyRunExtractionProgressForOwner).not.toHaveBeenCalled();
+  });
+
+  it("denies a run from another Hive", async () => {
+    getStudyRunExtractionProgressForOwner.mockResolvedValue({
+      ok: true,
+      data: { ...progress, hive_id: "33333333-3333-4333-8333-333333333333" },
+    });
+    const { handleGetStudyRunExtractionProgress } = await loadStudyRunRoutes();
+    const response = await handleGetStudyRunExtractionProgress(correlationId, hiveId, studyRunId);
+    expect(response.status).toBe(403);
+    expect((await response.json()).error_code).toBe(ErrorCode.ACCESS_DENIED);
+  });
+
+  it("returns a safe dependency error when the RPC is missing or malformed", async () => {
+    getStudyRunExtractionProgressForOwner.mockResolvedValue({
+      ok: false,
+      error: {
+        error_code: ErrorCode.DEPENDENCY_UNAVAILABLE,
+        category: "dependency",
+        retryable: false,
+        message_safe: "Reading progress could not be loaded.",
+        diagnostic_detail: "progress_malformed",
+      },
+    });
+    const { handleGetStudyRunExtractionProgress } = await loadStudyRunRoutes();
+    const response = await handleGetStudyRunExtractionProgress(correlationId, hiveId, studyRunId);
+    expect(response.status).toBe(503);
+    const body = await response.json();
+    expect(body.error_code).toBe(ErrorCode.DEPENDENCY_UNAVAILABLE);
+    expect(JSON.stringify(body)).not.toContain("progress_malformed");
   });
 });

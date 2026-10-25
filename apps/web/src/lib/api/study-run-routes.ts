@@ -7,6 +7,7 @@ import { logServerEvent } from "@/lib/server/log";
 import {
   getHiveProcessingHandoff,
   getStudyRunExtractionForOwner,
+  getStudyRunExtractionProgressForOwner,
   getStudyRunForOwner,
   getStudyRunPlanningSummaryForOwner,
   submitStudyProcessing,
@@ -218,6 +219,63 @@ export async function handleGetStudyRunExtraction(
       correlation_id: correlationId,
       study_run_id: studyRunId,
       route: "GET /api/v1/hives/[hiveId]/study-runs/[studyRunId]/extraction",
+      error_code: result.error.error_code,
+      retryable: result.error.retryable,
+      duration_ms: Date.now() - started,
+      diagnostic_detail: result.error.diagnostic_detail,
+    });
+    return jsonError(correlationId, {
+      error_code: result.error.error_code,
+      category: categoryForCode(result.error.error_code),
+      message_safe: result.error.message_safe,
+      retryable: result.error.retryable,
+    });
+  }
+
+  if (result.data.hive_id !== hiveIdParam) {
+    return jsonError(correlationId, {
+      error_code: ErrorCode.ACCESS_DENIED,
+      category: ErrorCategory.AUTHORIZATION,
+      message_safe: "You do not have access to this run.",
+    });
+  }
+
+  return jsonSuccess(correlationId, result.data);
+}
+
+export async function handleGetStudyRunExtractionProgress(
+  correlationId: string,
+  hiveIdParam: string,
+  studyRunIdParam: string,
+): Promise<Response> {
+  const started = Date.now();
+  const studyRunId = parseStudyRunIdParam(studyRunIdParam);
+  if (!parseHiveIdParam(hiveIdParam) || !studyRunId) {
+    return jsonError(correlationId, {
+      error_code: ErrorCode.INVALID_REQUEST,
+      category: ErrorCategory.VALIDATION,
+      message_safe: "Invalid request.",
+    });
+  }
+
+  const auth = await requireAuthenticatedUser();
+  if (!auth.ok) {
+    return jsonError(correlationId, {
+      error_code: ErrorCode.AUTH_FAILED,
+      category: ErrorCategory.AUTH,
+      message_safe: "Sign in to view processing status.",
+    });
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const result = await getStudyRunExtractionProgressForOwner(supabase, studyRunId);
+  if (!result.ok) {
+    logServerEvent({
+      level: "warn",
+      service: "web",
+      correlation_id: correlationId,
+      study_run_id: studyRunId,
+      route: "GET /api/v1/hives/[hiveId]/study-runs/[studyRunId]/extraction/progress",
       error_code: result.error.error_code,
       retryable: result.error.retryable,
       duration_ms: Date.now() - started,

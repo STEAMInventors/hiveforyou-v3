@@ -10,7 +10,9 @@ import {
 import { ErrorCategory, ErrorCode } from "@hiveforyou/contracts/errors/v1";
 import {
   parsePackExtractionOwnerViewV1,
+  parsePackExtractionProgressV1,
   type PackExtractionOwnerViewV1,
+  type PackExtractionProgressV1,
 } from "@hiveforyou/contracts/pack-extraction/v1";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -100,6 +102,35 @@ export async function getStudyRunExtractionForOwner(
         retryable: false,
         message_safe: "Extracted facts could not be loaded.",
         diagnostic_detail: "owner_view_malformed",
+      },
+    };
+  }
+  return { ok: true, data: parsed.value };
+}
+
+export async function getStudyRunExtractionProgressForOwner(
+  supabase: SupabaseClient,
+  studyRunId: string,
+): Promise<
+  | { ok: true; data: PackExtractionProgressV1 }
+  | { ok: false; error: ReturnType<typeof mapSupabaseRpcError> }
+> {
+  const { data, error } = await supabase.rpc("hive3_p2px_owner_get_extraction_progress", {
+    p_study_run_id: studyRunId,
+  });
+  if (error) {
+    return { ok: false, error: mapSupabaseRpcError(error.message) };
+  }
+  const parsed = parsePackExtractionProgressV1(data);
+  if (!parsed.ok) {
+    return {
+      ok: false,
+      error: {
+        error_code: ErrorCode.DEPENDENCY_UNAVAILABLE,
+        category: ErrorCategory.DEPENDENCY,
+        retryable: false,
+        message_safe: "Reading progress could not be loaded.",
+        diagnostic_detail: "progress_malformed",
       },
     };
   }

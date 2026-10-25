@@ -408,6 +408,9 @@
   .hfy-mark--assemble .hfy-cell:nth-of-type(3) { animation-delay: .12s; }
   .hfy-mark--assemble .hfy-cell:nth-of-type(4) { animation-delay: .18s; }
   .hfy-mark--assemble .hfy-noise { transform-box: fill-box; transform-origin: center; animation: hfy-noise-out .5s .1s ease-in both; }
+  /* Processing only (brand guide amendment 2026-10-25): cells breathe while a run is active; remove the class to hold */
+  .hfy-mark--active .hfy-cell-fill { animation: hfy-cell-breathe 2.4s ease-in-out 1s infinite; }
+  @media (prefers-reduced-motion: reduce) { .hfy-mark--active .hfy-cell-fill { animation: none; } }
 
   /* ---------- Spinner (on-brand, four colours) ---------- */
   .hfy-spinner { width: 20px; height: 20px; border-radius: 999px; background: conic-gradient(var(--hfy-blue) 0 25%, var(--hfy-coral) 0 50%, var(--hfy-honey) 0 75%, var(--hfy-leaf) 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px)); mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px)); animation: hfy-spin .9s linear infinite; }
@@ -420,6 +423,7 @@
   @keyframes hfy-spin { to { transform: rotate(360deg); } }
   @keyframes hfy-cell-in { from { transform: translate(var(--sx, 0), var(--sy, 0)) rotate(var(--sr, 0deg)) scale(.8); } }
   @keyframes hfy-noise-out { to { transform: scale(.2); opacity: 0; } }
+  @keyframes hfy-cell-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 }
 
 /* ==========================================================================

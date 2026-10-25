@@ -169,6 +169,58 @@ describe("runPackExtractionForSources — 8-document synthetic L001", () => {
     expect(store.batchesFor("run-1")).toHaveLength(8);
   });
 
+  it("writes one owner-visible finished marker per document, idempotent across replay and resume", async () => {
+    const markers = (store: FakeExtractionStore, runId: string) =>
+      [...store.artifacts.values()].filter(
+        (row) =>
+          row.study_run_id === runId &&
+          String(row.artifact_kind).startsWith("pack-extraction-document@1:"),
+      );
+
+    const { store, sources } = setup("run-1");
+    let calls = 0;
+    const flaky: FakeModelResponder = (input, doc) => {
+      calls += 1;
+      if (calls === 4) {
+        throw new PlanningError(ErrorCode.MODEL_UNAVAILABLE, "Gateway rate limited.", {
+          reason: "gateway_status",
+          status: 429,
+        });
+      }
+      return plausibleOutput(input, doc);
+    };
+    await run({ store, runId: "run-1", sources, responder: flaky }).catch(() => undefined);
+    expect(markers(store, "run-1")).toHaveLength(store.batchesFor("run-1").length);
+
+    await run({ store, runId: "run-1", sources });
+    await run({ store, runId: "run-1", sources });
+    const finished = markers(store, "run-1");
+    expect(finished).toHaveLength(8);
+    expect(finished.map((row) => row.artifact_kind).sort()).toEqual(
+      L001_CORPUS.map((doc) => `pack-extraction-document@1:${doc.source_document_id}`).sort(),
+    );
+    expect(finished[0]!.payload_json).toEqual({
+      source_document_id: expect.any(String),
+      disposition: expect.stringMatching(/^VALID/),
+      window_count: 1,
+    });
+  });
+
+  it("fails the document when its finished marker cannot be stored, then completes on retry", async () => {
+    const { store, sources } = setup("run-1", HIVE, L001_CORPUS.slice(0, 1));
+    store.failNext("hive3_p1p_worker_put_run_artifact", "connection reset");
+    const error = await run({ store, runId: "run-1", sources, docs: L001_CORPUS.slice(0, 1) }).catch(
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(Error);
+    expect(store.batchesFor("run-1")).toHaveLength(1);
+    expect(store.artifacts.size).toBe(0);
+
+    const { extraction } = await run({ store, runId: "run-1", sources, docs: L001_CORPUS.slice(0, 1) });
+    expect(extraction.calls).toHaveLength(0);
+    expect(store.artifacts.size).toBe(1);
+  });
+
   it("reuses a same-Hive extraction in a new run without a model call", async () => {
     const store = new FakeExtractionStore();
     const first = setup("run-1", HIVE, L001_CORPUS, store);
@@ -216,6 +268,9 @@ describe("runPackExtractionForSources — failure dispositions", () => {
     });
     expect(bad!.extraction_json).toBeNull();
     expect(good).toMatchObject({ status: "SUCCEEDED", disposition: "VALID" });
+    expect(store.artifacts.get("run-1|pack-extraction-document@1:l001-01|1")?.payload_json).toMatchObject({
+      disposition: "UNUSABLE",
+    });
   });
 
   it("maps non-retryable gateway failures to safe batch errors", async () => {

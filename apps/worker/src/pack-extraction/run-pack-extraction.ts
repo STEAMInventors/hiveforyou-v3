@@ -4,10 +4,13 @@ import { DOMAIN_PACK_MANIFEST_V2 } from "@hiveforyou/contracts/domain-packs/v2";
 import { ErrorCode } from "@hiveforyou/contracts/errors/v1";
 import {
   PACK_EXTRACTION_VALIDATOR_VERSION,
+  packExtractionDocumentArtifactKind,
   type PackExtractionDispositionV1,
+  type PackExtractionDocumentMarkerV1,
   type PackExtractionValidationV1,
 } from "@hiveforyou/contracts/pack-extraction/v1";
 import type { ReaderReadDocumentResponseV1 } from "@hiveforyou/contracts/reader/v1";
+import { RUN_ARTIFACT_CONTRACT_VERSION } from "@hiveforyou/contracts/study-runs/v1";
 import {
   computeJcsSha256Digest,
   computePackDigest,
@@ -15,6 +18,7 @@ import {
 } from "@hiveforyou/core";
 
 import { PlanningError } from "../plan/errors.js";
+import { putRunArtifactIdempotent } from "../persistence/artifact-idempotent-put.js";
 import {
   findReusablePackExtractionBatch,
   getRunPackExtractionBatch,
@@ -711,6 +715,24 @@ async function extractSourceDocument(
   };
 }
 
+/** Owner-visible "document finished" marker; identical on replay, so retries stay idempotent. */
+async function putDocumentFinishedMarker(
+  input: RunPackExtractionInput,
+  summary: PackExtractionDocumentSummary,
+): Promise<void> {
+  const payload: PackExtractionDocumentMarkerV1 = {
+    source_document_id: summary.source_document_id,
+    disposition: summary.disposition,
+    window_count: summary.window_count,
+  };
+  await putRunArtifactIdempotent(input.persistence, {
+    studyRunId: input.studyRunId,
+    artifactKind: packExtractionDocumentArtifactKind(summary.source_document_id),
+    contractVersion: RUN_ARTIFACT_CONTRACT_VERSION,
+    payload,
+  });
+}
+
 function errorMetadata(error: unknown): { errorCode: string | null; retryable: boolean | null } {
   if (error && typeof error === "object") {
     const code = (error as { errorCode?: unknown }).errorCode;
@@ -763,6 +785,7 @@ export async function runPackExtractionForSources(
       }
       try {
         const summary = await extractSourceDocument(input, source);
+        await putDocumentFinishedMarker(input, summary);
         summaries[index] = summary;
         documentsCompleted += 1;
       } catch (error) {

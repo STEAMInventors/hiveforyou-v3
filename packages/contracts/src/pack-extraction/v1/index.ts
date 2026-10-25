@@ -19,6 +19,14 @@ export {
   type PackExtractionOwnerViewV1,
 } from "./owner-view.js";
 export { PACK_EXTRACTION_OUTPUT_JSON_SCHEMA } from "./output-schema.js";
+export {
+  PACK_EXTRACTION_DOCUMENT_ARTIFACT_KIND,
+  PACK_EXTRACTION_PROGRESS_VERSION,
+  packExtractionDocumentArtifactKind,
+  parsePackExtractionProgressV1,
+  type PackExtractionDocumentMarkerV1,
+  type PackExtractionProgressV1,
+} from "./progress.js";
 export { parsePackExtractionRefV1 } from "./ref.js";
 export {
   PACK_EXTRACTION_INPUT_VERSION,

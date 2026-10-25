@@ -1,7 +1,10 @@
 "use client";
 
 import type { ErrorEnvelopeV1 } from "@hiveforyou/contracts/errors/v1";
-import type { PackExtractionOwnerViewV1 } from "@hiveforyou/contracts/pack-extraction/v1";
+import type {
+  PackExtractionOwnerViewV1,
+  PackExtractionProgressV1,
+} from "@hiveforyou/contracts/pack-extraction/v1";
 import type {
   HiveProcessingHandoffV1,
   SubmitStudyProcessingRequestV1,
@@ -127,6 +130,37 @@ export async function fetchStudyRunExtraction(
             category: "dependency",
             retryable: true,
             message_safe: "Could not load extracted facts.",
+            correlation_id: cid,
+          },
+      response.status,
+    );
+  }
+  return payload;
+}
+
+export async function fetchStudyRunExtractionProgress(
+  hiveId: string,
+  studyRunId: string,
+): Promise<PackExtractionProgressV1> {
+  const cid = correlationId();
+  const response = await fetch(
+    `/api/v1/hives/${encodeURIComponent(hiveId)}/study-runs/${encodeURIComponent(studyRunId)}/extraction/progress`,
+    {
+      credentials: "same-origin",
+      headers: { [CORRELATION_HEADER]: cid },
+    },
+  );
+  const payload = (await response.json()) as PackExtractionProgressV1 | ErrorEnvelopeV1;
+  if (!response.ok || isEnvelope(payload)) {
+    throw new StudyRunApiError(
+      isEnvelope(payload)
+        ? payload
+        : {
+            contract_version: "error-envelope@1",
+            error_code: "DEPENDENCY_UNAVAILABLE",
+            category: "dependency",
+            retryable: true,
+            message_safe: "Could not load reading progress.",
             correlation_id: cid,
           },
       response.status,

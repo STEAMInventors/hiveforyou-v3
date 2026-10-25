@@ -8,6 +8,8 @@ import {
   formatTimeSinceUpdate,
   isQuestionChanged,
   isStudyRunUpdateStale,
+  latestActivityIso,
+  mergeMonotonicReadingProgress,
   mergeMonotonicStageIndex,
   nextDeliveryKey,
   resolveDisplayedIntent,
@@ -16,8 +18,73 @@ import {
   STUDY_RUN_STALE_UPDATE_MS,
   studyDomainHintLabel,
   studyRunDocumentTotalLine,
+  studyRunQuestionLine,
+  studyRunReadingProgressLine,
+  studyRunStageDetail,
+  studyRunStaleNotice,
   studyRunSummaryText,
 } from "./handoff";
+
+describe("live progress copy (UX-DOC-1 Step 3)", () => {
+  const running = (stage: string) => ({ status: "RUNNING", stage });
+
+  it("describes only active stages, never queued or terminal runs", () => {
+    expect(studyRunStageDetail(running("extract"))).toContain("page by page");
+    expect(studyRunStageDetail(running("plan_questions"))).toBeTruthy();
+    expect(studyRunStageDetail({ status: "QUEUED", stage: "enqueue" })).toBeNull();
+    expect(studyRunStageDetail({ status: "SUCCEEDED", stage: "finalize" })).toBeNull();
+    expect(studyRunStageDetail({ status: "FAILED", stage: "extract" })).toBeNull();
+    expect(studyRunStageDetail(running("verify"))).toBeNull();
+    expect(studyRunStageDetail(null)).toBeNull();
+  });
+
+  it("shows the question count only after it is recorded", () => {
+    expect(studyRunQuestionLine(running("plan_questions"), 3)).toBeNull();
+    expect(studyRunQuestionLine(running("extract"), 1)).toBe("We'll look for answers to 1 question.");
+    expect(studyRunQuestionLine(running("extract"), 0)).toBeNull();
+    expect(studyRunQuestionLine(running("extract"), null)).toBeNull();
+    expect(studyRunQuestionLine({ status: "SUCCEEDED", stage: "finalize" }, 3)).toBeNull();
+  });
+
+  it("reports finished documents only from markers, only during extract", () => {
+    const counts = { documents_total: 8, documents_finished: 3, documents_unusable: 0 };
+    expect(studyRunReadingProgressLine(running("extract"), counts)).toBe("Finished reading 3 of 8 documents.");
+    expect(
+      studyRunReadingProgressLine(running("extract"), { ...counts, documents_finished: 1, documents_total: 1 }),
+    ).toBe("Finished reading 1 of 1 document.");
+    expect(studyRunReadingProgressLine(running("extract"), { ...counts, documents_total: null })).toBe(
+      "Finished reading 3 documents.",
+    );
+    expect(studyRunReadingProgressLine(running("extract"), { ...counts, documents_unusable: 1 })).toBe(
+      "Finished reading 3 of 8 documents. 1 couldn't be read.",
+    );
+    expect(studyRunReadingProgressLine(running("extract"), { ...counts, documents_finished: 0 })).toBeNull();
+    expect(studyRunReadingProgressLine(running("plan_schema"), counts)).toBeNull();
+    expect(studyRunReadingProgressLine({ status: "SUCCEEDED", stage: "extract" }, counts)).toBeNull();
+    expect(studyRunReadingProgressLine(running("extract"), null)).toBeNull();
+  });
+
+  it("never moves the finished count backward", () => {
+    const a = { documents_total: 8, documents_finished: 4, documents_unusable: 0 };
+    const b = { documents_total: 8, documents_finished: 2, documents_unusable: 0 };
+    expect(mergeMonotonicReadingProgress(null, b)).toBe(b);
+    expect(mergeMonotonicReadingProgress(a, b)).toBe(a);
+    expect(mergeMonotonicReadingProgress(b, a)).toBe(a);
+  });
+
+  it("uses extract-specific stale copy", () => {
+    expect(studyRunStaleNotice("extract")).toContain("several minutes per document");
+    expect(studyRunStaleNotice("plan_schema")).not.toContain("per document");
+  });
+
+  it("treats a newly observed finished document as the latest activity", () => {
+    const updated = "2026-10-25T10:00:00.000Z";
+    expect(latestActivityIso(updated, null)).toBe(updated);
+    expect(latestActivityIso(updated, Date.parse("2026-10-25T09:00:00.000Z"))).toBe(updated);
+    expect(latestActivityIso(updated, Date.parse("2026-10-25T10:05:00.000Z"))).toBe("2026-10-25T10:05:00.000Z");
+    expect(latestActivityIso(null, Date.parse("2026-10-25T10:05:00.000Z"))).toBe("2026-10-25T10:05:00.000Z");
+  });
+});
 
 describe("shouldEnqueueStudyRun", () => {
   it("queues a new submit and a replay that is still queued", () => {

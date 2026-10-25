@@ -5,6 +5,7 @@ import type { StudyRunSafeV1 } from "@hiveforyou/contracts/study-runs/v1";
 import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
 
+import { HoneycombActivity } from "@/components/workspace/HoneycombActivity";
 import { handleModalTabKeyDown, safeReturnFocus } from "@/lib/a11y/modal-focus";
 import { brand } from "@/lib/brand/paths";
 import {
@@ -13,8 +14,14 @@ import {
   type HiveProgressPollState,
   isStudyRunUpdateStale,
   isTerminalStudyRunStatus,
+  latestActivityIso,
   mergeMonotonicStageIndex,
+  type ReadingProgressCounts,
   studyRunDocumentTotalLine,
+  studyRunQuestionLine,
+  studyRunReadingProgressLine,
+  studyRunStageDetail,
+  studyRunStaleNotice,
   studyRunSummaryText,
 } from "@/lib/study-runs/handoff";
 
@@ -24,6 +31,9 @@ type HiveProgressModalProps = {
   open: boolean;
   run: StudyRunSafeV1 | null;
   documentCount: number | null;
+  questionCount?: number | null;
+  readingProgress?: ReadingProgressCounts | null;
+  readingProgressObservedAt?: number | null;
   pollState: HiveProgressPollState;
   lastPollSuccessAt: number | null;
   returnFocusRef: React.RefObject<HTMLElement | null>;
@@ -40,6 +50,9 @@ export function HiveProgressModal({
   open,
   run,
   documentCount,
+  questionCount = null,
+  readingProgress = null,
+  readingProgressObservedAt = null,
   pollState,
   lastPollSuccessAt,
   returnFocusRef,
@@ -88,12 +101,14 @@ export function HiveProgressModal({
 
   const headline =
     open && run ? (studyRunSummaryText(run, documentCount) ?? "Working on your analysis…") : "";
+  const readingLine = open && run ? studyRunReadingProgressLine(run, readingProgress) : null;
+  const announcement = readingLine ? `${headline} ${readingLine}` : headline;
 
   useEffect(() => {
-    if (headline && headline !== headlineAnnounced) {
-      setHeadlineAnnounced(headline);
+    if (announcement && announcement !== headlineAnnounced) {
+      setHeadlineAnnounced(announcement);
     }
-  }, [headline, headlineAnnounced]);
+  }, [announcement, headlineAnnounced]);
 
   if (!open || !run) {
     return null;
@@ -107,14 +122,16 @@ export function HiveProgressModal({
   const terminal = isTerminalStudyRunStatus(run.status);
   const active = !terminal;
   const docLine = studyRunDocumentTotalLine(documentCount);
-  const lastUpdate = formatTimeSinceUpdate(run.updated_at, nowMs);
+  const stageDetail = studyRunStageDetail(run);
+  const questionLine = studyRunQuestionLine(run, questionCount);
+  const activityIso = latestActivityIso(run.updated_at, readingProgressObservedAt);
+  const lastUpdate = formatTimeSinceUpdate(activityIso, nowMs);
   const stale =
     active &&
     pollState === "ok" &&
-    isStudyRunUpdateStale(run.updated_at, nowMs);
+    isStudyRunUpdateStale(activityIso, nowMs);
   const checklist = buildStudyProgressChecklist(maxStageRef.current.index, run);
-  const showMotion = active && run.status !== StudyRunStatus.QUEUED;
-  const motionKey = run.id;
+  const showHoneycomb = run.status !== StudyRunStatus.QUEUED;
 
   let footer: React.ReactNode;
   if (run.status === StudyRunStatus.SUCCEEDED) {
@@ -178,17 +195,8 @@ export function HiveProgressModal({
         <div className="overflow-y-auto px-6 pb-6 pt-6 sm:px-8 sm:pb-8 sm:pt-8">
           <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left">
             <div className="relative h-[88px] w-[132px] shrink-0 sm:mr-5">
-              {showMotion ? (
-                <Image
-                  key={motionKey}
-                  src={brand.motion}
-                  alt=""
-                  width={132}
-                  height={88}
-                  className="h-[88px] w-auto"
-                  priority
-                  unoptimized
-                />
+              {showHoneycomb ? (
+                <HoneycombActivity key={run.id} active={active} className="h-[88px] w-[132px]" />
               ) : (
                 <Image
                   src={brand.mark}
@@ -212,6 +220,21 @@ export function HiveProgressModal({
               <p className="mt-2 m-0 text-[15px] font-medium leading-snug text-[#1F2328]" data-testid="progress-headline">
                 {headline}
               </p>
+              {readingLine ? (
+                <p className="mt-1 m-0 text-sm font-medium text-[#1F2328]" data-testid="progress-reading">
+                  {readingLine}
+                </p>
+              ) : null}
+              {stageDetail ? (
+                <p className="mt-1 m-0 text-sm text-[#4A525C]" data-testid="progress-stage-detail">
+                  {stageDetail}
+                </p>
+              ) : null}
+              {questionLine ? (
+                <p className="mt-1 m-0 text-sm text-[#4A525C]" data-testid="progress-questions">
+                  {questionLine}
+                </p>
+              ) : null}
               {docLine ? (
                 <p className="mt-1 m-0 text-sm text-[#6B7280]" data-testid="progress-document-total">
                   {docLine}
@@ -241,7 +264,7 @@ export function HiveProgressModal({
           ) : null}
           {stale ? (
             <p className="mt-4 rounded-[10px] bg-[#F5F8FF] px-3 py-2 text-sm text-[#1F2328]" role="status">
-              We haven't recorded a new update in a few minutes. We're still checking.
+              {studyRunStaleNotice(run.stage)}
             </p>
           ) : null}
           {run.status === StudyRunStatus.FAILED && run.error_message_safe ? (
@@ -277,7 +300,7 @@ export function HiveProgressModal({
                       className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-[#2F6FE4]"
                       aria-hidden
                     >
-                      <span className="h-2 w-2 animate-pulse rounded-full bg-[#2F6FE4]" />
+                      <span className="h-2 w-2 rounded-full bg-[#2F6FE4] motion-safe:animate-pulse" />
                     </span>
                   ) : (
                     <span className="h-5 w-5 shrink-0 rounded-full border-2 border-[#D9DDE3]" aria-hidden />

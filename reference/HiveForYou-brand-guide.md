@@ -16,7 +16,8 @@
 | Browser tab, bookmarks | `favicon.ico` + `favicon.svg` | Masters in `apps/web/public/brand/`; **copies at site root** (`public/`). Wired in `apps/web/src/app/layout.tsx`. |
 | iPhone home screen | `apple-touch-icon.png` | 180 px, opaque. Root copy + master in `brand/`. |
 | Link previews (Slack, LinkedIn, X, iMessage) | `og-image.png` | 1200×630. Root `/og-image.png`; metadata in `layout.tsx`. |
-| App opening, "Building your hive", website hero | `hiveforyou-motion.svg` | Plays once, then holds. Never loop it inside the product. |
+| App opening, website hero | `hiveforyou-motion.svg` | Plays once, then holds. |
+| "Building your hive" progress (processing active) | `HoneycombActivity` (web component, same geometry) | Assembles once, then the four cells breathe subtly (opacity only) **only while processing is active**. Stops and holds the assembled mark on success, failure or cancel. Static under `prefers-reduced-motion`. Never loop anywhere else in the product. Motion signals "working", never progress — no fills or percentages. *(Amended 2026-10-25, UX-DOC-1; the PDF guide still says "never loop" and needs the same amendment.)* |
 | Explaining the rules to a designer or vendor | `clear-space.png` | Send with this guide. |
 
 ## Rules that apply to every file

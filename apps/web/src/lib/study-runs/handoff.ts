@@ -267,6 +267,102 @@ export function formatTimeSinceUpdate(updatedAtIso: string | null | undefined, n
   return `Last update ${deltaHr} hour${deltaHr === 1 ? "" : "s"} ago`;
 }
 
+/** What the current stage is doing; describes the stage only, never timing or completion. */
+export function studyRunStageDetail(run: { status: string; stage: string } | null): string | null {
+  if (!run || isTerminalStudyRunStatus(run.status) || run.status === StudyRunStatus.QUEUED) {
+    return null;
+  }
+  switch (run.stage) {
+    case "plan_questions":
+      return "Working out what to look for in your documents.";
+    case "load_sources":
+      return "Collecting the documents included in this analysis.";
+    case "plan_schema":
+      return "Preparing to recognize each type of document.";
+    case "extract":
+      return "Each document is read page by page. Long documents can take several minutes.";
+    default:
+      return null;
+  }
+}
+
+/** Shown once the question set is recorded (stages after `plan_questions`). */
+export function studyRunQuestionLine(
+  run: { status: string; stage: string } | null,
+  questionCount: number | null | undefined,
+): string | null {
+  if (!run || isTerminalStudyRunStatus(run.status) || !questionCount || questionCount <= 0) {
+    return null;
+  }
+  if (studyProgressStageIndex(run.stage) <= studyProgressStageIndex("plan_questions")) {
+    return null;
+  }
+  return `We'll look for answers to ${questionCount} question${questionCount === 1 ? "" : "s"}.`;
+}
+
+export type ReadingProgressCounts = {
+  documents_total: number | null;
+  documents_finished: number;
+  documents_unusable: number;
+};
+
+/** Only durable "document finished" markers count; nothing is shown before the first one. */
+export function studyRunReadingProgressLine(
+  run: { status: string; stage: string } | null,
+  progress: ReadingProgressCounts | null,
+): string | null {
+  if (!run || isTerminalStudyRunStatus(run.status) || run.stage !== "extract" || !progress) {
+    return null;
+  }
+  const finished = progress.documents_finished;
+  if (finished <= 0) {
+    return null;
+  }
+  const total = progress.documents_total;
+  const base =
+    total != null && total > 0
+      ? `Finished reading ${finished} of ${total} document${total === 1 ? "" : "s"}.`
+      : `Finished reading ${finished} document${finished === 1 ? "" : "s"}.`;
+  const unusable = progress.documents_unusable;
+  if (unusable <= 0) {
+    return base;
+  }
+  return `${base} ${unusable} couldn't be read.`;
+}
+
+/** Keeps the highest finished count seen for a run so retries never move the line backward. */
+export function mergeMonotonicReadingProgress<T extends ReadingProgressCounts>(
+  previous: T | null,
+  next: T,
+): T {
+  if (!previous || next.documents_finished >= previous.documents_finished) {
+    return next;
+  }
+  return previous;
+}
+
+export function studyRunStaleNotice(stage: string): string {
+  if (stage === "extract") {
+    return "Reading can take several minutes per document. We haven't recorded a new update in a few minutes — we're still checking.";
+  }
+  return "We haven't recorded a new update in a few minutes. We're still checking.";
+}
+
+/** Latest durable activity: the run row's `updated_at` or when a newly finished document was observed. */
+export function latestActivityIso(
+  updatedAtIso: string | null | undefined,
+  progressObservedAtMs: number | null,
+): string | null {
+  const updatedMs = updatedAtIso ? Date.parse(updatedAtIso) : Number.NaN;
+  if (progressObservedAtMs == null) {
+    return updatedAtIso ?? null;
+  }
+  if (Number.isNaN(updatedMs) || progressObservedAtMs > updatedMs) {
+    return new Date(progressObservedAtMs).toISOString();
+  }
+  return updatedAtIso ?? null;
+}
+
 export function studyRunDocumentTotalLine(documentCount: number | null): string | null {
   if (documentCount == null || documentCount <= 0) {
     return null;
