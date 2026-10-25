@@ -1,7 +1,7 @@
 ﻿# Active ticket
 
 **Phase / Ticket:** **P2.3 — Independent Evidence Verification**
-**Status:** **ACTIVE (2026-10-25)** — sole development ticket. **Slice 1 (persisted source pages) IMPLEMENTED (repo)** — migration `20261025150000` + qualification script; Worker persists pages after **`readDocument`** on the selected-Pack path. SQL **applied** in live target env (operator-reported); Worker deploy **not** updated by this commit. Orchestration still skips **`verify`**; Gate **2c** `facts` and independent verifier **not** in repo; pack **`accepted_facts_json`** remains unverified. **Does not** implement Canonical Study merge (**P1.P Gate 3** / P3).
+**Status:** **ACTIVE (2026-10-25)** — sole development ticket. **Slice 1 (persisted source pages) IMPLEMENTED (repo; SQL applied live)** — migration `20261025150000`. **Slices 3–5 (verifier + contracts + tier-1 tests) IMPLEMENTED (repo).** **Gate 2c + orchestration `verify` IMPLEMENTED (repo)** — migration `20261025180000`, Worker **`extract` → `verify` → `finalize`** on selected-Pack path; dispositions persisted to **`hive3.facts` / `hive3.fact_evidence`**. SQL **not** applied live; Worker deploy **not** updated. **Does not** implement Canonical Study merge (**P1.P Gate 3** / P3).
 
 **Objective:** Promote independently verified selected-Pack extraction candidates into trusted observations (`facts` + `fact_evidence`) using **persisted** page text and source identity checks — not extract-time in-memory Reader text or Reader `quote_verified`.
 
@@ -11,15 +11,15 @@
 |------|--------|-------------|--------|
 | 1 | Supabase SQL (Gate 2b remainder) | `hive3.document_pages` — page text + provenance (plan T2, ≤64 KiB/page); Worker **service_role** upsert RPCs; readonly qualification | **Done (repo; SQL applied live)** |
 | 2 | Worker | Persist pages after successful **`readDocument`** on selected-Pack path; fail closed on oversize / persistence errors per existing envelope taxonomy | **Done (repo)** |
-| 3 | Worker + Core | Domain-neutral verifier: reuse **`normalizeQuoteText`** / anchor rules; load pages **from PostgreSQL**; dispositions **`VERIFIED` / `REJECTED` / `UNRESOLVED`**; stable reason codes | Next |
-| 4 | Contracts | `evidence-verification@1` (or equivalent) — verifier version, dispositions; no page text in owner projections | Next |
-| 5 | Tests | Tier 1 mocked pages — independence from extract `pageText`; negatives (hash mismatch, missing page row, hive scope) | Next |
+| 3 | Worker + Core | Domain-neutral verifier: reuse **`normalizeQuoteText`** / anchor rules; load pages **from PostgreSQL**; dispositions **`VERIFIED` / `REJECTED` / `UNRESOLVED`**; stable reason codes | **Done (repo)** — `packages/core` + `apps/worker/src/verification/`; wired on selected-Pack orchestration **`verify`** stage |
+| 4 | Contracts | `evidence-verification@1` (or equivalent) — verifier version, dispositions; no page text in owner projections | **Done (repo)** — `packages/contracts/src/evidence-verification/v1` |
+| 5 | Tests | Tier 1 mocked pages — independence from extract `pageText`; negatives (hash mismatch, missing page row, hive scope) | **Done (repo)** — Core + Worker tier 1; tier 2 L001 readonly **not** run |
 
 **Verification rules (binding for implementation):** Domain-neutral only; model proposes, code validates. **`NOT_FOUND`** and **`NOT_APPLICABLE`** do **not** become verified source observations without evidence supporting that classification. Quote/page match alone is insufficient — **quoted numeric occurrence does not establish semantic value support**; use deterministic checks where feasible, else **`UNRESOLVED`**. Retain **`error-envelope@1`**, Inngest retry ownership, correlation / `study_run_id` / source IDs, sanitized diagnostics (no document text or quotes in logs).
 
-**Prerequisites (repo — met for selected-Pack path):** **P2.2-PX.I** / **P2.2-PX.P** closed; L001 extraction **8/8** documents, **268** accepted candidates (run **`49543887-b363-43e1-81e6-5c4c05854b32`**, commit **`ea30e6f`** on **`main`**). **P1.5-processing** implemented (repo). Gate 2b **`extraction_batches`** and **`document_pages`** applied in live target env; Gate **2c** not yet in migrations.
+**Prerequisites (repo — met for selected-Pack path):** **P2.2-PX.I** / **P2.2-PX.P** closed; L001 extraction **8/8** documents, **268** accepted candidates (run **`49543887-b363-43e1-81e6-5c4c05854b32`**, commit **`ea30e6f`** on **`main`**). **P1.5-processing** implemented (repo). Gate 2b **`extraction_batches`** and **`document_pages`** applied in live target env; Gate **2c** migration **`20261025180000`** in repo (**not** applied live).
 
-**Follow-on slices (not first slice):** Gate **2c** persistence; orchestration **`StudyRunStage.VERIFY`** after extract; generic P2.2 path; UI bound to verified facts; tier 2 L001 SQL proof without new paid runs.
+**Follow-on slices:** generic P2.2 path **`verify`**; UI bound to verified facts; tier 2 L001 SQL proof without new paid runs (`docs/acceptance/P2.3-evidence-verification.md`); live SQL apply + Worker deploy (separate authorization).
 
 **Authority:** `docs/ARCHITECTURE.md` §5, `docs/HIVEFORYOU-V3-DEVELOPMENT-PLAN-database-first-PROPOSED.md` §3.1 (A5, Gate 2b/2c), `docs/ERROR-HANDLING-RECOVERY.md` §6–§8.
 

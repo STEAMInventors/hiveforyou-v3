@@ -1,6 +1,24 @@
 export { computePackDigest, computeSchemaHash } from "./schema-hash.js";
 export { serializePackJcs } from "./pack-jcs.js";
 export { computeJcsSha256Digest, computeSha256Digest, computeSha256Hex } from "./pack-digest.js";
+export {
+  PACK_EXTRACTION_CANDIDATE_KEY_VERSION,
+  computePackCandidateKey,
+  type PackCandidateKeyInputV1,
+} from "./pack-candidate-key.js";
+export { normalizeQuoteText, quoteFoundInPageText } from "./quote-evidence.js";
+export {
+  DOCUMENT_PAGE_SET_DIGEST_VERSION,
+  computePageSetDigest,
+} from "./persisted-page-set-digest.js";
+export {
+  checkDeterministicValueSupport,
+  verifyCandidateFactEvidence,
+  type CandidateFactEvidenceInputV1,
+  type ExpectedSourceEvidenceContextV1,
+  type PersistedPageCorpusV1,
+  type VerifyCandidateFactEvidenceInput,
+} from "./evidence-verification.js";
 export { buildCanonicalPackManifest } from "./pack-canonical-manifest.js";
 export {
   assertValidPackFactCatalog,

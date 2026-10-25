@@ -231,10 +231,32 @@ type Failure = { fn: string; message: string; remaining: number; afterCommit: bo
  * Mirrors the SQL semantics the Worker depends on (idempotent insert, hash conflict,
  * same-Hive reuse, owner projection); it is not a substitute for the SQL qualification.
  */
+type StoredFactVerification = Record<string, unknown> & {
+  id: string;
+  study_run_id: string;
+  hive_id: string;
+  origin_batch_id: string;
+  candidate_key: string;
+  verification_disposition: string;
+  verification_reason_code: string | null;
+  verifier_version: string;
+  evidence_anchors_verified: number;
+  candidate_status: string;
+  value_json: unknown;
+  source_document_id: string;
+};
+
+type StoredFactEvidence = Record<string, unknown> & {
+  fact_id: string;
+  anchor_index: number;
+};
+
 export class FakeExtractionStore {
   readonly runHive = new Map<string, string>();
   readonly prompts = new Map<string, Record<string, unknown>>();
   readonly batches: StoredBatch[] = [];
+  readonly factVerifications: StoredFactVerification[] = [];
+  readonly factEvidence: StoredFactEvidence[] = [];
   readonly documentPages = new Map<string, StoredDocumentPage[]>();
   readonly registeredSourcesById = new Map<string, WorkerRegisteredSourceRowV1>();
   readonly artifacts = new Map<string, Record<string, unknown>>();
@@ -244,6 +266,8 @@ export class FakeExtractionStore {
   contexts = new Map<string, Record<string, unknown>>();
   sources = new Map<string, WorkerRegisteredSourceRowV1[]>();
   private failures: Failure[] = [];
+  private putFactFailAfterPersisted: number | null = null;
+  private putFactFailMessage = "fact_invalid";
   private nextId = 1;
 
   addRun(studyRunId: string, hiveId: string): void {
@@ -263,8 +287,18 @@ export class FakeExtractionStore {
     this.failures.push({ fn, message, remaining: count, afterCommit });
   }
 
+  /** Fail Gate 2c put RPC after N facts are already persisted for the run (non-retryable). */
+  failPutFactVerificationAfterPersisted(count: number, message = "fact_invalid"): void {
+    this.putFactFailAfterPersisted = count;
+    this.putFactFailMessage = message;
+  }
+
   batchesFor(studyRunId: string): StoredBatch[] {
     return this.batches.filter((batch) => batch.study_run_id === studyRunId);
+  }
+
+  factVerificationsFor(studyRunId: string): StoredFactVerification[] {
+    return this.factVerifications.filter((row) => row.study_run_id === studyRunId);
   }
 
   readonly client: StudyRunPersistenceClient = {
@@ -547,6 +581,118 @@ export class FakeExtractionStore {
             page_count: pageCount,
             inserted_count: insertedCount,
             replayed_count: replayedCount,
+          },
+          error: null,
+        };
+      }
+      case "hive3_p23_worker_list_run_batches_for_verify": {
+        const runId = String(args.p_study_run_id ?? "");
+        const hiveId = this.runHive.get(runId);
+        if (!hiveId) {
+          return { data: null, error: { message: "study_run_not_found" } };
+        }
+        const batches = this.batchesFor(runId)
+          .filter(
+            (b) =>
+              b.hive_id === hiveId &&
+              b.status === "SUCCEEDED" &&
+              (b.disposition === "VALID" || b.disposition === "VALID_WITH_REJECTIONS"),
+          )
+          .map((b) => ({
+            batch_id: b.id,
+            source_document_id: b.source_document_id,
+            source_sha256: b.source_sha256,
+            read_fingerprint: b.read_fingerprint,
+            page_set_digest: b.page_set_digest,
+            pack_id: b.pack_id,
+            pack_version: b.pack_version,
+            accepted_facts_json: b.accepted_facts_json ?? [],
+          }));
+        return {
+          data: { study_run_id: runId, hive_id: hiveId, batches },
+          error: null,
+        };
+      }
+      case "hive3_p23_worker_put_fact_verification": {
+        const runId = String(args.p_study_run_id ?? "");
+        const hiveId = this.runHive.get(runId);
+        if (!hiveId) {
+          return { data: null, error: { message: "study_run_not_found" } };
+        }
+        if (
+          this.putFactFailAfterPersisted !== null &&
+          this.factVerificationsFor(runId).length >= this.putFactFailAfterPersisted
+        ) {
+          return { data: null, error: { message: this.putFactFailMessage } };
+        }
+        const fact = args.p_fact as Record<string, unknown>;
+        const batchId = String(fact.origin_batch_id ?? "");
+        const candidateKey = String(fact.candidate_key ?? "").toLowerCase();
+        const batch = this.batches.find((b) => b.id === batchId);
+        if (!batch || batch.study_run_id !== runId) {
+          return { data: null, error: { message: "batch_not_found" } };
+        }
+        const existing = this.factVerifications.find(
+          (row) =>
+            row.study_run_id === runId &&
+            row.origin_batch_id === batchId &&
+            row.candidate_key === candidateKey,
+        );
+        if (existing) {
+          const same =
+            existing.verification_disposition === fact.verification_disposition &&
+            existing.verification_reason_code === (fact.verification_reason_code ?? null) &&
+            existing.verifier_version === fact.verifier_version &&
+            existing.evidence_anchors_verified === fact.evidence_anchors_verified &&
+            existing.candidate_status === fact.candidate_status &&
+            JSON.stringify(existing.value_json) === JSON.stringify(fact.value_json ?? null);
+          return same
+            ? { data: { inserted: false, fact_id: existing.id }, error: null }
+            : { data: null, error: { message: "fact_hash_conflict" } };
+        }
+        const factId = `fact-${this.nextId++}`;
+        this.factVerifications.push({
+          id: factId,
+          study_run_id: runId,
+          hive_id: hiveId,
+          origin_batch_id: batchId,
+          candidate_key: candidateKey,
+          source_document_id: String(fact.source_document_id),
+          verification_disposition: String(fact.verification_disposition),
+          verification_reason_code: (fact.verification_reason_code as string | null) ?? null,
+          verifier_version: String(fact.verifier_version),
+          evidence_anchors_verified: Number(fact.evidence_anchors_verified ?? 0),
+          candidate_status: String(fact.candidate_status),
+          value_json: fact.value_json ?? null,
+        });
+        const evidence = Array.isArray(fact.evidence) ? fact.evidence : [];
+        for (let idx = 0; idx < evidence.length; idx += 1) {
+          const item = evidence[idx] as Record<string, unknown>;
+          this.factEvidence.push({
+            fact_id: factId,
+            anchor_index: Number(item.anchor_index ?? idx),
+            page_number: Number(item.page_number),
+            exact_quote: item.exact_quote ?? null,
+            document_page_id: item.document_page_id ?? null,
+          });
+        }
+        return { data: { inserted: true, fact_id: factId }, error: null };
+      }
+      case "hive3_p23_worker_count_fact_verifications": {
+        const runId = String(args.p_study_run_id ?? "");
+        const hiveId = this.runHive.get(runId);
+        if (!hiveId) {
+          return { data: null, error: { message: "study_run_not_found" } };
+        }
+        const rows = this.factVerificationsFor(runId);
+        return {
+          data: {
+            study_run_id: runId,
+            hive_id: hiveId,
+            total: rows.length,
+            verified: rows.filter((r) => r.verification_disposition === "VERIFIED").length,
+            rejected: rows.filter((r) => r.verification_disposition === "REJECTED").length,
+            unresolved: rows.filter((r) => r.verification_disposition === "UNRESOLVED").length,
           },
           error: null,
         };

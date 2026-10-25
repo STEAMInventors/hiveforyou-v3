@@ -124,6 +124,7 @@ describe("processStudyRun — selected IEP Pack path", () => {
       [StudyRunStatus.RUNNING, StudyRunStage.LOAD_SOURCES],
       [StudyRunStatus.RUNNING, StudyRunStage.PLAN_SCHEMA],
       [StudyRunStatus.RUNNING, StudyRunStage.EXTRACT],
+      [StudyRunStatus.RUNNING, StudyRunStage.VERIFY],
       [StudyRunStatus.SUCCEEDED, StudyRunStage.FINALIZE],
     ]);
     expect(store.transitions[1]).toMatchObject({ p_pack_version: "2.0.0" });
@@ -147,6 +148,13 @@ describe("processStudyRun — selected IEP Pack path", () => {
         if (fact.status === "OBSERVED") expect(fact.evidence.length).toBeGreaterThan(0);
       }
     }
+
+    const acceptedTotal = view.value.batches.reduce(
+      (sum, batch) => sum + (batch.accepted_facts?.length ?? 0),
+      0,
+    );
+    expect(store.factVerificationsFor(RUN)).toHaveLength(acceptedTotal);
+    expect(store.factVerificationsFor(RUN).every((row) => row.verification_disposition)).toBe(true);
   });
 
   it("fails closed when a domain hint is present but Pack extraction is disabled", async () => {

@@ -15,7 +15,8 @@
     "./domain-packs/v2": "./src/domain-packs/v2/index.ts",
     "./domain-packs/v3": "./src/domain-packs/v3/index.ts",
     "./study-runs/v1": "./src/study-runs/v1/index.ts",
-    "./pack-extraction/v1": "./src/pack-extraction/v1/index.ts"
+    "./pack-extraction/v1": "./src/pack-extraction/v1/index.ts",
+    "./evidence-verification/v1": "./src/evidence-verification/v1/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

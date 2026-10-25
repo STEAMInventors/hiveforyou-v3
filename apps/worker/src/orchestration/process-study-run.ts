@@ -45,6 +45,12 @@ import {
 import {
   DocumentPagesPersistenceError,
 } from "../persistence/document-pages-persistence.js";
+import { FactVerificationPersistenceError } from "../persistence/fact-verification-persistence.js";
+import {
+  packEvidenceVerificationErrorFrom,
+  runPackEvidenceVerificationForRun,
+  PackEvidenceVerificationError,
+} from "../verification/run-pack-evidence-verification.js";
 import {
   PackExtractionPersistenceError,
   putPackExtractionPrompt,
@@ -177,6 +183,23 @@ function safeFailureFrom(error: unknown): SafeFailure | null {
       messageSafe: error.message,
       retryable: error.retryable,
       diagnostics: { reason: error.reason },
+    };
+  }
+  if (error instanceof FactVerificationPersistenceError) {
+    return {
+      errorCode: error.errorCode,
+      messageSafe: error.message,
+      retryable: error.retryable,
+      diagnostics: { reason: error.reason },
+    };
+  }
+  const verifyFailure = packEvidenceVerificationErrorFrom(error);
+  if (verifyFailure) {
+    return {
+      errorCode: verifyFailure.errorCode,
+      messageSafe: verifyFailure.messageSafe,
+      retryable: verifyFailure.retryable,
+      diagnostics: { reason: verifyFailure.reason },
     };
   }
   if (error instanceof ReaderClientError) {
@@ -507,6 +530,36 @@ export async function processStudyRun(
       selected: selectedPack,
       reader,
     });
+
+    await workerTransitionStudyRun(persistence, {
+      studyRunId,
+      status: StudyRunStatus.RUNNING,
+      stage: StudyRunStage.VERIFY,
+    });
+
+    try {
+      await runPackEvidenceVerificationForRun(persistence, {
+        studyRunId,
+        correlationId,
+        selected: selectedPack,
+      });
+    } catch (error) {
+      if (error instanceof PackEvidenceVerificationError && !error.retryable) {
+        await markPermanentFailure(
+          persistence,
+          studyRunId,
+          error.errorCode,
+          error.messageSafe,
+          StudyRunStage.VERIFY,
+        );
+      }
+      const failure = safeFailureFrom(error);
+      if (failure) {
+        return failRun(persistence, studyRunId, StudyRunStage.VERIFY, failure);
+      }
+      throw error;
+    }
+
     return finalizeProcessing(persistence, {
       studyRunId,
       correlationId,

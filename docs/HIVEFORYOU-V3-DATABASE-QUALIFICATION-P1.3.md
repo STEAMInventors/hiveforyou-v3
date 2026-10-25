@@ -244,4 +244,7 @@ Copy into the ticket run log; check boxes only with evidence attached.
 | Q3 assertions | `supabase/qualification/p1.3_q3_rls_policy_assertions_readonly.sql` |
 | Q5 assertions | `supabase/qualification/p1.3_q5_grants_assertions_readonly.sql` |
 | Baseline migration | `supabase/migrations/20261020120000_hive3_m1_hives_baseline.sql` |
+| P2.3 persisted pages (Gate 2b remainder) | `supabase/migrations/20261025150000_hive3_p23_document_pages.sql`, `supabase/qualification/p23_document_pages_assertions_readonly.sql` |
+| P2.3 Gate 2c facts + verification RPCs | `supabase/migrations/20261025180000_hive3_p23_gate2c_facts.sql`, `supabase/qualification/p23_gate2c_facts_assertions_readonly.sql` |
+| P2.3 acceptance (tier 1 / tier 2) | `docs/acceptance/P2.3-evidence-verification.md` |
 | Adoption / rollback | `docs/HIVEFORYOU-V3-DATABASE-MIGRATION-P1.2.md` |

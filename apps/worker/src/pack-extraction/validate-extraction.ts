@@ -9,10 +9,12 @@ import {
   type PackExtractionValidationRejectionV1,
   type PackExtractionValidationV1,
 } from "@hiveforyou/contracts/pack-extraction/v1";
-import type {
-  PackCatalogFactDefinition,
-  PackCatalogRecordType,
-  PackFactCatalogBody,
+import {
+  normalizeQuoteText,
+  quoteFoundInPageText,
+  type PackCatalogFactDefinition,
+  type PackCatalogRecordType,
+  type PackFactCatalogBody,
 } from "@hiveforyou/core";
 
 export type PackExtractionUnusableReason =
@@ -134,10 +136,7 @@ export function resolvePackCatalogFactId(
   return { kind: "unknown" };
 }
 
-/** Whitespace- and Unicode-compatibility-normalized form used for the structural quote guard. */
-export function normalizeQuoteText(text: string): string {
-  return text.normalize("NFKC").replace(/\s+/g, " ").trim();
-}
+export { normalizeQuoteText } from "@hiveforyou/core";
 
 function unusable(reason: PackExtractionUnusableReason): PackExtractionValidationOutcome {
   return {
@@ -323,9 +322,8 @@ function checkAnchors(value: unknown, ctx: PackExtractionValidationContext): Anc
       firstFailure ??= "PAGE_OUT_OF_RANGE";
       continue;
     }
-    const pageText = normalizeQuoteText(ctx.pageText.get(page) ?? "");
-    const quote = normalizeQuoteText(entry.exact_quote);
-    if (quote.length === 0 || !pageText.includes(quote)) {
+    const pageText = ctx.pageText.get(page) ?? "";
+    if (!quoteFoundInPageText(pageText, entry.exact_quote)) {
       firstFailure ??= "QUOTE_NOT_IN_PAGE";
       continue;
     }

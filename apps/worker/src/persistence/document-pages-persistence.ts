@@ -7,7 +7,11 @@ import {
   type ReaderReadDocumentProvenanceV1,
   type ReaderReadDocumentResponseV1,
 } from "@hiveforyou/contracts/reader/v1";
-import { computeSha256Digest } from "@hiveforyou/core";
+import {
+  computePageSetDigest,
+  computeSha256Digest,
+  DOCUMENT_PAGE_SET_DIGEST_VERSION,
+} from "@hiveforyou/core";
 
 import type { WorkerRegisteredSourceRowV1 } from "./p15-worker-context.js";
 import { MAX_INLINE_DB_TRANSIENT_ATTEMPTS } from "./pack-extraction-persistence.js";
@@ -21,8 +25,7 @@ export const MAX_DOCUMENT_PAGE_PROVENANCE_BYTES = 65_536;
 
 export const DOCUMENT_PAGE_PROVENANCE_VERSION = "document-page-provenance@1" as const;
 
-/** Canonical digest over ordered page text hashes — immutable read generation identity (P2.3). */
-export const DOCUMENT_PAGE_SET_DIGEST_VERSION = "document-page-set@1" as const;
+export { DOCUMENT_PAGE_SET_DIGEST_VERSION, computePageSetDigest };
 
 const SHA256_HEX_RE = /^[0-9a-f]{64}$/i;
 const SHA256_DIGEST_RE = /^sha256:[0-9a-f]{64}$/i;
@@ -67,20 +70,6 @@ export type DocumentPageInsertRowV1 = {
   extraction_method: PageExtractionMethodV1;
   provenance_json: DocumentPageProvenanceV1;
 };
-
-export function computePageSetDigest(input: {
-  sourceSha256: string;
-  pageCount: number;
-  pages: ReadonlyArray<{ page_number: number; page_text_sha256: string }>;
-}): string {
-  const source = input.sourceSha256.trim().toLowerCase();
-  const hashes = [...input.pages]
-    .sort((a, b) => a.page_number - b.page_number)
-    .map((page) => page.page_text_sha256.trim().toLowerCase())
-    .join("\n");
-  const material = `${DOCUMENT_PAGE_SET_DIGEST_VERSION}\n${source}\n${input.pageCount}\n${hashes}\n`;
-  return computeSha256Digest(material);
-}
 
 export type PersistedDocumentPageRowV1 = {
   id: string;
