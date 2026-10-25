@@ -1,5 +1,6 @@
 "use client";
 
+import { ExtractedFactsPanel } from "@/components/workspace/ExtractedFactsPanel";
 import { isTerminalStudyRunStatus, studyRunSummaryText } from "@/lib/study-runs/handoff";
 import type { HiveStudyRun } from "@/lib/study-runs/use-hive-study-run";
 
@@ -68,6 +69,9 @@ export function CanonicalStudyStatusPanel({
             ))}
           </ul>
         </div>
+      ) : null}
+      {run && isTerminalStudyRunStatus(run.status) ? (
+        <ExtractedFactsPanel hiveId={run.hive_id} studyRunId={run.id} />
       ) : null}
       {action ? (
         <button

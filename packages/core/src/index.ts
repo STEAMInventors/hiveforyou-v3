@@ -1,4 +1,23 @@
 export { computePackDigest, computeSchemaHash } from "./schema-hash.js";
+export { serializePackJcs } from "./pack-jcs.js";
+export { computeJcsSha256Digest, computeSha256Digest, computeSha256Hex } from "./pack-digest.js";
+export { buildCanonicalPackManifest } from "./pack-canonical-manifest.js";
+export {
+  assertValidPackFactCatalog,
+  buildPackFactCatalog,
+  computeCatalogDigest,
+  computeOutputSchemaDigest,
+  PackFactCatalogError,
+  summarizePackFactCatalog,
+  validatePackFactCatalog,
+  type BuildPackFactCatalogOptions,
+  type PackCatalogFactDefinition,
+  type PackCatalogRecordType,
+  type PackFactCatalogBody,
+  type PackFactCatalogDigests,
+  type PackFactCatalogIssue,
+  type PackFactCatalogResult,
+} from "./pack-fact-catalog.js";
 export { PackValidationError, parsePackManifest } from "./pack-validation.js";
 export {
   normalizeDomainPackManifest,

@@ -49,16 +49,24 @@ describe("parseSubmitStudyProcessingBody", () => {
     }
   });
 
-  it("drops an invalid domain hint and still accepts a pack-free question", () => {
+  it("rejects an invalid domain hint instead of silently dropping it", () => {
     const parsed = parseSubmitStudyProcessingBody({
       request_text: "List the services and amounts.",
       idempotency_key: "delivery-3",
       clarification_json: { domain_hint: "../iep" },
     });
-    expect(parsed.ok).toBe(true);
-    if (parsed.ok) {
-      expect(parsed.value.clarification_json).toBeNull();
-      expect(parsed.value.request_text).toBe("List the services and amounts.");
+    expect(parsed.ok).toBe(false);
+  });
+
+  it("rejects a non-executable Domain Pack selection", () => {
+    const parsed = parseSubmitStudyProcessingBody({
+      request_text: "Explain this denial letter.",
+      idempotency_key: "delivery-4",
+      clarification_json: { domain_hint: "medicaid" },
+    });
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) {
+      expect(parsed.message).toContain("not available");
     }
   });
 });

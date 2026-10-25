@@ -16,8 +16,9 @@ export type StudyRunQueuedEventDataV1 = {
 
 /**
  * Owner clarification stored on `hive3.intents.clarification_json`.
- * `domain_hint` is an optional pack domain id. It boosts classification only;
- * it does not select a pack or force a document type. Omit it for pack-free runs.
+ * `domain_hint` is an optional pack domain id from explicit UI Domain Pack selection.
+ * When present, Worker routes to selected-Pack extraction (fail closed if unavailable);
+ * omit it for pack-free runs on the generic path.
  */
 export type StudyIntentClarificationV1 = {
   domain_hint?: string | null;

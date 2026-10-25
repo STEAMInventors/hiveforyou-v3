@@ -98,6 +98,55 @@ const SQL_SIGNAL_TO_BOUNDARY: Record<string, PersistenceBoundaryError> = {
     retryable: false,
     message_safe: "This Hive was not found.",
   },
+  batch_hash_conflict: {
+    error_code: "INVALID_REQUEST",
+    category: ErrorCategory.VALIDATION,
+    retryable: false,
+    message_safe: "This extraction result conflicts with one already saved.",
+  },
+  batch_hive_mismatch: {
+    error_code: "ACCESS_DENIED",
+    category: ErrorCategory.AUTHORIZATION,
+    retryable: false,
+    message_safe: "This document does not belong to the Hive.",
+  },
+  batch_invalid: {
+    error_code: "INVALID_REQUEST",
+    category: ErrorCategory.VALIDATION,
+    retryable: false,
+    message_safe: "This extraction result could not be saved.",
+  },
+  prompt_digest_collision: {
+    error_code: "EXTRACTION_FAILED",
+    category: ErrorCategory.PROCESSING,
+    retryable: false,
+    message_safe: "The extraction prompt could not be saved.",
+  },
+  prompt_invalid: {
+    error_code: "EXTRACTION_FAILED",
+    category: ErrorCategory.PROCESSING,
+    retryable: false,
+    message_safe: "The extraction prompt could not be saved.",
+  },
+};
+
+const TRANSIENT_SIGNALS = [
+  "fetch failed",
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "socket hang up",
+  "deadlock detected",
+  "could not serialize access",
+  "canceling statement due to statement timeout",
+  "too many connections",
+];
+
+const DB_TRANSIENT_BOUNDARY: PersistenceBoundaryError = {
+  error_code: "DB_TRANSIENT",
+  category: ErrorCategory.DEPENDENCY,
+  retryable: true,
+  message_safe: "Saving results is temporarily unavailable.",
 };
 
 /** Map Postgres RAISE EXCEPTION signals from Gate 1 RPCs to error-envelope@1 codes. */
@@ -113,6 +162,9 @@ export function classifyPersistenceSqlError(cause: unknown): PersistenceBoundary
     if (message.includes(signal)) {
       return SQL_SIGNAL_TO_BOUNDARY[signal] ?? null;
     }
+  }
+  if (TRANSIENT_SIGNALS.some((signal) => message.includes(signal))) {
+    return DB_TRANSIENT_BOUNDARY;
   }
   return null;
 }

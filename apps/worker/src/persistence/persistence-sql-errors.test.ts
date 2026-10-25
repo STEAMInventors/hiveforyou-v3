@@ -22,6 +22,24 @@ describe("classifyPersistenceSqlError", () => {
     expect(mapped?.error_code).toBe("INVALID_REQUEST");
   });
 
+  it("maps Gate 2b extraction signals", () => {
+    expect(classifyPersistenceSqlError(new Error("batch_hash_conflict"))?.error_code).toBe("INVALID_REQUEST");
+    expect(classifyPersistenceSqlError(new Error("batch_hive_mismatch"))?.error_code).toBe("ACCESS_DENIED");
+    expect(classifyPersistenceSqlError(new Error("prompt_digest_collision"))).toMatchObject({
+      error_code: "EXTRACTION_FAILED",
+      retryable: false,
+    });
+  });
+
+  it("maps connection-level failures to retryable DB_TRANSIENT", () => {
+    for (const message of ["TypeError: fetch failed", "read ECONNRESET", "deadlock detected"]) {
+      expect(classifyPersistenceSqlError(new Error(message))).toMatchObject({
+        error_code: "DB_TRANSIENT",
+        retryable: true,
+      });
+    }
+  });
+
   it("returns null for unknown errors", () => {
     expect(classifyPersistenceSqlError(new Error("something else"))).toBeNull();
   });

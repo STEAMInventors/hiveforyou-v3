@@ -383,6 +383,17 @@ Keys:
 - **Oversized payloads:** `extraction_json` cap ~1 MiB (`octet_length(extraction_json::text)`; exact value implementation-time, consistent with Plan Rev 2 A4 tiers). If exceeded: **no truncation, no silent Storage spill**; batch row inserted with `status = FAILED`, `extraction_json = NULL`, `extraction_sha256`, `extraction_byte_length`, and error `EXTRACTION_FAILED` / `reason: payload_too_large` (until the **[PROPOSED CODE]** `PAYLOAD_TOO_LARGE` ADR is approved). Prevention: the planner sizes `output_reserve` and Mode B windows so expected output fits; a recurring oversize is a pack/window configuration defect.
 - **Retention:** failed-run batches are private artifacts under OD-06; duration remains database design §6.5.
 
+### 10.4 Implementation amendments (P2.2-PX.I working tree, 2026-10-24 — SQL authored, not applied)
+
+Authored in `supabase/migrations/20261024120000_hive3_p2px_gate2b_pack_extraction.sql`; each item needs review with the SQL authorization.
+
+- **Added `extraction_batches` columns:** `is_partial` (Mode B window flag), `accepted_facts_json jsonb` (validator's accepted-fact projection, so readers never re-filter raw candidate JSON), `classification_status`, `primary_document_type_id`, `reused_from_batch_id` (same-Hive reuse writes a per-run copy row pointing at the origin batch, so every run lists every document; usage columns are NULL on copies).
+- **Owner read RPC:** `hive3_p2px_owner_list_extraction_batches(p_study_run_id)` (SECURITY DEFINER, `authenticated`, owner + not-archived check, contract `pack-extraction-owner-view@1`). Returns per-batch metadata, counts, distinct rejection reason codes and `accepted_facts_json` — including verbatim quotes from the **owner's own** documents. It never returns `extraction_json`, `validation_json` paths, prompt text or usage. Tables keep forced RLS with no policies.
+- **Caps:** Worker refuses `extraction_json` above 1 MiB (`JSON.stringify` UTF-8 bytes) → `EXTRACTION_FAILED` / `payload_too_large`; SQL backstop CHECKs at 2 MiB (`extraction_json`, `accepted_facts_json`) and 512 KiB (`validation_json`).
+- **Unparseable output:** the extraction client does not expose raw completion bytes, so `extraction_sha256` is NULL and `extraction_byte_length` is the gateway message content length when known.
+- **Not in this migration:** `document_pages`, `extraction_schemas` and generic-path columns (generic path deferred). The validator checks quotes against the Reader text read in the same step.
+- **Window key:** `page_start` in the idempotency key; Mode B windows overlap by one page so consecutive windows have distinct `page_start`.
+
 ## 11. Prompt caching contract (provider-neutral)
 
 ### 11.1 Contract

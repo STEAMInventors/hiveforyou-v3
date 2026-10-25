@@ -9,9 +9,11 @@ const submitStudyProcessing = vi.fn();
 const sendStudyRunQueuedEvent = vi.fn();
 const requireAuthenticatedUser = vi.fn();
 const createServerSupabaseClient = vi.fn();
+const getStudyRunExtractionForOwner = vi.fn();
 
 vi.mock("@/lib/study-runs/repository", () => ({
   submitStudyProcessing,
+  getStudyRunExtractionForOwner,
   getStudyRunForOwner: vi.fn(),
   getStudyRunPlanningSummaryForOwner: vi.fn(),
   getHiveProcessingHandoff: vi.fn(),
@@ -148,5 +150,73 @@ describe("handleSubmitStudyProcessing Inngest handoff", () => {
     const body = await response.json();
     expect(body.error_code).toBe(ErrorCode.DEPENDENCY_UNAVAILABLE);
     expect(body.retryable).toBe(true);
+  });
+});
+
+describe("handleGetStudyRunExtraction", () => {
+  const ownerView = {
+    contract_version: "pack-extraction-owner-view@1",
+    study_run_id: studyRunId,
+    hive_id: hiveId,
+    batches: [],
+  };
+
+  beforeEach(() => {
+    getStudyRunExtractionForOwner.mockReset();
+    requireAuthenticatedUser.mockReset();
+    createServerSupabaseClient.mockReset();
+    requireAuthenticatedUser.mockResolvedValue({ ok: true, userId: "user-1" });
+    createServerSupabaseClient.mockResolvedValue({});
+  });
+
+  it("returns the persisted owner view for the owner's run", async () => {
+    getStudyRunExtractionForOwner.mockResolvedValue({ ok: true, data: ownerView });
+    const { handleGetStudyRunExtraction } = await loadStudyRunRoutes();
+    const response = await handleGetStudyRunExtraction(correlationId, hiveId, studyRunId);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(ownerView);
+    expect(getStudyRunExtractionForOwner).toHaveBeenCalledWith({}, studyRunId);
+  });
+
+  it("rejects malformed ids before any database call", async () => {
+    const { handleGetStudyRunExtraction } = await loadStudyRunRoutes();
+    const response = await handleGetStudyRunExtraction(correlationId, hiveId, "not-a-uuid");
+    expect(response.status).toBe(400);
+    expect(getStudyRunExtractionForOwner).not.toHaveBeenCalled();
+  });
+
+  it("requires sign-in", async () => {
+    requireAuthenticatedUser.mockResolvedValue({ ok: false });
+    const { handleGetStudyRunExtraction } = await loadStudyRunRoutes();
+    const response = await handleGetStudyRunExtraction(correlationId, hiveId, studyRunId);
+    expect(response.status).toBe(401);
+    expect(getStudyRunExtractionForOwner).not.toHaveBeenCalled();
+  });
+
+  it("denies a run from another Hive", async () => {
+    getStudyRunExtractionForOwner.mockResolvedValue({
+      ok: true,
+      data: { ...ownerView, hive_id: "33333333-3333-4333-8333-333333333333" },
+    });
+    const { handleGetStudyRunExtraction } = await loadStudyRunRoutes();
+    const response = await handleGetStudyRunExtraction(correlationId, hiveId, studyRunId);
+    expect(response.status).toBe(403);
+    expect((await response.json()).error_code).toBe(ErrorCode.ACCESS_DENIED);
+  });
+
+  it("passes through owner-check denial from the RPC", async () => {
+    getStudyRunExtractionForOwner.mockResolvedValue({
+      ok: false,
+      error: {
+        error_code: ErrorCode.ACCESS_DENIED,
+        category: "authorization",
+        retryable: false,
+        message_safe: "You do not have access to this Hive or run.",
+        diagnostic_detail: "access_denied",
+      },
+    });
+    const { handleGetStudyRunExtraction } = await loadStudyRunRoutes();
+    const response = await handleGetStudyRunExtraction(correlationId, hiveId, studyRunId);
+    expect(response.status).toBe(403);
   });
 });

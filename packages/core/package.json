@@ -12,7 +12,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@hiveforyou/contracts": "file:../contracts"
+    "@hiveforyou/contracts": "file:../contracts",
+    "canonicalize": "^2.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

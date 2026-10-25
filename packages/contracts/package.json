@@ -14,12 +14,16 @@
     "./domain-packs/v1": "./src/domain-packs/v1/index.ts",
     "./domain-packs/v2": "./src/domain-packs/v2/index.ts",
     "./domain-packs/v3": "./src/domain-packs/v3/index.ts",
-    "./study-runs/v1": "./src/study-runs/v1/index.ts"
+    "./study-runs/v1": "./src/study-runs/v1/index.ts",
+    "./pack-extraction/v1": "./src/pack-extraction/v1/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "typescript": "^5.6.0"
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
   }
 }

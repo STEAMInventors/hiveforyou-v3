@@ -4,6 +4,8 @@ import {
   type StudyRunTriggerV1,
 } from "@hiveforyou/contracts/study-runs/v1";
 
+import { getPublicDomainPack } from "@/lib/domain-packs/public-metadata";
+
 const TRIGGERS: StudyRunTriggerV1[] = ["generate", "reprocess", "study"];
 
 export type ParsedSubmitBody =
@@ -36,9 +38,17 @@ export function parseSubmitStudyProcessingBody(body: unknown): ParsedSubmitBody 
   if (!idempotencyKey || idempotencyKey.length > 128) {
     return { ok: false, message: "This request could not be submitted." };
   }
-  const clarification = clarificationJsonForDomainHint(
-    domainHintFromRecord(record.clarification_json),
-  );
+  const rawHint = domainHintFromRecord(record.clarification_json);
+  const clarification = clarificationJsonForDomainHint(rawHint);
+  if (submittedDomainHint(record.clarification_json) && !clarification) {
+    return { ok: false, message: "The selected Domain Pack is not valid." };
+  }
+  if (clarification?.domain_hint) {
+    const pack = getPublicDomainPack(clarification.domain_hint);
+    if (!pack?.executable) {
+      return { ok: false, message: "This Domain Pack is not available for analysis yet." };
+    }
+  }
   return {
     ok: true,
     value: {
@@ -55,7 +65,15 @@ function domainHintFromRecord(value: unknown): string | null {
     return null;
   }
   const hint = (value as Record<string, unknown>).domain_hint;
-  return typeof hint === "string" ? hint : null;
+  return typeof hint === "string" ? hint.trim() : null;
+}
+
+function submittedDomainHint(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const hint = (value as Record<string, unknown>).domain_hint;
+  return hint != null && hint !== "";
 }
 
 export function parseStudyRunIdParam(value: string): string | null {

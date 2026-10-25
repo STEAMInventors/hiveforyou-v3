@@ -1,7 +1,7 @@
 ﻿# Active ticket
 
 **Phase / Ticket:** **P2.2-PX.I — Selected-Domain-Pack extraction (implementation)**
-**Status:** **ACTIVE — design approved (commit `e3482d6`); implementation not started in repo** (2026-10-24). No migrations, gateway configuration, paid model calls, deploys or pushes without separate authorization. Generic / no-Pack extraction **DEFERRED** (existing P2.2 path unchanged; **pack-free grocery release gate remains mandatory**).
+**Status:** **ACTIVE — Steps 1A, 1B, 3 and 4 CLOSED in working tree (2026-10-24); UI-to-facts pipeline (Steps 5, 6-authored, 7, 9 tier 1, plus minimal web view) IMPLEMENTED in working tree (2026-10-24)** — awaiting user verification before closure. Gate 2b SQL **authored, not applied**. Selected-Pack path is **off by default** (`WORKER_ENABLE_PACK_EXTRACTION`). No migrations, gateway configuration, paid model calls, deploys or pushes without separate authorization. Generic / no-Pack extraction **DEFERRED** (existing P2.2 path unchanged; **pack-free grocery release gate remains mandatory**).
 
 **Objective:** Implement the selected-Pack branch on the existing P1.5-processing Worker path: deterministic prompt compile and `prompt_digest`, Reader read-only source preparation, Worker-owned extraction model call, fact-level validation and disposition, Gate 2b persistence (`pack_extraction_prompts`, amended `extraction_batches`), and mocked L001 acceptance — per approved design.
 
@@ -15,20 +15,33 @@
 | **P1.5-processing** | **IMPLEMENTED (repo) — live acceptance deferred** |
 | **P1.P Gate 1 / Gate 2** | **IMPLEMENTED (repo) — live acceptance deferred**; Gate 2b SQL **not applied** |
 | **P2.2 local path** | **ACCEPTED (repo)** — generic branch left unchanged on this ticket |
+| **IEP Pack `2.1.0` additions spec (qualification)** | **COMPLETE (2026-10-24)** — `docs/design/p2.2-px/IEP-PACK-2.1.0-ADDITIONS-SPEC.md` (26 P0 + 15 P1, `@2`-only); drives draft `domain-packs/iep/2.1.0/` authoring (separate approval); **`domain-packs/iep/2.0.0/` unchanged** |
 
 **Ordered implementation scope (each step separately approved before execution):**
 
-| Step | Layer | Deliverable |
-|------|--------|-------------|
-| 1 | **`packages/contracts`** | `pack-extraction-input@1`, output, validation, ref types + validators |
-| 2 | **`packages/core`** | JCS canonicalization, digests, partition plan + completeness proof (domain-neutral) |
-| 3 | **`apps/worker`** | Prompt compiler, budget estimator, mode selection |
-| 4 | **`apps/worker`** | LiteLLM client: system content block, usage/cache fields, `WORKER_P2_EXTRACTION_LITELLM_ALIAS` (fail closed) |
-| 5 | **`apps/worker`** | Selected-Pack extract stage: call, fact-level validator, disposition; **no** changes to generic `generate_schema` / Reader extract |
-| 6 | **Supabase SQL (authorized apply only)** | Gate 2b `pack_extraction_prompts` + `extraction_batches` columns + service-role RPCs + readonly qualification |
-| 7 | **`apps/worker` persistence** | Prompt insert-if-absent, batch idempotent insert, same-Hive reuse, `pack-extraction-ref@1` artifact |
-| 8 | **Gateway (operator, P5.3)** | Alias, cache injection policy, verify and record capabilities — **UNVERIFIED in repo** |
-| 9 | **Tests / acceptance** | Tier 1 mocked tests per acceptance doc; tier 2 live L001 only with explicit paid-call authorization |
+| Step | Layer | Deliverable | State |
+|------|--------|-------------|--------|
+| 1A | **`packages/contracts`** | `pack-extraction-input@1`, output, validation, ref types + validators | **CLOSED (working tree, 2026-10-24)** — see evidence below |
+| 1B | **`packages/core`** | Fact catalog enumeration, JCS canonicalization, `pack_canonical_digest` / `catalog_digest` / `catalog_body_digest` / `output_schema_digest` (domain-neutral; partition planning deferred) | **CLOSED (working tree, 2026-10-24)** |
+| 3 | **`apps/worker`** | Prompt compiler, budget estimator, mode selection | **CLOSED (working tree, 2026-10-24)** — compiler + user message builder; window planning in `plan-windows.ts` (Mode A whole document, Mode B overlapping page windows; Mode C **deferred**, fails closed `context_budget_exceeded`) |
+| 4 | **`apps/worker`** | LiteLLM client: system content block, usage/cache fields, `WORKER_P2_EXTRACTION_LITELLM_ALIAS` (fail closed) | **CLOSED (working tree, 2026-10-24)** — extraction client + `extractPackDocument` / `callPackExtractionModel`; prefix caching **UNVERIFIED** |
+| 5 | **`apps/worker`** | Selected-Pack extract stage: call, fact-level validator, disposition; **no** changes to generic `generate_schema` / Reader extract | **IMPLEMENTED (working tree, 2026-10-24)** — `validate-extraction.ts`, `run-pack-extraction.ts`, branch in `process-study-run.ts` (flag + `domain_hint` names a reviewed loaded Pack; generic path unchanged) |
+| 6 | **Supabase SQL (authorized apply only)** | Gate 2b `pack_extraction_prompts` + `extraction_batches` columns + service-role RPCs + readonly qualification | **AUTHORED, NOT APPLIED** — `supabase/migrations/20261024120000_hive3_p2px_gate2b_pack_extraction.sql`, `supabase/qualification/p2px_gate2b_pack_extraction_assertions_readonly.sql`; adds owner read RPC `hive3_p2px_owner_list_extraction_batches` |
+| 7 | **`apps/worker` persistence** | Prompt insert-if-absent, batch idempotent insert, same-Hive reuse, `pack-extraction-ref@1` artifact | **IMPLEMENTED (working tree, 2026-10-24)** — `pack-extraction-persistence.ts` (≤ 3 inline `DB_TRANSIENT` attempts with read-back) |
+| 8 | **Gateway (operator, P5.3)** | Alias, cache injection policy, verify and record capabilities — **UNVERIFIED in repo** | Not started |
+| 9 | **Tests / acceptance** | Tier 1 mocked tests per acceptance doc; tier 2 live L001 only with explicit paid-call authorization | **Tier 1 IMPLEMENTED (mocked, 2026-10-24)** — see acceptance doc run record; tier 2 **BLOCKED** |
+| UI | **`apps/web`** | Minimal per-document view: type, facts, page citations, validation status | **IMPLEMENTED (working tree, 2026-10-24)** — `GET .../study-runs/[studyRunId]/extraction`, `ExtractedFactsPanel.tsx` (labelled unverified) |
+
+**Step 1A closure evidence (2026-10-24, local):**
+
+| Check | Result |
+|-------|--------|
+| Export surface | `@hiveforyou/contracts/pack-extraction/v1` in `packages/contracts/package.json` |
+| Artifacts | `packages/contracts/src/pack-extraction/v1/*`, `packages/contracts/schemas/pack-extraction-output.v1.json` |
+| Schema / parser parity | `pack-extraction.test.ts` — `PACK_EXTRACTION_OUTPUT_JSON_SCHEMA` deep-equals checked-in JSON (**15/15** vitest pass) |
+| Lockfile scope | `package-lock.json` adds **dev-only** `@types/node` + `vitest` (+ transitive); **no runtime dependencies** |
+| Typecheck | `npm run typecheck` in `packages/contracts` — exit 0 |
+| Digest conventions | `pack_digest` = raw-byte SHA-256 hex; ref optional fields use `sha256:<hex>` per `ref.ts` / `common.ts` |
 
 **Acceptance (repo closure — not live product):** Tier 1 rows in `docs/acceptance/P2.2-PX-pack-extraction-L001.md` pass with mocked LiteLLM/RPC; no `generate_schema` / Reader extract on selected-Pack path; eight L001 fixtures covered; idempotent replay; existing integrated-release gates (Gate 1, Gate 2, P1.5-processing live) **unchanged** and **not** satisfied by unit tests alone.
 

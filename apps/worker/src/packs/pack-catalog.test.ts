@@ -18,6 +18,17 @@ describe("loadDomainPacksFromRoot", () => {
     );
   });
 
+  it("does not promote draft iep 2.1.0 when unpinned and reviewedOnly", () => {
+    const result = loadDomainPacksFromRoot(packsRoot, { reviewedOnly: true });
+    const iep = result.packs.find((entry) => entry.manifest.pack_id === "iep");
+    expect(iep?.manifest.pack_version).toBe("2.0.0");
+    expect(
+      result.diagnostics.some(
+        (entry) => entry.code === "PACK_NOT_REVIEWED" && entry.pack_version === "2.1.0",
+      ),
+    ).toBe(true);
+  });
+
   it("throws for corrupt required pack directory", () => {
     expect(() =>
       loadDomainPacksOrThrow(packsRoot, {

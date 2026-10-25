@@ -52,4 +52,26 @@ describe("resolvePackCatalog", () => {
     const manifest = normalizeDomainPackManifest(parsePackManifest(JSON.parse(bytes)));
     expect(() => assertValidPackRelationships(manifest)).not.toThrow();
   });
+
+  it("ignores draft iep 2.1.0 for unpinned reviewed catalog selection", () => {
+    const iep200Bytes = readFileSync(
+      join(repoRoot, "domain-packs/iep/2.0.0/manifest.json"),
+      "utf8",
+    );
+    const iep210Bytes = readFileSync(
+      join(repoRoot, "domain-packs/iep/2.1.0/manifest.json"),
+      "utf8",
+    );
+    const { packs, diagnostics } = resolvePackCatalog(
+      [
+        { manifestPath: join(repoRoot, "domain-packs/iep/2.0.0/manifest.json"), bytes: iep200Bytes },
+        { manifestPath: join(repoRoot, "domain-packs/iep/2.1.0/manifest.json"), bytes: iep210Bytes },
+      ],
+      { reviewedOnly: true },
+    );
+    expect(diagnostics.some((entry) => entry.code === "PACK_NOT_REVIEWED")).toBe(true);
+    expect(packs.find((entry) => entry.manifest.pack_id === "iep")?.manifest.pack_version).toBe(
+      "2.0.0",
+    );
+  });
 });

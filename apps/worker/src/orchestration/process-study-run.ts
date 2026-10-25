@@ -34,8 +34,27 @@ import {
   putStudyQuestionCoverageArtifact,
   putStudyQuestionSetArtifact,
 } from "../persistence/planning-artifacts.js";
+import {
+  compilePackSystemPrompt,
+  PackPromptCompileError,
+  readPackExtractionBudget,
+  resolvePackExtractionRoute,
+  runPackExtractionForSources,
+  type SelectedPack,
+} from "../pack-extraction/index.js";
+import {
+  PackExtractionPersistenceError,
+  putPackExtractionPrompt,
+  putPackExtractionRefArtifact,
+} from "../persistence/pack-extraction-persistence.js";
+import type { WorkerRegisteredSourceRowV1 } from "../persistence/p15-worker-context.js";
 import { createLiteLlmReasoningClient } from "../reasoning/litellm-client.js";
-import { createReaderClient, ReaderClientError } from "../reader/reader-client.js";
+import { createLiteLlmExtractionClient } from "../reasoning/litellm-extraction-client.js";
+import {
+  createReaderClient,
+  ReaderClientError,
+  type ReaderClient,
+} from "../reader/reader-client.js";
 
 export class ProcessStudyRunError extends Error {
   readonly diagnostics?: Record<string, string | number | boolean | null>;
@@ -97,6 +116,227 @@ async function markPermanentFailure(
     }
     throw error;
   }
+}
+
+type DocumentPlanSummary = {
+  source_document_id: string;
+  document_type_id: string | null;
+  domain_id: string | null;
+  pack_id: string | null;
+  candidate_field_count: number;
+};
+
+type SafeFailure = {
+  errorCode: string;
+  messageSafe: string;
+  retryable: boolean;
+  diagnostics?: Record<string, string | number | boolean | null>;
+};
+
+async function failRun(
+  persistence: StudyRunPersistenceClient,
+  studyRunId: string,
+  stage: (typeof StudyRunStage)[keyof typeof StudyRunStage],
+  failure: SafeFailure,
+): Promise<never> {
+  if (!failure.retryable) {
+    await markPermanentFailure(persistence, studyRunId, failure.errorCode, failure.messageSafe, stage);
+  }
+  throw new ProcessStudyRunError(
+    failure.messageSafe,
+    failure.retryable,
+    failure.errorCode,
+    failure.messageSafe,
+    failure.diagnostics ? pickSafePlanningDiagnostics(failure.diagnostics) : undefined,
+  );
+}
+
+function safeFailureFrom(error: unknown): SafeFailure | null {
+  if (error instanceof PlanningError) {
+    return {
+      errorCode: error.errorCode,
+      messageSafe: error.message,
+      retryable: error.retryable,
+      diagnostics: error.diagnostics,
+    };
+  }
+  if (error instanceof PackExtractionPersistenceError) {
+    return {
+      errorCode: error.errorCode,
+      messageSafe: error.message,
+      retryable: error.retryable,
+      diagnostics: { reason: error.reason },
+    };
+  }
+  if (error instanceof ReaderClientError) {
+    return { errorCode: error.errorCode, messageSafe: error.message, retryable: error.retryable };
+  }
+  return null;
+}
+
+/** Selected-Pack branch (P2.2-PX.I): plan_schema = compile + prompt store; extract = call + validate + persist. */
+async function runSelectedPackExtraction(
+  persistence: StudyRunPersistenceClient,
+  input: {
+    studyRunId: string;
+    correlationId: string;
+    ownerUserId: string;
+    sources: WorkerRegisteredSourceRowV1[];
+    selected: SelectedPack;
+    reader: ReaderClient;
+  },
+): Promise<DocumentPlanSummary[]> {
+  const { studyRunId, selected } = input;
+
+  await workerTransitionStudyRun(persistence, {
+    studyRunId,
+    status: StudyRunStatus.RUNNING,
+    stage: StudyRunStage.PLAN_SCHEMA,
+    packVersion: selected.manifest.pack_version,
+  });
+
+  let compiled;
+  try {
+    compiled = compilePackSystemPrompt(selected.manifest, { manifestBytes: selected.manifestBytes });
+  } catch (error) {
+    if (error instanceof PackPromptCompileError) {
+      const catalogIncomplete = error.issues.some((issue) => issue.code === "CATALOG_INCOMPLETE");
+      return failRun(persistence, studyRunId, StudyRunStage.PLAN_SCHEMA, {
+        errorCode: ErrorCode.EXTRACTION_FAILED,
+        messageSafe: "The Domain Pack could not be prepared for extraction.",
+        retryable: false,
+        diagnostics: { reason: catalogIncomplete ? "catalog_incomplete" : "prompt_compile_failed" },
+      });
+    }
+    throw error;
+  }
+
+  let extraction;
+  try {
+    extraction = createLiteLlmExtractionClient();
+  } catch (error) {
+    const failure = safeFailureFrom(error);
+    if (failure) {
+      return failRun(persistence, studyRunId, StudyRunStage.PLAN_SCHEMA, failure);
+    }
+    throw error;
+  }
+  const modelAlias = process.env.WORKER_P2_EXTRACTION_LITELLM_ALIAS?.trim() ?? "";
+
+  try {
+    await putPackExtractionPrompt(persistence, { compiled, studyRunId });
+    await putPackExtractionRefArtifact(persistence, { studyRunId, compiled });
+  } catch (error) {
+    const failure = safeFailureFrom(error);
+    if (failure) {
+      return failRun(persistence, studyRunId, StudyRunStage.PLAN_SCHEMA, failure);
+    }
+    throw error;
+  }
+
+  await workerTransitionStudyRun(persistence, {
+    studyRunId,
+    status: StudyRunStatus.RUNNING,
+    stage: StudyRunStage.EXTRACT,
+    modelAlias,
+  });
+
+  let result;
+  try {
+    result = await runPackExtractionForSources({
+      persistence,
+      reader: input.reader,
+      extraction,
+      compiled,
+      documentTypeIds: new Set(selected.manifest.document_types.map((type) => type.document_type_id)),
+      domainId: selected.domainId,
+      modelAlias,
+      budget: readPackExtractionBudget(),
+      studyRunId,
+      correlationId: input.correlationId,
+      ownerUserId: input.ownerUserId,
+      sources: input.sources,
+    });
+  } catch (error) {
+    const failure = safeFailureFrom(error);
+    if (failure) {
+      return failRun(persistence, studyRunId, StudyRunStage.EXTRACT, failure);
+    }
+    throw error;
+  }
+
+  if (result.unusableDocumentCount > 0) {
+    return failRun(persistence, studyRunId, StudyRunStage.EXTRACT, {
+      errorCode: ErrorCode.EXTRACTION_FAILED,
+      messageSafe: `${result.unusableDocumentCount} of ${result.documents.length} documents could not be extracted.`,
+      retryable: false,
+      diagnostics: { reason: "documents_unusable" },
+    });
+  }
+
+  return result.documents.map((doc) => ({
+    source_document_id: doc.source_document_id,
+    document_type_id: doc.document_type_id,
+    domain_id: doc.domain_id,
+    pack_id: doc.pack_id,
+    candidate_field_count: doc.candidate_field_count,
+  }));
+}
+
+async function finalizeProcessing(
+  persistence: StudyRunPersistenceClient,
+  input: {
+    studyRunId: string;
+    correlationId: string;
+    planSummaries: DocumentPlanSummary[];
+    frozenQuestionSet: Awaited<ReturnType<typeof buildStudyQuestionSet>> | null;
+    iepV3Candidate: ReturnType<typeof loadIepV3CandidateIfPinned>;
+  },
+): Promise<WorkerProcessStudyRunResponseV1> {
+  const { studyRunId, correlationId, planSummaries, frozenQuestionSet, iepV3Candidate } = input;
+  await putArtifactIdempotent(persistence, {
+    studyRunId,
+    artifactKind: P15_PROCESSING_RUN_SUMMARY_KIND,
+    payload: {
+      document_count: planSummaries.length,
+      documents: planSummaries,
+    },
+  });
+
+  if (frozenQuestionSet) {
+    const compiled = compileStudyPlanAndCoverage({
+      questionSet: frozenQuestionSet,
+      pack: iepV3Candidate?.manifest ?? null,
+      classifiedDocuments: planSummaries.map((row) => ({
+        source_document_id: row.source_document_id,
+        document_type_id: row.document_type_id,
+      })),
+    });
+    await putStudyPlanArtifact(persistence, {
+      studyRunId,
+      payload: compiled.plan,
+      correlationId,
+    });
+    await putStudyQuestionCoverageArtifact(persistence, {
+      studyRunId,
+      payload: compiled.coverage,
+      correlationId,
+    });
+  }
+
+  const finished = await workerTransitionStudyRun(persistence, {
+    studyRunId,
+    status: StudyRunStatus.SUCCEEDED,
+    stage: StudyRunStage.FINALIZE,
+  });
+
+  return {
+    contract_version: "worker-process-study-run@1",
+    study_run_id: studyRunId,
+    status: finished.status,
+    stage: finished.stage,
+    idempotent_replay: false,
+  };
 }
 
 export async function processStudyRun(
@@ -232,19 +472,46 @@ export async function processStudyRun(
     payload: sourceSetPayload,
   });
 
+  let selectedPack: SelectedPack | null;
+  try {
+    const route = resolvePackExtractionRoute({
+      packs,
+      domainHint: domainHintFromClarification(context.intentClarificationJson),
+    });
+    selectedPack = route.kind === "selected_pack" ? route.pack : null;
+  } catch (error) {
+    const failure = safeFailureFrom(error);
+    if (failure) {
+      return failRun(persistence, studyRunId, StudyRunStage.PLAN_SCHEMA, failure);
+    }
+    throw error;
+  }
+
+  if (selectedPack) {
+    const planSummaries = await runSelectedPackExtraction(persistence, {
+      studyRunId,
+      correlationId,
+      ownerUserId: context.ownerUserId,
+      sources: sourceRows,
+      selected: selectedPack,
+      reader,
+    });
+    return finalizeProcessing(persistence, {
+      studyRunId,
+      correlationId,
+      planSummaries,
+      frozenQuestionSet: questionPlanningEnabled ? frozenQuestionSet : null,
+      iepV3Candidate,
+    });
+  }
+
   await workerTransitionStudyRun(persistence, {
     studyRunId,
     status: StudyRunStatus.RUNNING,
     stage: StudyRunStage.PLAN_SCHEMA,
   });
 
-  const planSummaries: Array<{
-    source_document_id: string;
-    document_type_id: string | null;
-    domain_id: string | null;
-    pack_id: string | null;
-    candidate_field_count: number;
-  }> = [];
+  const planSummaries: DocumentPlanSummary[] = [];
 
   for (const row of sourceRows) {
     const source = toReaderSource(row, context.ownerUserId);
@@ -392,47 +659,11 @@ export async function processStudyRun(
     });
   }
 
-  await putArtifactIdempotent(persistence, {
+  return finalizeProcessing(persistence, {
     studyRunId,
-    artifactKind: P15_PROCESSING_RUN_SUMMARY_KIND,
-    payload: {
-      document_count: planSummaries.length,
-      documents: planSummaries,
-    },
+    correlationId,
+    planSummaries,
+    frozenQuestionSet: questionPlanningEnabled ? frozenQuestionSet : null,
+    iepV3Candidate,
   });
-
-  if (questionPlanningEnabled && frozenQuestionSet) {
-    const compiled = compileStudyPlanAndCoverage({
-      questionSet: frozenQuestionSet,
-      pack: iepV3Candidate?.manifest ?? null,
-      classifiedDocuments: planSummaries.map((row) => ({
-        source_document_id: row.source_document_id,
-        document_type_id: row.document_type_id,
-      })),
-    });
-    await putStudyPlanArtifact(persistence, {
-      studyRunId,
-      payload: compiled.plan,
-      correlationId,
-    });
-    await putStudyQuestionCoverageArtifact(persistence, {
-      studyRunId,
-      payload: compiled.coverage,
-      correlationId,
-    });
-  }
-
-  const finished = await workerTransitionStudyRun(persistence, {
-    studyRunId,
-    status: StudyRunStatus.SUCCEEDED,
-    stage: StudyRunStage.FINALIZE,
-  });
-
-  return {
-    contract_version: "worker-process-study-run@1",
-    study_run_id: studyRunId,
-    status: finished.status,
-    stage: finished.stage,
-    idempotent_replay: false,
-  };
 }

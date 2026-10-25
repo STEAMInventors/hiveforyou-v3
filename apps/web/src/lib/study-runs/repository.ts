@@ -7,6 +7,11 @@ import {
   type SubmitStudyProcessingResponseV1,
   type GetIntentResponseV1,
 } from "@hiveforyou/contracts/study-runs/v1";
+import { ErrorCategory, ErrorCode } from "@hiveforyou/contracts/errors/v1";
+import {
+  parsePackExtractionOwnerViewV1,
+  type PackExtractionOwnerViewV1,
+} from "@hiveforyou/contracts/pack-extraction/v1";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { mapSupabaseRpcError } from "@/lib/server/supabase-errors";
@@ -70,6 +75,35 @@ export async function getStudyRunPlanningSummaryForOwner(
     return { ok: false, error: mapSupabaseRpcError(error.message) };
   }
   return { ok: true, data: data as StudyRunPlanningSummarySafeV1 };
+}
+
+export async function getStudyRunExtractionForOwner(
+  supabase: SupabaseClient,
+  studyRunId: string,
+): Promise<
+  | { ok: true; data: PackExtractionOwnerViewV1 }
+  | { ok: false; error: ReturnType<typeof mapSupabaseRpcError> }
+> {
+  const { data, error } = await supabase.rpc("hive3_p2px_owner_list_extraction_batches", {
+    p_study_run_id: studyRunId,
+  });
+  if (error) {
+    return { ok: false, error: mapSupabaseRpcError(error.message) };
+  }
+  const parsed = parsePackExtractionOwnerViewV1(data);
+  if (!parsed.ok) {
+    return {
+      ok: false,
+      error: {
+        error_code: ErrorCode.DEPENDENCY_UNAVAILABLE,
+        category: ErrorCategory.DEPENDENCY,
+        retryable: false,
+        message_safe: "Extracted facts could not be loaded.",
+        diagnostic_detail: "owner_view_malformed",
+      },
+    };
+  }
+  return { ok: true, data: parsed.value };
 }
 
 export async function getHiveProcessingHandoff(
