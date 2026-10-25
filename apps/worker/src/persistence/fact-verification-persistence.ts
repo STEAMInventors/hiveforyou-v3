@@ -1,5 +1,8 @@
 import { ErrorCode, type ErrorCodeType } from "@hiveforyou/contracts/errors/v1";
-import type { EvidenceVerificationDispositionV1 } from "@hiveforyou/contracts/evidence-verification/v1";
+import {
+  EVIDENCE_VERIFICATION_REASON_CODES,
+  type EvidenceVerificationDispositionV1,
+} from "@hiveforyou/contracts/evidence-verification/v1";
 import type { PackExtractionFactStatusV1 } from "@hiveforyou/contracts/pack-extraction/v1";
 
 import type { AcceptedPackFactV1 } from "../pack-extraction/validate-extraction.js";
@@ -38,6 +41,47 @@ export type FactVerificationEvidenceInsertV1 = {
   exact_quote: string | null;
   document_page_id: string | null;
 };
+
+/** Matches `hive3.facts.facts_verification_reason_safe` (Gate 2c). */
+export const GATE2C_VERIFICATION_REASON_CODE_RE = /^[a-z0-9_]{1,64}$/;
+
+export function normalizeGate2cVerificationReasonCode(
+  disposition: EvidenceVerificationDispositionV1,
+  reasonCode: string | null,
+): string | null {
+  if (disposition === "VERIFIED") {
+    return null;
+  }
+  const trimmed = reasonCode?.trim() ?? "";
+  if (!trimmed) {
+    throw new FactVerificationPersistenceError(
+      ErrorCode.INVALID_REQUEST,
+      "verification_reason_required",
+      "This verification result could not be saved.",
+      false,
+    );
+  }
+  const normalized = trimmed.toLowerCase();
+  if (!GATE2C_VERIFICATION_REASON_CODE_RE.test(normalized)) {
+    throw new FactVerificationPersistenceError(
+      ErrorCode.INVALID_REQUEST,
+      "verification_reason_invalid",
+      "This verification result could not be saved.",
+      false,
+    );
+  }
+  return normalized;
+}
+
+/** Ensures contract reason codes fit Gate 2c SQL (documents uppercase contract vs lowercase DB). */
+export function assertEvidenceReasonCodesFitGate2c(): void {
+  for (const code of EVIDENCE_VERIFICATION_REASON_CODES) {
+    const normalized = code.toLowerCase();
+    if (!GATE2C_VERIFICATION_REASON_CODE_RE.test(normalized)) {
+      throw new Error(`evidence reason code does not fit Gate 2c: ${code}`);
+    }
+  }
+}
 
 export type FactVerificationInsertV1 = {
   origin_batch_id: string;
@@ -193,6 +237,10 @@ export async function putFactVerification(
   studyRunId: string,
   fact: FactVerificationInsertV1,
 ): Promise<{ inserted: boolean; factId: string }> {
+  const verificationReasonCode = normalizeGate2cVerificationReasonCode(
+    fact.verification_disposition,
+    fact.verification_reason_code,
+  );
   const data = (await withTransientRetry("putFactVerification", () =>
     callRpc(client, "putFactVerification", "hive3_p23_worker_put_fact_verification", {
       p_study_run_id: studyRunId,
@@ -214,7 +262,7 @@ export async function putFactVerification(
         read_fingerprint: fact.read_fingerprint,
         page_set_digest: fact.page_set_digest,
         verification_disposition: fact.verification_disposition,
-        verification_reason_code: fact.verification_reason_code,
+        verification_reason_code: verificationReasonCode,
         verifier_version: fact.verifier_version,
         evidence_anchors_verified: fact.evidence_anchors_verified,
         evidence: fact.evidence,

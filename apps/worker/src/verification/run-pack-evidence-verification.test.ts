@@ -187,7 +187,7 @@ describe("runPackEvidenceVerificationForRun", () => {
     expect(summary.rejected_count).toBe(1);
     expect(store.factVerificationsFor(RUN)[0]).toMatchObject({
       verification_disposition: "REJECTED",
-      verification_reason_code: "PAGES_NOT_FOUND",
+      verification_reason_code: "pages_not_found",
     });
   });
 
@@ -354,6 +354,86 @@ describe("runPackEvidenceVerificationForRun", () => {
     ).rejects.toMatchObject({ errorCode: ErrorCode.INVALID_REQUEST, retryable: false });
 
     expect(store.factVerificationsFor(RUN)).toHaveLength(1);
+  });
+
+  it("completes verify after partial fact_invalid (idempotent recovery on persisted L003-style run)", async () => {
+    const store = new FakeExtractionStore();
+    store.addRun(RUN, HIVE);
+    const { bytes: manifestBytes, manifest } = loadIep200();
+    const doc = L001_CORPUS[0]!;
+    const source = sourceRow(doc, HIVE);
+    store.registerSource(source);
+    const read = readResponse(doc, source);
+    await putDocumentPagesForSource(store.client, {
+      studyRunId: RUN,
+      correlationId: "corr-l003-recover",
+      source,
+      read,
+    });
+
+    store.batches.push({
+      id: "batch-l003-recover",
+      study_run_id: RUN,
+      hive_id: HIVE,
+      source_document_id: source.source_document_id,
+      prompt_digest: "sha256:" + "m".repeat(64),
+      page_start: 1,
+      source_sha256: source.sha256,
+      read_fingerprint: read.read_fingerprint,
+      page_set_digest: store.pagesForSource(source.source_document_id)[0]!.page_set_digest,
+      pack_id: manifest.pack_id,
+      pack_version: manifest.pack_version,
+      status: "SUCCEEDED",
+      disposition: "VALID",
+      accepted_facts_json: [
+        {
+          record_type_id: "document_header",
+          record_local_id: "r1",
+          parent_record_local_id: null,
+          segment_index: 0,
+          fact_id: "document_header.title",
+          status: "OBSERVED",
+          value: doc.pages[0]!.text.split("\n")[0]!,
+          evidence: [{ page_number: 1, exact_quote: doc.pages[0]!.text.split("\n")[0]! }],
+        },
+        {
+          record_type_id: "document_header",
+          record_local_id: "r1",
+          parent_record_local_id: null,
+          segment_index: 0,
+          fact_id: "document_header.effective_end",
+          status: "NOT_FOUND",
+          evidence: [],
+        },
+      ],
+    });
+
+    store.failPutFactVerificationAfterPersisted(1, "fact_invalid");
+
+    await expect(
+      runPackEvidenceVerificationForRun(store.client, {
+        studyRunId: RUN,
+        correlationId: "corr-l003-recover-fail",
+        selected: { manifest, manifestBytes, digest: "digest", domainId: "iep" },
+      }),
+    ).rejects.toMatchObject({ errorCode: ErrorCode.INVALID_REQUEST, reason: "fact_invalid" });
+
+    expect(store.factVerificationsFor(RUN)).toHaveLength(1);
+
+    store.clearPutFactVerificationFailure();
+
+    const summary = await runPackEvidenceVerificationForRun(store.client, {
+      studyRunId: RUN,
+      correlationId: "corr-l003-recover-retry",
+      selected: { manifest, manifestBytes, digest: "digest", domainId: "iep" },
+    });
+
+    expect(summary.candidate_count).toBe(2);
+    expect(store.factVerificationsFor(RUN)).toHaveLength(2);
+    expect(store.factVerificationsFor(RUN)[1]).toMatchObject({
+      verification_disposition: "REJECTED",
+      verification_reason_code: "status_requires_evidence",
+    });
   });
 
   it("is idempotent on duplicate verify retries (same dispositions, no duplicate rows)", async () => {

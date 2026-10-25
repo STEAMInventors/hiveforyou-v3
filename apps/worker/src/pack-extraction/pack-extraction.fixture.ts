@@ -293,6 +293,10 @@ export class FakeExtractionStore {
     this.putFactFailMessage = message;
   }
 
+  clearPutFactVerificationFailure(): void {
+    this.putFactFailAfterPersisted = null;
+  }
+
   batchesFor(studyRunId: string): StoredBatch[] {
     return this.batches.filter((batch) => batch.study_run_id === studyRunId);
   }
@@ -628,6 +632,19 @@ export class FakeExtractionStore {
         const fact = args.p_fact as Record<string, unknown>;
         const batchId = String(fact.origin_batch_id ?? "");
         const candidateKey = String(fact.candidate_key ?? "").toLowerCase();
+        const disposition = String(fact.verification_disposition ?? "");
+        const reasonRaw = fact.verification_reason_code;
+        const reasonCode =
+          reasonRaw === null || reasonRaw === undefined ? null : String(reasonRaw).trim();
+        if (disposition === "VERIFIED" && reasonCode) {
+          return { data: null, error: { message: "fact_invalid" } };
+        }
+        if (disposition !== "VERIFIED" && !reasonCode) {
+          return { data: null, error: { message: "fact_invalid" } };
+        }
+        if (reasonCode && !/^[a-z0-9_]{1,64}$/.test(reasonCode)) {
+          return { data: null, error: { message: "fact_invalid" } };
+        }
         const batch = this.batches.find((b) => b.id === batchId);
         if (!batch || batch.study_run_id !== runId) {
           return { data: null, error: { message: "batch_not_found" } };
