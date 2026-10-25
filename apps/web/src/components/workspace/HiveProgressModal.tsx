@@ -313,7 +313,10 @@ function LivingHiveDialog({
         className="relative z-[71] flex max-h-[92vh] w-full max-w-[520px] flex-col overflow-hidden rounded-[20px] bg-white shadow-[0_24px_64px_rgba(31,35,40,0.18)] outline-none sm:rounded-[24px]"
         data-testid="hive-progress-modal"
       >
-        <div className="flex flex-col gap-[22px] overflow-y-auto px-5 py-6 sm:px-9 sm:py-8 [&>*]:shrink-0">
+        <div
+          className="flex flex-col gap-[22px] overflow-y-auto px-5 py-6 [scrollbar-width:none] sm:px-9 sm:py-8 [&::-webkit-scrollbar]:hidden [&>*]:shrink-0"
+          data-testid="progress-scroll"
+        >
           <div className="flex items-center gap-2.5">
             <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#6B7280]">{hiveName ?? ""}</span>
             {reducedMotion ? (
@@ -519,7 +522,7 @@ function LivingHiveDialog({
               {docsOpen ? (
                 <ul
                   id={docsListId}
-                  className="m-0 flex max-h-[300px] list-none flex-col overflow-auto border-t border-[#EEF0F3] p-0"
+                  className="m-0 flex list-none flex-col border-t border-[#EEF0F3] p-0"
                   data-testid="progress-docs"
                 >
                   {names.map((name, index) => (
