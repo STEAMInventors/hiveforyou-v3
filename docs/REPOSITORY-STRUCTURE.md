@@ -52,7 +52,7 @@ This document describes **deployment ownership** and **architecture boundaries**
 | Error handling & recovery | `docs/ERROR-HANDLING-RECOVERY.md` | Approved P0.2 |
 | ADR-001 | `docs/adr/ADR-001-error-handling-recovery.md` | Approved (P0.2 verified) |
 | Cursor standards | `docs/CURSOR-DEVELOPMENT-STANDARDS.md` | In repo (copied 2026-10-20) |
-| Active ticket | `docs/NEXT.md` | **UX-DOC-1** live Hive progress (Step 3 implemented in repo); P2.2-PX.P paused awaiting closure |
+| Active ticket | `docs/NEXT.md` | **P2.3** independent evidence verification (Slice 1: persisted pages in repo; verifier next); **UX-DOC-1** pushed (`ea30e6f`), acceptance deferred |
 | Selected-Pack extraction design (proposed) | `docs/design/p2.2-px/PACK-EXTRACTION-PROMPT-ARCHITECTURE.md` | P2.2-PX.D; acceptance `docs/acceptance/P2.2-PX-pack-extraction-L001.md` |
 | Source inventory | `docs/PROJECT-SOURCES.md` | In repo (copied 2026-10-20) |
 | Brand (authoritative PDF) | `reference/HiveForYou brand guide.pdf` | In repo (copied from Downloads 2026-10-20) |

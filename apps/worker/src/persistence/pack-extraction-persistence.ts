@@ -55,6 +55,7 @@ export type PackExtractionBatchInsert = {
   source_document_id: string;
   source_sha256: string;
   read_fingerprint: string;
+  page_set_digest: string;
   prompt_digest: string;
   pack_id: string;
   pack_version: string;
@@ -227,6 +228,7 @@ export async function findReusablePackExtractionBatch(
     studyRunId: string;
     sourceSha256: string;
     readFingerprint: string;
+    pageSetDigest: string;
     promptDigest: string;
     modelAlias: string;
     pageStart: number;
@@ -238,6 +240,7 @@ export async function findReusablePackExtractionBatch(
       p_study_run_id: input.studyRunId,
       p_source_sha256: input.sourceSha256,
       p_read_fingerprint: input.readFingerprint,
+      p_page_set_digest: input.pageSetDigest,
       p_prompt_digest: input.promptDigest,
       p_model_alias: input.modelAlias,
       p_page_start: input.pageStart,

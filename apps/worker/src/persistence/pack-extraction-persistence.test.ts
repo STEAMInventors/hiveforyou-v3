@@ -27,6 +27,7 @@ function batch(overrides: Partial<PackExtractionBatchInsert> = {}): PackExtracti
     source_document_id: "doc-1",
     source_sha256: "a".repeat(64),
     read_fingerprint: "fp-1",
+    page_set_digest: `sha256:${"a".repeat(64)}`,
     prompt_digest: compiled.prompt_digest,
     pack_id: compiled.pack_id,
     pack_version: compiled.pack_version,

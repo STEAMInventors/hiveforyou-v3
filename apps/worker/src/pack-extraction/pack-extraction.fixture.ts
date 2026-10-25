@@ -12,6 +12,7 @@ import {
 } from "@hiveforyou/contracts/reader/v1";
 import { normalizeDomainPackManifest, parsePackManifest } from "@hiveforyou/core";
 
+import { computePageSetDigest } from "../persistence/document-pages-persistence.js";
 import type { WorkerRegisteredSourceRowV1 } from "../persistence/p15-worker-context.js";
 import type { StudyRunPersistenceClient } from "../persistence/study-run-persistence.js";
 import { L001_CORPUS, type L001CorpusDocument } from "../plan/l001-corpus.fixture.js";
@@ -73,9 +74,11 @@ export function readResponse(
 export function fakeReader(docs: L001CorpusDocument[] = L001_CORPUS) {
   const bySource = new Map(docs.map((doc) => [doc.source_document_id, doc]));
   const readDocument = async (input: { source: { source_document_id: string; hive_id: string } }) => {
-    const doc = bySource.get(input.source.source_document_id);
+    const rawId = input.source.source_document_id;
+    const baseId = rawId.includes(":") ? rawId.slice(rawId.indexOf(":") + 1) : rawId;
+    const doc = bySource.get(rawId) ?? bySource.get(baseId);
     if (!doc) throw new Error("unknown source");
-    return readResponse(doc, sourceRow(doc, input.source.hive_id));
+    return readResponse(doc, { ...sourceRow(doc, input.source.hive_id), source_document_id: rawId });
   };
   return {
     readDocument: vi.fn(readDocument),
@@ -202,6 +205,25 @@ type StoredBatch = Record<string, unknown> & {
   page_start: number;
 };
 
+export type StoredDocumentPage = {
+  id: string;
+  hive_id: string;
+  source_document_id: string;
+  first_study_run_id: string | null;
+  source_sha256: string;
+  read_fingerprint: string;
+  page_set_digest: string;
+  page_count: number;
+  page_number: number;
+  page_text: string;
+  page_text_sha256: string;
+  page_byte_length: number;
+  extraction_method: string;
+  extraction_status: "SUCCEEDED";
+  provenance_json: Record<string, unknown>;
+  created_at: string;
+};
+
 type Failure = { fn: string; message: string; remaining: number; afterCommit: boolean };
 
 /**
@@ -213,6 +235,8 @@ export class FakeExtractionStore {
   readonly runHive = new Map<string, string>();
   readonly prompts = new Map<string, Record<string, unknown>>();
   readonly batches: StoredBatch[] = [];
+  readonly documentPages = new Map<string, StoredDocumentPage[]>();
+  readonly registeredSourcesById = new Map<string, WorkerRegisteredSourceRowV1>();
   readonly artifacts = new Map<string, Record<string, unknown>>();
   readonly transitions: Array<Record<string, unknown>> = [];
   readonly calls: string[] = [];
@@ -224,6 +248,14 @@ export class FakeExtractionStore {
 
   addRun(studyRunId: string, hiveId: string): void {
     this.runHive.set(studyRunId, hiveId);
+  }
+
+  registerSource(row: WorkerRegisteredSourceRowV1): void {
+    this.registeredSourcesById.set(row.source_document_id, row);
+  }
+
+  pagesForSource(sourceDocumentId: string): StoredDocumentPage[] {
+    return this.documentPages.get(sourceDocumentId) ?? [];
   }
 
   /** Fail the next `count` calls to `fn`; `afterCommit` simulates a lost response after a write. */
@@ -379,6 +411,7 @@ export class FakeExtractionStore {
               b.study_run_id !== runId &&
               b.source_sha256 === args.p_source_sha256 &&
               b.read_fingerprint === args.p_read_fingerprint &&
+              b.page_set_digest === args.p_page_set_digest &&
               b.prompt_digest === args.p_prompt_digest &&
               b.model_alias === args.p_model_alias &&
               b.page_start === args.p_page_start &&
@@ -387,6 +420,184 @@ export class FakeExtractionStore {
               (b.disposition === "VALID" || b.disposition === "VALID_WITH_REJECTIONS"),
           );
         return { data: row ? { found: true, batch: structuredClone(row) } : { found: false }, error: null };
+      }
+      case "hive3_p23_worker_put_document_pages": {
+        const runId = String(args.p_study_run_id ?? "");
+        const runHiveId = this.runHive.get(runId);
+        if (!runHiveId) {
+          return { data: null, error: { message: "study_run_not_found" } };
+        }
+        const sourceId = String(args.p_source_document_id ?? "");
+        const registered =
+          this.registeredSourcesById.get(sourceId) ??
+          (this.sources.get(runId) ?? []).find((s) => s.source_document_id === sourceId);
+        if (registered && registered.hive_id !== runHiveId) {
+          return { data: null, error: { message: "page_hive_mismatch" } };
+        }
+        const sourceSha = String(args.p_source_sha256 ?? "").trim().toLowerCase();
+        if (!/^[0-9a-f]{64}$/.test(sourceSha)) {
+          return { data: null, error: { message: "page_source_sha256_mismatch" } };
+        }
+        if (registered && registered.sha256.trim().toLowerCase() !== sourceSha) {
+          return { data: null, error: { message: "page_source_sha256_mismatch" } };
+        }
+        const readFp = String(args.p_read_fingerprint ?? "").trim();
+        if (readFp.length === 0 || readFp.length > 128) {
+          return { data: null, error: { message: "page_read_fingerprint_invalid" } };
+        }
+        const pageSetDigest = String(args.p_page_set_digest ?? "").trim().toLowerCase();
+        if (!/^sha256:[0-9a-f]{64}$/.test(pageSetDigest)) {
+          return { data: null, error: { message: "page_set_digest_invalid" } };
+        }
+        const pageCount = Number(args.p_page_count);
+        const rawPages = args.p_pages;
+        if (!Number.isInteger(pageCount) || pageCount < 1 || !Array.isArray(rawPages) || rawPages.length !== pageCount) {
+          return { data: null, error: { message: "page_numbering_invalid" } };
+        }
+        const sortedInput = [...(rawPages as Array<Record<string, unknown>>)].sort(
+          (a, b) => Number(a.page_number) - Number(b.page_number),
+        );
+        for (let i = 0; i < sortedInput.length; i += 1) {
+          const item = sortedInput[i]!;
+          if (Number(item.page_number) !== i + 1) {
+            return { data: null, error: { message: "page_numbering_invalid" } };
+          }
+          if (typeof item.page_text !== "string") {
+            return { data: null, error: { message: "page_invalid" } };
+          }
+          const byteLen = Buffer.byteLength(item.page_text, "utf8");
+          if (byteLen > 65_536) {
+            return { data: null, error: { message: "page_payload_too_large" } };
+          }
+          const expectedSha = `sha256:${sha256Hex(item.page_text)}`;
+          if (item.page_text_sha256 !== expectedSha || Number(item.page_byte_length) !== byteLen) {
+            return { data: null, error: { message: "page_invalid" } };
+          }
+        }
+        const expectedDigest = computePageSetDigest({
+          sourceSha256: sourceSha,
+          pageCount,
+          pages: sortedInput.map((item) => ({
+            page_number: Number(item.page_number),
+            page_text_sha256: String(item.page_text_sha256),
+          })),
+        });
+        if (expectedDigest !== pageSetDigest) {
+          return { data: null, error: { message: "page_set_digest_mismatch" } };
+        }
+
+        const existingPages = this.documentPages.get(sourceId) ?? [];
+        const existingSourceHive = existingPages[0]?.hive_id;
+        if (existingSourceHive && existingSourceHive !== runHiveId) {
+          return { data: null, error: { message: "page_hive_mismatch" } };
+        }
+        const nextRows: StoredDocumentPage[] = [...existingPages];
+        let insertedCount = 0;
+        let replayedCount = 0;
+        for (const item of sortedInput) {
+          const pageNum = Number(item.page_number);
+          const found = nextRows.find(
+            (r) => r.page_set_digest === pageSetDigest && r.page_number === pageNum,
+          );
+          if (found) {
+            const matches =
+              found.hive_id === runHiveId &&
+              found.source_sha256 === sourceSha &&
+              found.read_fingerprint === readFp &&
+              found.page_set_digest === pageSetDigest &&
+              found.page_count === pageCount &&
+              found.page_text_sha256 === item.page_text_sha256 &&
+              found.page_byte_length === Number(item.page_byte_length) &&
+              found.page_text === item.page_text &&
+              found.extraction_method === item.extraction_method;
+            if (!matches) {
+              return { data: null, error: { message: "page_hash_conflict" } };
+            }
+            replayedCount += 1;
+          } else {
+            nextRows.push({
+              id: `page-${this.nextId++}`,
+              hive_id: runHiveId,
+              source_document_id: sourceId,
+              first_study_run_id: runId,
+              source_sha256: sourceSha,
+              read_fingerprint: readFp,
+              page_set_digest: pageSetDigest,
+              page_count: pageCount,
+              page_number: pageNum,
+              page_text: String(item.page_text),
+              page_text_sha256: String(item.page_text_sha256),
+              page_byte_length: Number(item.page_byte_length),
+              extraction_method: String(item.extraction_method),
+              extraction_status: "SUCCEEDED",
+              provenance_json: structuredClone((item.provenance_json ?? {}) as Record<string, unknown>),
+              created_at: "2026-10-25T00:00:00.000Z",
+            });
+            insertedCount += 1;
+          }
+        }
+        this.documentPages.set(sourceId, nextRows);
+        return {
+          data: {
+            source_document_id: sourceId,
+            hive_id: runHiveId,
+            source_sha256: sourceSha,
+            read_fingerprint: readFp,
+            page_set_digest: pageSetDigest,
+            page_count: pageCount,
+            inserted_count: insertedCount,
+            replayed_count: replayedCount,
+          },
+          error: null,
+        };
+      }
+      case "hive3_p23_worker_list_document_pages": {
+        const runId = String(args.p_study_run_id ?? "");
+        const runHiveId = this.runHive.get(runId);
+        if (!runHiveId) {
+          return { data: null, error: { message: "study_run_not_found" } };
+        }
+        const sourceId = String(args.p_source_document_id ?? "");
+        const registered =
+          this.registeredSourcesById.get(sourceId) ??
+          (this.sources.get(runId) ?? []).find((s) => s.source_document_id === sourceId);
+        if (registered && registered.hive_id !== runHiveId) {
+          return { data: null, error: { message: "page_hive_mismatch" } };
+        }
+        const readFp = String(args.p_read_fingerprint ?? "").trim();
+        if (readFp.length === 0 || readFp.length > 128) {
+          return { data: null, error: { message: "page_read_fingerprint_invalid" } };
+        }
+        const pageSetDigest = String(args.p_page_set_digest ?? "").trim().toLowerCase();
+        if (!/^sha256:[0-9a-f]{64}$/.test(pageSetDigest)) {
+          return { data: null, error: { message: "page_set_digest_invalid" } };
+        }
+        const pages = (this.documentPages.get(sourceId) ?? []).filter(
+          (p) =>
+            p.hive_id === runHiveId &&
+            p.read_fingerprint === readFp &&
+            p.page_set_digest === pageSetDigest,
+        );
+        pages.sort((a, b) => a.page_number - b.page_number);
+        if (pages.length > 0 && pages.length !== pages[0]!.page_count) {
+          return { data: null, error: { message: "page_generation_incomplete" } };
+        }
+        const sourceSha =
+          registered?.sha256.trim().toLowerCase() ??
+          pages[0]?.source_sha256 ??
+          sha256Hex(sourceId);
+        return {
+          data: {
+            found: pages.length > 0,
+            source_document_id: sourceId,
+            hive_id: runHiveId,
+            source_sha256: sourceSha,
+            read_fingerprint: readFp,
+            page_set_digest: pageSetDigest,
+            pages: structuredClone(pages),
+          },
+          error: null,
+        };
       }
       default:
         return { data: null, error: { message: `unexpected rpc ${fn}` } };

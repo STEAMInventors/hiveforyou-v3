@@ -31,6 +31,33 @@ describe("classifyPersistenceSqlError", () => {
     });
   });
 
+  it("maps P2.3 document_pages persistence signals", () => {
+    expect(classifyPersistenceSqlError(new Error("page_hive_mismatch"))).toMatchObject({
+      error_code: "ACCESS_DENIED",
+      retryable: false,
+    });
+    expect(classifyPersistenceSqlError(new Error("page_source_sha256_mismatch"))).toMatchObject({
+      error_code: "INVALID_REQUEST",
+      retryable: false,
+    });
+    expect(classifyPersistenceSqlError(new Error("page_numbering_invalid"))).toMatchObject({
+      error_code: "INVALID_REQUEST",
+      retryable: false,
+    });
+    expect(classifyPersistenceSqlError(new Error("page_hash_conflict"))).toMatchObject({
+      error_code: "INVALID_REQUEST",
+      retryable: false,
+    });
+    expect(classifyPersistenceSqlError(new Error("page_payload_too_large"))).toMatchObject({
+      error_code: "EXTRACTION_FAILED",
+      retryable: false,
+    });
+    expect(classifyPersistenceSqlError(new Error("document_not_found"))).toMatchObject({
+      error_code: "NOT_FOUND",
+      retryable: false,
+    });
+  });
+
   it("maps connection-level failures to retryable DB_TRANSIENT", () => {
     for (const message of ["TypeError: fetch failed", "read ECONNRESET", "deadlock detected"]) {
       expect(classifyPersistenceSqlError(new Error(message))).toMatchObject({

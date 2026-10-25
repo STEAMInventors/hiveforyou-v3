@@ -128,6 +128,72 @@ const SQL_SIGNAL_TO_BOUNDARY: Record<string, PersistenceBoundaryError> = {
     retryable: false,
     message_safe: "The extraction prompt could not be saved.",
   },
+  document_not_found: {
+    error_code: "NOT_FOUND",
+    category: ErrorCategory.NOT_FOUND,
+    retryable: false,
+    message_safe: "The source document was not found.",
+  },
+  page_hive_mismatch: {
+    error_code: "ACCESS_DENIED",
+    category: ErrorCategory.AUTHORIZATION,
+    retryable: false,
+    message_safe: "This document does not belong to the Hive.",
+  },
+  page_source_sha256_mismatch: {
+    error_code: "INVALID_REQUEST",
+    category: ErrorCategory.VALIDATION,
+    retryable: false,
+    message_safe: "The document content hash did not match the registered source.",
+  },
+  page_read_fingerprint_invalid: {
+    error_code: "INVALID_REQUEST",
+    category: ErrorCategory.VALIDATION,
+    retryable: false,
+    message_safe: "The document read fingerprint is invalid.",
+  },
+  page_numbering_invalid: {
+    error_code: "INVALID_REQUEST",
+    category: ErrorCategory.VALIDATION,
+    retryable: false,
+    message_safe: "The document page numbering is invalid.",
+  },
+  page_payload_too_large: {
+    error_code: "EXTRACTION_FAILED",
+    category: ErrorCategory.PROCESSING,
+    retryable: false,
+    message_safe: "A document page exceeds the maximum supported text size.",
+  },
+  page_hash_conflict: {
+    error_code: "INVALID_REQUEST",
+    category: ErrorCategory.VALIDATION,
+    retryable: false,
+    message_safe: "This document page conflicts with one already saved.",
+  },
+  page_set_digest_invalid: {
+    error_code: "INVALID_REQUEST",
+    category: ErrorCategory.VALIDATION,
+    retryable: false,
+    message_safe: "The document page generation digest is invalid.",
+  },
+  page_set_digest_mismatch: {
+    error_code: "INVALID_REQUEST",
+    category: ErrorCategory.VALIDATION,
+    retryable: false,
+    message_safe: "The document page generation digest is invalid.",
+  },
+  page_generation_incomplete: {
+    error_code: "EXTRACTION_FAILED",
+    category: ErrorCategory.PROCESSING,
+    retryable: false,
+    message_safe: "Persisted document pages are incomplete for this generation.",
+  },
+  page_invalid: {
+    error_code: "INVALID_REQUEST",
+    category: ErrorCategory.VALIDATION,
+    retryable: false,
+    message_safe: "This document page could not be saved.",
+  },
 };
 
 const TRANSIENT_SIGNALS = [

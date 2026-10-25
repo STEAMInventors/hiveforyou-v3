@@ -1,7 +1,49 @@
 ﻿# Active ticket
 
+**Phase / Ticket:** **P2.3 — Independent Evidence Verification**
+**Status:** **ACTIVE (2026-10-25)** — sole development ticket. **Slice 1 (persisted source pages) IMPLEMENTED (repo)** — migration `20261025150000` + qualification script; Worker persists pages after **`readDocument`** on the selected-Pack path. SQL **applied** in live target env (operator-reported); Worker deploy **not** updated by this commit. Orchestration still skips **`verify`**; Gate **2c** `facts` and independent verifier **not** in repo; pack **`accepted_facts_json`** remains unverified. **Does not** implement Canonical Study merge (**P1.P Gate 3** / P3).
+
+**Objective:** Promote independently verified selected-Pack extraction candidates into trusted observations (`facts` + `fact_evidence`) using **persisted** page text and source identity checks — not extract-time in-memory Reader text or Reader `quote_verified`.
+
+**Implementation slices:**
+
+| Step | Layer | Deliverable | State |
+|------|--------|-------------|--------|
+| 1 | Supabase SQL (Gate 2b remainder) | `hive3.document_pages` — page text + provenance (plan T2, ≤64 KiB/page); Worker **service_role** upsert RPCs; readonly qualification | **Done (repo; SQL applied live)** |
+| 2 | Worker | Persist pages after successful **`readDocument`** on selected-Pack path; fail closed on oversize / persistence errors per existing envelope taxonomy | **Done (repo)** |
+| 3 | Worker + Core | Domain-neutral verifier: reuse **`normalizeQuoteText`** / anchor rules; load pages **from PostgreSQL**; dispositions **`VERIFIED` / `REJECTED` / `UNRESOLVED`**; stable reason codes | Next |
+| 4 | Contracts | `evidence-verification@1` (or equivalent) — verifier version, dispositions; no page text in owner projections | Next |
+| 5 | Tests | Tier 1 mocked pages — independence from extract `pageText`; negatives (hash mismatch, missing page row, hive scope) | Next |
+
+**Verification rules (binding for implementation):** Domain-neutral only; model proposes, code validates. **`NOT_FOUND`** and **`NOT_APPLICABLE`** do **not** become verified source observations without evidence supporting that classification. Quote/page match alone is insufficient — **quoted numeric occurrence does not establish semantic value support**; use deterministic checks where feasible, else **`UNRESOLVED`**. Retain **`error-envelope@1`**, Inngest retry ownership, correlation / `study_run_id` / source IDs, sanitized diagnostics (no document text or quotes in logs).
+
+**Prerequisites (repo — met for selected-Pack path):** **P2.2-PX.I** / **P2.2-PX.P** closed; L001 extraction **8/8** documents, **268** accepted candidates (run **`49543887-b363-43e1-81e6-5c4c05854b32`**, commit **`ea30e6f`** on **`main`**). **P1.5-processing** implemented (repo). Gate 2b **`extraction_batches`** and **`document_pages`** applied in live target env; Gate **2c** not yet in migrations.
+
+**Follow-on slices (not first slice):** Gate **2c** persistence; orchestration **`StudyRunStage.VERIFY`** after extract; generic P2.2 path; UI bound to verified facts; tier 2 L001 SQL proof without new paid runs.
+
+**Authority:** `docs/ARCHITECTURE.md` §5, `docs/HIVEFORYOU-V3-DEVELOPMENT-PLAN-database-first-PROPOSED.md` §3.1 (A5, Gate 2b/2c), `docs/ERROR-HANDLING-RECOVERY.md` §6–§8.
+
+---
+
+## Closed — UX-DOC-1 (2026-10-25)
+
 **Phase / Ticket:** **UX-DOC-1 — Documents → Continue → Live Hive Progress**
-**Status:** **ACTIVE (2026-10-25)** — Step 1 **IMPLEMENTED (repo)**; Step 3 live progress modal **IMPLEMENTED (repo 2026-10-25) — awaiting user verification**; Step 3 Living Hive animation + status-poll ordering **IMPLEMENTED (repo 2026-10-25)**; **approved Living Hive design (`reference/prototype/Living-Hive-Motion-Approved.html`) implemented in the progress modal (repo 2026-10-25) — awaiting user review and live-run verification**. Step 3 migration `20261025120000` **applied (operator-reported 2026-10-25)**; Worker `1a40000` deployed. **Step 4 Analysis Complete page IMPLEMENTED (repo 2026-10-25, web only) — user-directed start before Step 3 live verification closed; awaiting user review, web deploy and live owner check.** No migrations applied, deploys, pushes or paid model calls without separate authorization.
+**Status:** **IMPLEMENTED (repo) — PUSHED on `main` (latest confirmed push `ea30e6f`, 2026-10-25)** — **not product-qualified**; visual, browser and authorization acceptance **explicitly deferred** (does not close P2.3, Gate 3, or integrated release matrices).
+
+**Repo scope delivered:** Steps 1, 3, 4 (web); Step 3 SQL migration `20261025120000` + qualification script in repo; Worker progress markers on selected-Pack path (live Worker **`1a40000`** operator-reported earlier — reconcile with deployed SHA separately).
+
+**Deferred acceptance (obligations — not claimed done):**
+
+| Obligation | State |
+|------------|--------|
+| **Web production deploy** (Vercel) for Steps 3–4 UI | **Pending** — separate authorization |
+| **Browser / visual acceptance** — progress modal, approved Living Hive motion, reduced motion, reconnect/minimize | **Pending** — user review + live selected-Pack run |
+| **Analysis Complete** — owner layout/copy; typography on deployed web | **Pending** — user review after web deploy |
+| **Authorization** — owner vs non-owner on progress + extraction owner routes | **Pending** — live check |
+| **Step 2** — one active run per Hive (partial unique index + submit RPC) | **Await approval** — migration not authorized; **required before UI-to-result acceptance** |
+| **Brand PDF** (`reference/HiveForYou brand guide.pdf`) vs amended markdown (“loop while active”) | **Pending** — brand owner |
+
+**Does not close:** P2.3 evidence verification; P1.P Gate 3; P2.4 / P5.1; pack-free grocery gate; Gate 1 / Gate 2 / P1.5-processing integrated live acceptance.
 
 ---
 
@@ -94,7 +136,7 @@
 
 ---
 
-## UX-DOC-1 (detail — active ticket at top)
+## UX-DOC-1 (detail — closed; acceptance deferred)
 
 Local verification (2026-10-24): `apps/web` typecheck OK, vitest **117/117**, `next build` OK. Browser check not yet run.
 
@@ -109,7 +151,7 @@ Approved Living Hive design local verification (2026-10-25): `apps/web` typechec
 ## Paused — Five-Feature Release Deployment (operator runbook)
 
 **Phase / Ticket:** **Five-Feature Release — Deployment** (operator runbook)  
-**Status:** **PAUSED** — runbook unchanged; **UX-DOC-1** is active (2026-10-25); await explicit commit/push/deploy/SQL authorization for bundle promotion (2026-10-22)
+**Status:** **PAUSED** — runbook unchanged; **P2.3** is active (2026-10-25); await explicit commit/push/deploy/SQL authorization for bundle promotion (2026-10-22)
 
 **Release bundle (repo — not live until operator steps below):**
 
@@ -292,27 +334,25 @@ Approved Living Hive design local verification (2026-10-25): `apps/web` typechec
 
 | Ticket | Status | Blocked on |
 |--------|--------|------------|
-| **V3 Database-First Persistence — Plan Revision 2** | **PENDING (T2/T3 persistence **DECIDED** 2026-10-23 — §3.1.6; await implementation approval)** | User review of remaining §3.1.7 open items and Gate 2b+ implementation; active ticket unchanged |
+| **V3 Database-First Persistence — Plan Revision 2** | **PENDING (T2/T3 persistence **DECIDED** 2026-10-23 — §3.1.6; await implementation approval)** | User review of remaining §3.1.7 open items; **P2.3 first slice** implements T2 pages |
 | **P2.2-DP.I** | **PARKED** (plan only) | Explicit implementation approval (prerequisites in repo) |
 | **P2.2-PX.I** | **CLOSED (2026-10-25)** — live L001 extraction qualified; commit `03dcc59`, run `c8fd4586-1ca8-4851-b7f9-b70cff453c7e` | Does not substitute Gate 1/2/P1.5 live matrices, P2.3, Gate 3, P2.4/P5.1 |
 | **P1.P Gate 3** | NOT_STARTED | Gate 2 repo; Gate 2b/2c per Plan Revision 2 §3.1.2; Canonical Study promote RPC |
 | **P1.P Gate 2** | **IMPLEMENTED (repo) — live acceptance deferred** | Operator apply + eight live scenarios |
-| **P2.3** | ON HOLD | P2.2-DP repo acceptance; integrated path needs **P1.5-processing** |
+| **UX-DOC-1** | **CLOSED (repo pushed `ea30e6f`) — acceptance deferred** | Web deploy + browser/visual/authorization checks; Step 2 SQL before UI-to-result acceptance |
 | **P3** (study / investigations) | NOT_STARTED | P2.3 + P1.P Gate 3 + P2.2-DP.I as scoped |
 
 ---
 
-## P2.3 — Evidence verification (investigation)
+## P2.3 — Evidence verification (detail)
 
-**Status:** **ON HOLD** — resumes after P2.2-DP local acceptance (2026-10-22)
+**Active ticket:** see **# Active ticket** at top of this file (2026-10-25).
 
-**Objective:** Reject invalid source/page/quote anchors; retain explicit unknowns; verified records carry traceable evidence per governing plan. Builds on P2.2 `reader-candidate-extraction@1` output without promoting untrusted candidate text.
+**Investigation (closed):** Extract validation accepts candidates against in-memory Reader text; orchestration proceeds **`extract` → `finalize`** without **`verify`**; **`apps/worker/src/verification/*`** absent; Gate **2c** not in applied migrations. **`document_pages`** in repo + live (Slice 1). Selected-Pack path is the L001-qualified integration surface (**268** accepted candidates on run **`49543887-…`**).
 
-**Evidence (starting points):** `docs/HIVEFORYOU-V3-DEVELOPMENT-PLAN-database-first-PROPOSED.md` (P2.3 row), `docs/acceptance/P2.2-structured-extraction.md` (deferred integration), `packages/contracts` error/study-run stages, Worker verification boundaries in `docs/ERROR-HANDLING-RECOVERY.md`.
+**Evidence (starting points):** `docs/HIVEFORYOU-V3-DEVELOPMENT-PLAN-database-first-PROPOSED.md` (P2.3 row, A5, §3.1.2 Gate 2b/2c), `docs/acceptance/P2.2-structured-extraction.md`, `docs/acceptance/P2.2-PX-pack-extraction-L001.md` (extraction only), `packages/contracts` (`StudyRunStage.VERIFY`), `apps/worker/src/pack-extraction/validate-extraction.ts`, `docs/ERROR-HANDLING-RECOVERY.md`.
 
-**Done when:** Investigation note or scoped implementation plan is reviewed; integrated study-run verification waits on P1.5-processing.
-
-**Blocked on:** P1.5-processing (Inngest + Worker HTTP orchestration), processing SQL migrations applied in target env, optional `document_pages` persistence; live LiteLLM reasoning alias (P5.3) for non-mocked paths.
+**Done when (ticket closure — future):** Persisted pages; independent verifier; verified fact persistence (Gate 2c); **`verify`** stage on selected-Pack path; tier 1 tests; tier 2 readonly L001 checks without new paid runs; acceptance doc **`docs/acceptance/P2.3-evidence-verification.md`** (to be added). **Not** Gate 3 merge.
 
 ---
 

@@ -69,7 +69,7 @@ User direction: design the complete V3 database first, in isolated Supabase sche
 **Ticket (planning):** V3 Database-First Persistence — Plan Revision 2  
 **Objective:** Align approved PostgreSQL-as-system-of-record direction, Gate 1–2 repo reality, and Claude prototype Reader/Documents workspace requirements into one implementation sequence — without authorizing SQL apply, code, deploy, or paid model calls.  
 **Prototype path (verified in repo):** `reference/prototype/HiveForYou Prototype.html` (see `reference/prototype/README.md`; fully linked assets remain in V2 `design-reference/claude-prototype/`).  
-**Active ticket unchanged:** `docs/NEXT.md` remains **Five-Feature Release — Deployment** until the user explicitly retargets `NEXT.md`.
+**Active ticket:** **`docs/NEXT.md`** — **P2.3 Independent Evidence Verification** (2026-10-25); retargeted from UX-DOC-1 (closed in repo, acceptance deferred).
 
 #### 3.1.1 Architectural corrections (binding for downstream implementation)
 
@@ -271,7 +271,7 @@ Next ticket: only after user accepts DONE
 ## 8. Current state
 
 - **This plan:** **APPROVED** (2026-10-20) as governing sequencing; **Plan Revision 2 (§3.1) PROPOSED** (2026-10-23). Filename unchanged.
-- **Active ticket:** **`docs/NEXT.md`** — **Five-Feature Release — Deployment** (2026-10-22); do not infer active work from this section alone.
+- **Active ticket:** **`docs/NEXT.md`** — **P2.3 Independent Evidence Verification** (2026-10-25); do not infer active work from this section alone.
 - **P0.1, P0.2, P0.3:** **VERIFIED** (2026-10-20). **P1.P Gate 1–2:** IMPLEMENTED (repo), live acceptance deferred. **P1.5-processing:** IMPLEMENTED (repo), live acceptance deferred. M1 upload/hive/document workspace: IMPLEMENTED (repo), operator SQL/deploy pending per NEXT.
 - **Plan Revision 2 implementation:** **NOT AUTHORIZED** — pending explicit approval after user review of §3.1.
 - **Parking lot:** proactive intent suggestions/local intelligence, domain knowledge learning, cross-Hive intelligence, expanded pack governance, additional processing modes; failed-run artifact retention **duration** (OD-06 / DB design §6.5). Account deletion is OD-12 (30-day policy approved; processing is a future ticket).

@@ -132,6 +132,9 @@ describe("processStudyRun — selected IEP Pack path", () => {
       expect.arrayContaining([`${RUN}|pack-extraction-ref@1|1`]),
     );
     expect(store.batchesFor(RUN)).toHaveLength(8);
+    for (const doc of L001_CORPUS) {
+      expect(store.pagesForSource(doc.source_document_id)).toHaveLength(doc.pages.length);
+    }
 
     const view = parsePackExtractionOwnerViewV1(store.ownerView(RUN));
     expect(view.ok).toBe(true);

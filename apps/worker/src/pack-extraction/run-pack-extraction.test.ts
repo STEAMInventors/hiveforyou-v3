@@ -47,8 +47,16 @@ afterEach(() => {
 
 function setup(runId: string, hiveId = HIVE, docs: L001CorpusDocument[] = L001_CORPUS, store = new FakeExtractionStore()) {
   store.addRun(runId, hiveId);
-  for (const doc of docs) store.filenames.set(doc.source_document_id, doc.filename);
-  return { store, sources: docs.map((doc) => sourceRow(doc, hiveId)) };
+  const sources = docs.map((doc) => {
+    const row = sourceRow(doc, hiveId);
+    if (hiveId !== HIVE) {
+      row.source_document_id = `${hiveId}:${doc.source_document_id}`;
+    }
+    store.filenames.set(row.source_document_id, doc.filename);
+    store.registerSource(row);
+    return row;
+  });
+  return { store, sources };
 }
 
 async function run(input: {
@@ -96,6 +104,9 @@ describe("runPackExtractionForSources — 8-document synthetic L001", () => {
 
     const rows = store.batchesFor("run-1");
     expect(rows).toHaveLength(8);
+    for (const doc of L001_CORPUS) {
+      expect(store.pagesForSource(doc.source_document_id)).toHaveLength(doc.pages.length);
+    }
     for (const row of rows) {
       expect(row).toMatchObject({
         status: "SUCCEEDED",
@@ -363,6 +374,43 @@ describe("runPackExtractionForSources — failure dispositions", () => {
     expect(store.batchesFor("run-2")[0]).toMatchObject({
       status: "FAILED",
       error_reason: "context_budget_exceeded",
+    });
+  });
+
+  it("fails closed before extraction model calls when a page exceeds 64 KiB or has invalid page numbering", async () => {
+    const oversizedDoc: L001CorpusDocument = {
+      ...L001_CORPUS[0]!,
+      pages: [{ page_number: 1, text: "X".repeat(65_537) }],
+    };
+    const { store, sources } = setup("run-oversized-page", HIVE, [oversizedDoc]);
+    const extraction = fakeExtractionClient(undefined, [oversizedDoc]);
+    await expect(
+      run({ store, runId: "run-oversized-page", sources, extraction, docs: [oversizedDoc] }),
+    ).rejects.toMatchObject({
+      errorCode: ErrorCode.EXTRACTION_FAILED,
+      reason: "payload_too_large",
+      retryable: false,
+    });
+    expect(extraction.calls).toHaveLength(0);
+    expect(store.batchesFor("run-oversized-page")).toHaveLength(0);
+    expect(store.pagesForSource(oversizedDoc.source_document_id)).toHaveLength(0);
+
+    const emptyPagesDoc: L001CorpusDocument = {
+      ...L001_CORPUS[0]!,
+      pages: [],
+    };
+    const emptySetup = setup("run-empty-pages", HIVE, [emptyPagesDoc]);
+    await expect(
+      run({
+        store: emptySetup.store,
+        runId: "run-empty-pages",
+        sources: emptySetup.sources,
+        docs: [emptyPagesDoc],
+      }),
+    ).rejects.toMatchObject({
+      errorCode: ErrorCode.INVALID_REQUEST,
+      reason: "page_numbering_invalid",
+      retryable: false,
     });
   });
 

@@ -110,7 +110,7 @@ DECLARE
     'public.hive3_p2px_worker_put_extraction_prompt(jsonb, uuid)',
     'public.hive3_p2px_worker_get_run_batch(uuid, uuid, text, integer)',
     'public.hive3_p2px_worker_put_extraction_batch(uuid, jsonb)',
-    'public.hive3_p2px_worker_find_reusable_batch(uuid, text, text, text, text, integer, integer)'
+    'public.hive3_p2px_worker_find_reusable_batch(uuid, text, text, text, text, text, integer, integer)'
   ];
   v_sig text;
   v_role text;

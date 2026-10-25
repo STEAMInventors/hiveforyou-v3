@@ -43,6 +43,9 @@ import {
   type SelectedPack,
 } from "../pack-extraction/index.js";
 import {
+  DocumentPagesPersistenceError,
+} from "../persistence/document-pages-persistence.js";
+import {
   PackExtractionPersistenceError,
   putPackExtractionPrompt,
   putPackExtractionRefArtifact,
@@ -161,6 +164,14 @@ function safeFailureFrom(error: unknown): SafeFailure | null {
     };
   }
   if (error instanceof PackExtractionPersistenceError) {
+    return {
+      errorCode: error.errorCode,
+      messageSafe: error.message,
+      retryable: error.retryable,
+      diagnostics: { reason: error.reason },
+    };
+  }
+  if (error instanceof DocumentPagesPersistenceError) {
     return {
       errorCode: error.errorCode,
       messageSafe: error.message,

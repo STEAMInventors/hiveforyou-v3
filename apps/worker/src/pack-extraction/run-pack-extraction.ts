@@ -20,6 +20,10 @@ import {
 import { PlanningError } from "../plan/errors.js";
 import { putRunArtifactIdempotent } from "../persistence/artifact-idempotent-put.js";
 import {
+  prepareDocumentPagesForInsert,
+  putDocumentPagesForSource,
+} from "../persistence/document-pages-persistence.js";
+import {
   findReusablePackExtractionBatch,
   getRunPackExtractionBatch,
   putPackExtractionBatch,
@@ -256,11 +260,13 @@ function batchBase(
   source: WorkerRegisteredSourceRowV1,
   read: ReaderReadDocumentResponseV1,
   window: { page_start: number; page_end: number; is_partial: boolean },
+  pageSetDigest: string,
 ): Pick<
   PackExtractionBatchInsert,
   | "source_document_id"
   | "source_sha256"
   | "read_fingerprint"
+  | "page_set_digest"
   | "prompt_digest"
   | "pack_id"
   | "pack_version"
@@ -276,6 +282,7 @@ function batchBase(
     source_document_id: source.source_document_id,
     source_sha256: read.source.sha256 || source.sha256,
     read_fingerprint: read.read_fingerprint,
+    page_set_digest: pageSetDigest,
     prompt_digest: input.compiled.prompt_digest,
     pack_id: input.compiled.pack_id,
     pack_version: input.compiled.pack_version,
@@ -356,9 +363,10 @@ async function extractWindow(
   read: ReaderReadDocumentResponseV1,
   window: PackExtractionWindow,
   pageText: ReadonlyMap<number, string>,
+  pageSetDigest: string,
 ): Promise<PackExtractionBatchSummary> {
   const { compiled } = input;
-  const base = batchBase(input, source, read, window);
+  const base = batchBase(input, source, read, window, pageSetDigest);
   const logBase = {
     correlation_id: input.correlationId,
     study_run_id: input.studyRunId,
@@ -395,6 +403,7 @@ async function extractWindow(
     studyRunId: input.studyRunId,
     sourceSha256: base.source_sha256,
     readFingerprint: base.read_fingerprint,
+    pageSetDigest: base.page_set_digest,
     promptDigest: compiled.prompt_digest,
     modelAlias: input.modelAlias,
     pageStart: window.page_start,
@@ -638,6 +647,16 @@ async function extractSourceDocument(
     });
   }
 
+  const preparedPages = prepareDocumentPagesForInsert({ source, read });
+
+  await putDocumentPagesForSource(input.persistence, {
+    studyRunId: input.studyRunId,
+    correlationId: input.correlationId,
+    source,
+    read,
+  });
+
+  const pageSetDigest = preparedPages.pageSetDigest;
   const pageText = new Map(read.pages.map((page) => [page.page_number, page.text]));
   let windows: PackExtractionWindow[];
   try {
@@ -655,7 +674,7 @@ async function extractSourceDocument(
       page_start: 1,
       page_end: Math.max(1, read.page_count),
       is_partial: false,
-    });
+    }, pageSetDigest);
     const { batch } = await putPackExtractionBatch(
       input.persistence,
       input.studyRunId,
@@ -697,7 +716,7 @@ async function extractSourceDocument(
 
   const batches: PackExtractionBatchSummary[] = [];
   for (const window of windows) {
-    batches.push(await extractWindow(input, source, read, window, pageText));
+    batches.push(await extractWindow(input, source, read, window, pageText, pageSetDigest));
   }
 
   const disposition = documentDisposition(batches.map((batch) => batch.disposition));
