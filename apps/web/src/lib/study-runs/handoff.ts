@@ -171,6 +171,20 @@ export function runDocumentCounts(
   return { included, addedSince };
 }
 
+/** Registered documents that existed when the run was created, in list order. */
+export function runIncludedDocuments<T extends RegisteredTimestamped>(
+  documents: readonly T[],
+  runCreatedAt: string | null,
+): T[] {
+  const runTime = runCreatedAt ? Date.parse(runCreatedAt) : Number.NaN;
+  return documents.filter(
+    (doc) =>
+      doc.status === "registered" &&
+      doc.registered_at != null &&
+      (Number.isNaN(runTime) || Date.parse(doc.registered_at) <= runTime),
+  );
+}
+
 function documentsPhrase(count: number | null): string {
   if (count == null || count <= 0) {
     return "your documents";
@@ -363,6 +377,124 @@ export function classifyReadingArrival(input: {
 /** True once the monotonic checklist has moved past reading. */
 export function isReadingStageComplete(maxStageIndex: number): boolean {
   return maxStageIndex > studyProgressStageIndex("extract");
+}
+
+export type StudyProgressStep = {
+  label: string;
+  state: "done" | "active" | "stopped" | "pending";
+};
+
+/** The checklist as a step row; the stage a failed or cancelled run stopped in is `stopped`. */
+export function studyProgressSteps(
+  maxStageIndex: number,
+  run: { status: string; stage: string },
+): StudyProgressStep[] {
+  const rows = buildStudyProgressChecklist(maxStageIndex, run);
+  if (run.status !== StudyRunStatus.FAILED && run.status !== StudyRunStatus.CANCELLED) {
+    return rows;
+  }
+  const rawIndex = studyProgressStageIndex(run.stage);
+  const stoppedIndex = Math.max(maxStageIndex, rawIndex);
+  return rows.map((row, index) =>
+    index === stoppedIndex ? { label: row.label, state: "stopped" as const } : row,
+  );
+}
+
+export type ReadingCounter = { read: number; unusable: number; total: number };
+
+/**
+ * Counter from durable finished-document markers only (selected-Pack runs). Hidden until the first
+ * marker, so a pack-free run never shows a count. `read` excludes documents that couldn't be read.
+ */
+export function readingCounter(progress: ReadingProgressCounts | null): ReadingCounter | null {
+  if (!progress || progress.documents_finished <= 0) {
+    return null;
+  }
+  const total = progress.documents_total;
+  if (total == null || total <= 0) {
+    return null;
+  }
+  return {
+    read: progress.documents_finished - progress.documents_unusable,
+    unusable: progress.documents_unusable,
+    total,
+  };
+}
+
+function allDocumentsFinished(counter: ReadingCounter | null): boolean {
+  return counter != null && counter.read + counter.unusable >= counter.total;
+}
+
+/** Progress modal title and supporting line; every claim maps to a recorded status or count. */
+export function livingHiveCopy(
+  run: { status: string; stage: string },
+  counter: ReadingCounter | null,
+  documentCount: number | null,
+): { title: string; sub: string } {
+  switch (run.status) {
+    case StudyRunStatus.SUCCEEDED:
+      return {
+        title: "Analysis complete",
+        sub: "Your documents have been read. Nothing here is a verified finding yet — your Canonical Study is assembled in a later step.",
+      };
+    case StudyRunStatus.FAILED:
+      return {
+        title: "Analysis didn't finish",
+        sub: counter
+          ? `${counter.read} of ${counter.total} document${counter.total === 1 ? " is" : "s are"} read and saved.`
+          : "Your last analysis didn't finish.",
+      };
+    case StudyRunStatus.CANCELLED:
+      return { title: "Analysis stopped", sub: "Your last analysis was stopped." };
+    default:
+      break;
+  }
+  if (run.status === StudyRunStatus.QUEUED) {
+    return { title: "Getting started", sub: "Your analysis is lined up to start." };
+  }
+  switch (run.stage) {
+    case "enqueue":
+      return { title: "Getting started", sub: "Your analysis is lined up to start." };
+    case "plan_questions":
+      return { title: "Understanding your question", sub: "Working out what to look for in your documents." };
+    case "load_sources":
+      return { title: "Gathering your documents", sub: `Collecting ${documentsPhrase(documentCount)} for this analysis.` };
+    case "plan_schema":
+      return { title: "Identifying document types", sub: "Preparing to recognize each type of document." };
+    case "extract":
+      if (counter && allDocumentsFinished(counter)) {
+        const title =
+          counter.unusable > 0
+            ? "Reading finished"
+            : counter.total === 1
+              ? "Your document is read"
+              : `All ${counter.total} documents are read`;
+        return { title, sub: "Wrapping up the reading stage." };
+      }
+      return {
+        title: "Reading your documents",
+        sub: "HiveForYou is identifying each document and pulling out the facts. This can take a few minutes.",
+      };
+    default:
+      return { title: "Finishing up", sub: "Wrapping up this analysis. Your study isn't finished yet." };
+  }
+}
+
+/** Live-region line for one newly observed increase; `unusableDelta` of `count` couldn't be read. */
+export function readingArrivalMessage(count: number, unusableDelta: number): string {
+  const readDelta = Math.max(0, count - Math.max(0, unusableDelta));
+  const parts: string[] = [];
+  if (readDelta === 1) {
+    parts.push("Another document is read.");
+  } else if (readDelta > 1) {
+    parts.push(`${readDelta} more documents are read.`);
+  }
+  if (unusableDelta === 1) {
+    parts.push("1 document couldn't be read.");
+  } else if (unusableDelta > 1) {
+    parts.push(`${unusableDelta} documents couldn't be read.`);
+  }
+  return parts.join(" ");
 }
 
 /**

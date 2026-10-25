@@ -115,6 +115,8 @@ export function useHiveStudyRun(hiveId: string) {
   const [readingArrival, setReadingArrival] = useState<ReadingArrival | null>(null);
   const readingProgressRef = useRef<PackExtractionProgressV1 | null>(null);
   const readingProgressFetchedAtRef = useRef(0);
+  const readingFinalAttemptRunIdRef = useRef<string | null>(null);
+  const readingFinalRunIdRef = useRef<string | null>(null);
   /** Bumped whenever observation is interrupted; the next progress result after a bump is only a baseline. */
   const progressEpochRef = useRef(0);
   const progressObservedEpochRef = useRef(-1);
@@ -169,16 +171,31 @@ export function useHiveStudyRun(hiveId: string) {
     setReadingArrival(null);
   }, [breakProgressContinuity]);
 
-  /** Optional signal: failures keep the last known counts and never affect status polling. */
+  /**
+   * Optional signal: failures keep the last known counts and never affect status polling. While
+   * reading it refreshes on an interval; once a run with counts leaves reading, one final read
+   * records the closing counts (retried on the same interval until it succeeds).
+   */
   const maybeRefreshReadingProgress = useCallback(
     async (run: StudyRunSafeV1) => {
+      if (!progressOpenRef.current) {
+        return;
+      }
+      const reading = run.stage === "extract" && !isTerminalStudyRunStatus(run.status);
+      const closing =
+        !reading && readingProgressRef.current != null && readingFinalRunIdRef.current !== run.id;
+      if (!reading && !closing) {
+        return;
+      }
+      const firstClosingAttempt = closing && readingFinalAttemptRunIdRef.current !== run.id;
       if (
-        !progressOpenRef.current ||
-        run.stage !== "extract" ||
-        isTerminalStudyRunStatus(run.status) ||
+        !firstClosingAttempt &&
         Date.now() - readingProgressFetchedAtRef.current < READING_PROGRESS_INTERVAL_MS
       ) {
         return;
+      }
+      if (closing) {
+        readingFinalAttemptRunIdRef.current = run.id;
       }
       readingProgressFetchedAtRef.current = Date.now();
       const epoch = progressEpochRef.current;
@@ -195,6 +212,9 @@ export function useHiveStudyRun(hiveId: string) {
         }
         readingProgressRef.current = merged;
         setReadingProgress(merged);
+        if (closing) {
+          readingFinalRunIdRef.current = run.id;
+        }
 
         const sameEpoch = epoch === progressEpochRef.current;
         const arrival = classifyReadingArrival({

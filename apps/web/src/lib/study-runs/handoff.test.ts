@@ -11,12 +11,17 @@ import {
   isReadingStageComplete,
   isStudyRunUpdateStale,
   latestActivityIso,
+  livingHiveCopy,
   mergeMonotonicReadingProgress,
   mergeMonotonicStageIndex,
   nextDeliveryKey,
+  readingArrivalMessage,
+  readingCounter,
   resolveDisplayedIntent,
   runDocumentCounts,
+  runIncludedDocuments,
   shouldEnqueueStudyRun,
+  studyProgressSteps,
   STUDY_RUN_STALE_UPDATE_MS,
   studyDomainHintLabel,
   studyRunDocumentTotalLine,
@@ -27,6 +32,73 @@ import {
   studyRunStatusDecision,
   studyRunSummaryText,
 } from "./handoff";
+
+describe("living hive modal copy and counts (UX-DOC-1 approved design)", () => {
+  const progress = (finished: number, unusable = 0, total: number | null = 8) => ({
+    documents_total: total,
+    documents_finished: finished,
+    documents_unusable: unusable,
+  });
+
+  it("shows a counter only from the first durable marker with a known total; read excludes unusable", () => {
+    expect(readingCounter(null)).toBeNull();
+    expect(readingCounter(progress(0))).toBeNull();
+    expect(readingCounter(progress(2, 0, null))).toBeNull();
+    expect(readingCounter(progress(5, 2))).toEqual({ read: 3, unusable: 2, total: 8 });
+  });
+
+  it("claims all documents are read only when every marker is in and none was unusable", () => {
+    const running = { status: "RUNNING", stage: "extract" };
+    expect(livingHiveCopy(running, readingCounter(progress(7)), 8).title).toBe("Reading your documents");
+    expect(livingHiveCopy(running, readingCounter(progress(8)), 8).title).toBe("All 8 documents are read");
+    expect(livingHiveCopy(running, readingCounter(progress(8, 1)), 8).title).toBe("Reading finished");
+    expect(livingHiveCopy(running, readingCounter(progress(1, 0, 1)), 1).title).toBe("Your document is read");
+  });
+
+  it("never claims a finished study", () => {
+    const success = livingHiveCopy({ status: "SUCCEEDED", stage: "finalize" }, null, 8);
+    expect(success.title).toBe("Analysis complete");
+    expect(success.sub).toContain("Nothing here is a verified finding yet");
+    expect(livingHiveCopy({ status: "RUNNING", stage: "finalize" }, null, 8).sub).toContain(
+      "Your study isn't finished yet.",
+    );
+    const all = ["enqueue", "plan_questions", "load_sources", "plan_schema", "extract", "finalize"]
+      .map((stage) => livingHiveCopy({ status: "RUNNING", stage }, null, 8))
+      .map((copy) => `${copy.title} ${copy.sub}`)
+      .join(" ");
+    expect(all).not.toMatch(/study is ready|Connecting findings|Checking sources|links back/);
+  });
+
+  it("failure copy uses recorded counts only", () => {
+    const failed = { status: "FAILED", stage: "extract" };
+    expect(livingHiveCopy(failed, readingCounter(progress(5, 1)), 8).sub).toBe("4 of 8 documents are read and saved.");
+    expect(livingHiveCopy(failed, null, 8).sub).toBe("Your last analysis didn't finish.");
+  });
+
+  it("marks the stage a failed or cancelled run stopped in", () => {
+    const failed = studyProgressSteps(4, { status: "FAILED", stage: "extract" });
+    expect(failed.map((s) => s.state)).toEqual(["done", "done", "done", "done", "stopped", "pending"]);
+    const running = studyProgressSteps(4, { status: "RUNNING", stage: "extract" });
+    expect(running[4]?.state).toBe("active");
+  });
+
+  it("phrases arrivals from real deltas", () => {
+    expect(readingArrivalMessage(1, 0)).toBe("Another document is read.");
+    expect(readingArrivalMessage(3, 0)).toBe("3 more documents are read.");
+    expect(readingArrivalMessage(1, 1)).toBe("1 document couldn't be read.");
+    expect(readingArrivalMessage(3, 1)).toBe("2 more documents are read. 1 document couldn't be read.");
+  });
+
+  it("lists only documents registered before the run was created", () => {
+    const docs = [
+      { status: "registered", registered_at: "2026-10-25T09:00:00.000Z", filename: "a.pdf" },
+      { status: "pending", registered_at: null, filename: "b.pdf" },
+      { status: "registered", registered_at: "2026-10-25T11:00:00.000Z", filename: "c.pdf" },
+    ];
+    expect(runIncludedDocuments(docs, "2026-10-25T10:00:00.000Z").map((d) => d.filename)).toEqual(["a.pdf"]);
+    expect(runIncludedDocuments(docs, null).map((d) => d.filename)).toEqual(["a.pdf", "c.pdf"]);
+  });
+});
 
 describe("living hive events (UX-DOC-1 Step 3)", () => {
   it("only a continuous, increasing observation with a prior count is an arrival", () => {

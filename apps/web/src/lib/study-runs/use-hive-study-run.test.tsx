@@ -235,6 +235,33 @@ describe("useHiveStudyRun live progress events and status ordering", () => {
     expect(study.readingArrival).toBeNull();
   });
 
+  it("reads the closing counts once when the run leaves reading, without emitting an arrival", async () => {
+    await startWithBaseline();
+    const callsBefore = progressMock.mock.calls.length;
+    finished = 8;
+    statusMock.mockImplementation(async () => ({ study_run: run({ stage: "finalize" }), planning_summary: null }));
+    await advance(POLL_MS);
+    expect(progressMock.mock.calls.length).toBe(callsBefore + 1);
+    expect(study.readingProgress?.documents_finished).toBe(8);
+    expect(study.readingArrival).toBeNull();
+
+    await advance(PROGRESS_MS * 2);
+    expect(progressMock.mock.calls.length).toBe(callsBefore + 1);
+  });
+
+  it("does not fetch closing counts for a run that never reported any", async () => {
+    handoffMock.mockResolvedValue({
+      study_run: run({ stage: "plan_schema" }),
+      intent_request_text: "What did I spend?",
+      domain_hint: null,
+      planning_summary: null,
+    });
+    statusMock.mockImplementation(async () => ({ study_run: run({ stage: "finalize" }), planning_summary: null }));
+    await start();
+    await advance(POLL_MS * 3);
+    expect(progressMock).not.toHaveBeenCalled();
+  });
+
   it("an older RUNNING response resolving after SUCCEEDED never regresses the finished run", async () => {
     await start();
     const older = deferred<{ study_run: StudyRunSafeV1; planning_summary: null }>();

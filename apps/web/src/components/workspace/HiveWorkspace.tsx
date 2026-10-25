@@ -17,7 +17,13 @@ import { usePendingLandingUpload } from "@/components/workspace/usePendingLandin
 import { HiveCustomerShell } from "@/components/shell/HiveCustomerShell";
 import type { HiveV1 } from "@hiveforyou/contracts/hives/v1";
 import { deleteHive, HiveApiError } from "@/lib/hives/client";
-import { runDocumentCounts } from "@/lib/study-runs/handoff";
+import { partitionDocumentWorkspaceLists } from "@/lib/documents/document-workspace-lists";
+import {
+  continueAction,
+  isQuestionChanged,
+  runDocumentCounts,
+  runIncludedDocuments,
+} from "@/lib/study-runs/handoff";
 import { useHiveStudyRun } from "@/lib/study-runs/use-hive-study-run";
 
 const TABS = ["Documents", "Canonical Study", "Reports"] as const;
@@ -33,9 +39,32 @@ export function HiveWorkspace({ hive }: { hive: HiveV1 }) {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const study = useHiveStudyRun(hive.id);
   const [documents, setDocuments] = useState<HiveDocumentsSnapshot | null>(null);
-  const runDocumentTotal = documents
-    ? runDocumentCounts(documents.documents, study.activeRun?.created_at ?? null).included
+  const runCreatedAt = study.activeRun?.created_at ?? null;
+  const runCounts = documents ? runDocumentCounts(documents.documents, runCreatedAt) : null;
+  const runDocumentTotal = runCounts ? runCounts.included : null;
+  const runDocumentNames = documents
+    ? runIncludedDocuments(documents.documents, runCreatedAt).map((doc) => doc.filename)
     : null;
+  const lists = documents ? partitionDocumentWorkspaceLists(documents.documents) : null;
+  const retryAvailable =
+    study.loaded &&
+    documents != null &&
+    lists != null &&
+    runCounts != null &&
+    continueAction({
+      runStatus: study.activeRun?.status ?? null,
+      requestText: study.requestText,
+      questionChanged: isQuestionChanged({
+        requestText: study.requestText,
+        domainId: study.domainId,
+        lastRequestText: study.lastIntent.requestText,
+        lastDomainId: study.lastIntent.domainId,
+      }),
+      newDocumentCount: runCounts.addedSince,
+      readyDocumentCount: lists.registeredDocuments.length,
+      uploadingCount: lists.inProgressDocuments.length + (documents.uploadBusy ? 1 : 0),
+      busy: study.busy,
+    }).kind === "retry";
 
   const handleDeleteConfirm = async () => {
     setDeleteBusy(true);
@@ -136,7 +165,9 @@ export function HiveWorkspace({ hive }: { hive: HiveV1 }) {
       <HiveProgressModal
         open={study.progressOpen && study.activeRun != null}
         run={study.activeRun}
+        hiveName={hive.name}
         documentCount={runDocumentTotal}
+        documentNames={runDocumentNames}
         questionCount={study.planningSummary?.merged_question_count ?? null}
         readingProgress={study.readingProgress}
         readingProgressObservedAt={study.readingProgressObservedAt}
@@ -149,6 +180,9 @@ export function HiveWorkspace({ hive }: { hive: HiveV1 }) {
           study.minimizeProgress();
           setTab("Canonical Study");
         }}
+        onRetry={retryAvailable || study.busy ? () => void study.submit() : null}
+        retryBusy={study.busy}
+        retryError={study.error}
       />
 
       <DeleteHiveModal

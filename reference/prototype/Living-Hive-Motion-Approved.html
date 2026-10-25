@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>Living Hive · motion prototype</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#F7F8FA;color:#1F2328;font-family:Figtree,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+*{box-sizing:border-box}
+a{color:#2F6FE4;text-decoration:none}a:hover{color:#2659C2;text-decoration:underline}
+button{font-family:inherit}
+button:focus-visible{outline:2px solid #3B7CF6;outline-offset:2px}
+button:disabled{opacity:.42;cursor:not-allowed!important}
+@keyframes lh-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (max-width:1023px){[data-r~="layout"]{grid-template-columns:1fr!important}[data-r~="panel"]{position:static!important}}
+@media (max-width:767px){[data-r~="wrap"]{padding-left:16px!important;padding-right:16px!important}[data-r~="stage"]{padding:20px 12px!important;border-radius:18px!important}[data-r~="modal"]{padding:24px 20px!important;border-radius:20px!important}[data-r~="mark"]{width:168px!important;height:168px!important}[data-r~="h1"]{font-size:30px!important}[data-r~="steps"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column">
+<header style="background:#FFFFFF;border-bottom:1px solid #E8EAEE">
+  <div data-r="wrap" style="max-width:1280px;margin:0 auto;padding:0 32px;height:64px;display:flex;align-items:center;gap:16px">
+    <img src="assets/hiveforyou-logo.svg" alt="HiveForYou" style="height:26px;display:block">
+    <span style="width:1px;height:22px;background:#E1E4E9"></span>
+    <span style="font:600 14.5px Figtree;color:#4A525C">Living Hive · motion prototype</span>
+  </div>
+</header>
+
+<main data-r="wrap" style="max-width:1280px;width:100%;margin:0 auto;padding:40px 32px 96px;display:flex;flex-direction:column;gap:64px">
+  <div data-r="layout" style="display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:28px;align-items:start">
+
+    <section data-r="stage" data-screen-label="Progress modal" style="position:relative;background:#E4E7EC;border-radius:24px;padding:48px 32px;display:flex;justify-content:center;min-height:760px;overflow:hidden">
+      <div aria-hidden="true" style="position:absolute;inset:0;padding:28px;display:flex;flex-direction:column;gap:14px;opacity:.5">
+        <span style="height:14px;width:180px;background:#CFD4DB;border-radius:7px"></span>
+        <span style="height:28px;width:320px;max-width:70%;background:#CFD4DB;border-radius:8px"></span>
+        <span style="height:110px;background:#D6DAE0;border-radius:16px;margin-top:12px"></span>
+        <span style="height:110px;background:#D6DAE0;border-radius:16px"></span>
+        <span style="height:110px;background:#D6DAE0;border-radius:16px"></span>
+      </div>
+      <div data-r="modal" role="dialog" aria-labelledby="lh-title" style="position:relative;width:100%;max-width:520px;align-self:flex-start;background:#FFFFFF;border-radius:24px;box-shadow:0 24px 64px rgba(31,35,40,.18);padding:32px 36px;display:flex;flex-direction:column;gap:22px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="flex:1;font:500 14px Figtree;color:#6B7280">Maya's IEP 2025–26</span>
+          <sc-if value="{{ reduced }}" hint-placeholder-val="{{ false }}"><span style="height:26px;padding:0 10px;border-radius:999px;background:#F1F3F6;color:#4A525C;font:600 12.5px Figtree;display:inline-flex;align-items:center">Motion reduced</span></sc-if>
+        </div>
+
+        <div style="display:flex;justify-content:center;padding:4px 0">
+          <div data-r="mark" style="width:208px;height:208px">{{ hive }}</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <h1 id="lh-title" data-r="h1" style="margin:0;font:600 32px/1.15 Outfit,sans-serif;letter-spacing:-0.02em">{{ title }}</h1>
+          <p style="margin:0;font:400 16px/1.55 Figtree;color:#4A525C">{{ sub }}</p>
+        </div>
+
+        <sc-if value="{{ showCounter }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:baseline;gap:10px">
+              <span ref="{{ counterRef }}" style="display:inline-block;font:600 44px/1 Outfit,sans-serif;letter-spacing:-0.03em;transform-origin:left center;color:#1F2328">{{ done }}</span>
+              <span style="font:500 18px Figtree;color:#4A525C">of 8 documents read</span>
+              <span ref="{{ chipRef }}" style="opacity:0;height:26px;padding:0 10px;border-radius:999px;background:#EAF6EE;color:#1E7A41;font:700 13px Figtree;display:inline-flex;align-items:center">{{ deltaLabel }}</span>
+            </div>
+            <div role="progressbar" aria-valuemin="0" aria-valuemax="8" aria-valuenow="{{ done }}" aria-label="Documents read" style="display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:5px">
+              <sc-for list="{{ segs }}" as="g" hint-placeholder-count="8">
+                <span style="position:relative;height:8px;border-radius:4px;background:#EDEFF2;overflow:hidden"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ g.w }};background:{{ g.bg }};border-radius:4px;transition:width .5s cubic-bezier(.2,.7,.2,1) {{ g.delay }},background .6s"></span></span>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <div aria-live="polite" style="min-height:22px;font:500 14.5px/1.5 Figtree;color:#1E7A41">{{ live }}</div>
+
+        <div data-r="steps" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding-top:4px;border-top:1px solid #EEF0F3">
+          <sc-for list="{{ steps }}" as="s" hint-placeholder-count="4">
+            <div style="display:flex;flex-direction:column;gap:6px;padding-top:12px">
+              <span style="height:3px;border-radius:2px;background:{{ s.bar }}"></span>
+              <span style="font:{{ s.font }};color:{{ s.color }}">{{ s.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;flex-direction:column;border:1px solid #E7E9ED;border-radius:14px;overflow:hidden">
+          <button onClick="{{ toggleDocs }}" aria-expanded="{{ docsOpen }}" style="display:flex;align-items:center;gap:10px;min-height:46px;padding:0 16px;border:none;background:#FFFFFF;font:600 14.5px Figtree;color:#1F2328;cursor:pointer;text-align:left" style-hover="background:#FAFBFC"><span style="flex:1">Documents</span><span style="font:500 13.5px Figtree;color:#6B7280">{{ docsSummary }}</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:{{ docsChev }};transition:transform .2s"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+          <sc-if value="{{ docsOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="border-top:1px solid #EEF0F3;display:flex;flex-direction:column;max-height:300px;overflow:auto">
+              <sc-for list="{{ docs }}" as="d" hint-placeholder-count="8">
+                <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #F3F4F6;background:{{ d.rowBg }};transition:background .6s">
+                  <span style="width:9px;height:9px;border-radius:50%;background:{{ d.dot }};flex:none"></span>
+                  <span style="flex:1;min-width:0;font:500 14.5px Figtree;color:#1F2328;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.title }}</span>
+                  <span style="font:600 12.5px Figtree;color:{{ d.fg }};white-space:nowrap">{{ d.status }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{ isFailed }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-radius:12px;background:#F4F5F7">
+            <span style="font:600 14.5px Figtree">What you can do</span>
+            <span style="font:400 14.5px/1.55 Figtree;color:#4A525C">{{ failHelp }}</span>
+          </div>
+        </sc-if>
+
+        <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end">
+          <sc-if value="{{ isProcessing }}" hint-placeholder-val="{{ false }}"><span style="flex:1;min-width:200px;align-self:center;font:400 13.5px/1.45 Figtree;color:#6B7280">You can close this. Hive keeps working and will let you know.</span><button onClick="{{ toast }}" style="min-height:44px;padding:0 18px;border:1px solid #D9DDE3;background:#FFFFFF;border-radius:11px;font:600 15px Figtree;color:#1F2328;cursor:pointer" style-hover="background:#F4F6F8">Run in background</button></sc-if>
+          <sc-if value="{{ isSuccess }}" hint-placeholder-val="{{ false }}"><button onClick="{{ toast }}" style="min-height:46px;padding:0 22px;border:none;background:#2F6FE4;border-radius:12px;font:600 15.5px Figtree;color:#FFFFFF;cursor:pointer" style-hover="background:#2659C2">Open my study</button></sc-if>
+          <sc-if value="{{ isFailed }}" hint-placeholder-val="{{ false }}"><button onClick="{{ reset }}" style="min-height:44px;padding:0 18px;border:1px solid #D9DDE3;background:#FFFFFF;border-radius:11px;font:600 15px Figtree;color:#1F2328;cursor:pointer" style-hover="background:#F4F6F8">Back to my Hive</button><button onClick="{{ retry }}" style="min-height:44px;padding:0 20px;border:none;background:#2F6FE4;border-radius:11px;font:600 15px Figtree;color:#FFFFFF;cursor:pointer" style-hover="background:#2659C2">Try again</button></sc-if>
+          <sc-if value="{{ isIdle }}" hint-placeholder-val="{{ true }}"><button onClick="{{ start }}" style="min-height:46px;padding:0 22px;border:none;background:#2F6FE4;border-radius:12px;font:600 15.5px Figtree;color:#FFFFFF;cursor:pointer" style-hover="background:#2659C2">Start processing</button></sc-if>
+        </div>
+      </div>
+      <sc-if value="{{ toastMsg }}" hint-placeholder-val="{{ false }}"><div role="status" style="position:absolute;left:50%;bottom:20px;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);background:#1F2328;color:#FFFFFF;border-radius:12px;padding:11px 16px;font:500 14px Figtree;animation:lh-in .2s ease-out">{{ toastMsg }}</div></sc-if>
+    </section>
+
+    <aside data-r="panel" data-screen-label="Simulation controls" style="position:sticky;top:24px;background:#FFFFFF;border:1px solid #E7E9ED;border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;flex-direction:column;gap:4px"><span style="font:600 18px Outfit,sans-serif">Simulation controls</span><span style="font:400 13.5px/1.5 Figtree;color:#6B7280">Each button fires one event. Progress only moves when an event arrives.</span></div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ controls }}" as="c" hint-placeholder-count="8">
+          <button onClick="{{ c.run }}" disabled="{{ c.off }}" title="{{ c.hint }}" style="display:flex;align-items:center;gap:12px;min-height:44px;padding:0 14px;border:1px solid {{ c.border }};background:{{ c.bg }};border-radius:11px;font:600 14.5px Figtree;color:{{ c.fg }};cursor:pointer;text-align:left" style-hover="border-color:#2F6FE4">
+            <span style="width:8px;height:8px;border-radius:2px;background:{{ c.dot }};flex:none"></span><span style="flex:1">{{ c.label }}</span><span style="font:500 12.5px Figtree;color:{{ c.metaFg }}">{{ c.meta }}</span>
+          </button>
+        </sc-for>
+      </div>
+      <button onClick="{{ toggleReduced }}" role="switch" aria-checked="{{ reduced }}" style="display:flex;align-items:center;gap:12px;min-height:48px;padding:0 14px;border:1px solid #E1E4E9;background:#FAFBFC;border-radius:11px;font:600 14.5px Figtree;color:#1F2328;cursor:pointer;text-align:left">
+        <span style="flex:1;display:flex;flex-direction:column;gap:1px"><span>Reduced motion</span><span style="font:400 12.5px Figtree;color:#6B7280">{{ reducedNote }}</span></span>
+        <span style="width:40px;height:24px;border-radius:12px;background:{{ swBg }};position:relative;transition:background .2s;flex:none"><span style="position:absolute;top:3px;left:{{ swLeft }};width:18px;height:18px;border-radius:50%;background:#FFFFFF;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .2s"></span></span>
+      </button>
+      <button onClick="{{ playScript }}" disabled="{{ scriptOn }}" style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px;border:1px dashed #C9CFD8;background:#FFFFFF;border-radius:11px;font:600 14px Figtree;color:#2456B8;cursor:pointer;text-align:left" style-hover="background:#F5F8FF">{{ scriptLabel }}</button>
+      <div style="display:flex;flex-direction:column;gap:8px;padding-top:6px;border-top:1px solid #EEF0F3">
+        <span style="font:600 13px Figtree;color:#4A525C;padding-top:10px">Event log</span>
+        <div style="display:flex;flex-direction:column;gap:2px;max-height:220px;overflow:auto;font:500 12.5px/1.5 ui-monospace,Menlo,monospace">
+          <sc-if value="{{ logEmpty }}" hint-placeholder-val="{{ true }}"><span style="color:#9AA3AE;font-family:Figtree;font-size:13px">No events yet.</span></sc-if>
+          <sc-for list="{{ log }}" as="l" hint-placeholder-count="0"><div style="display:flex;gap:10px;animation:lh-in .2s ease-out"><span style="color:#9AA3AE">{{ l.t }}</span><span style="color:#1F2328">{{ l.e }}</span></div></sc-for>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <section data-screen-label="Motion language" style="display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;flex-direction:column;gap:10px;max-width:760px">
+      <h2 style="margin:0;font:600 32px/1.15 Outfit,sans-serif;letter-spacing:-0.02em">The motion language</h2>
+      <p style="margin:0;font:400 17px/1.6 Figtree;color:#4A525C">The mark stays exactly as drawn. Motion comes from light moving through it: a soft highlight and a slight lift on each cell. Continuous motion means Hive is working. One-off motion means something actually happened.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),1fr));gap:16px">
+      <sc-for list="{{ motifs }}" as="m" hint-placeholder-count="7">
+        <div style="background:#FFFFFF;border:1px solid #E7E9ED;border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:14px"><div style="width:52px;height:52px;flex:none">{{ m.svg }}</div><div style="display:flex;flex-direction:column;gap:2px"><span style="font:600 19px Outfit,sans-serif">{{ m.name }}</span><span style="font:500 13px Figtree;color:#6B7280">{{ m.timing }}</span></div></div>
+          <span style="font:600 13px Figtree;color:#2456B8">{{ m.trigger }}</span>
+          <span style="font:400 14.5px/1.55 Figtree;color:#4A525C">{{ m.body }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:24px;padding-top:8px">
+      <sc-for list="{{ rules }}" as="r" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:6px"><span style="font:600 16px Figtree">{{ r.t }}</span><span style="font:400 14.5px/1.55 Figtree;color:#4A525C">{{ r.b }}</span></div></sc-for>
+    </div>
+  </section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const C=[[50,20],[67.32,50],[50,80],[32.68,50]];
+const COL=['#3B7CF6','#EF5143','#F6B826','#2FA35A'];
+const GREY=['#D3D7DD','#C9CED6','#DADEE3','#C2C8D0'];
+const HEX='0,-17.6 15.24,-8.8 15.24,8.8 0,17.6 -15.24,8.8 -15.24,-8.8';
+const DOCS=['Referral for evaluation','Parent consent for evaluation','Psychoeducational evaluation','Speech-language evaluation','Academic achievement evaluation','Eligibility determination','Annual IEP','Prior written notice'];
+const bell=(t,p,w)=>Math.exp(-Math.pow((t-p)/w,2));
+const ease=f=>f<.5?4*f*f*f:1-Math.pow(-2*f+2,3)/2;
+const circ=(a,b)=>{const d=Math.abs(a-b)%4;return Math.min(d,4-d);};
+function absPts(i,s){return HEX.split(' ').map(p=>{const [x,y]=p.split(',').map(Number);return (C[i][0]+x*(s||1)).toFixed(2)+','+(C[i][1]+y*(s||1)).toFixed(2);}).join(' ');}
+function mini(sheens,opts){opts=opts||{};const h=React.createElement;return h('svg',{viewBox:'0 0 100 100',width:'100%',height:'100%','aria-hidden':true},
+  C.map((c,i)=>h('g',{key:i},h('polygon',{points:absPts(i),fill:opts.grey?GREY[i]:COL[i],stroke:opts.grey?GREY[i]:COL[i],strokeWidth:1.5,strokeLinejoin:'round',opacity:opts.dim?0.55:1}),h('polygon',{points:absPts(i),fill:'#FFFFFF',opacity:sheens[i]||0}))),
+  opts.ring!=null?h('circle',{cx:C[opts.ring][0],cy:C[opts.ring][1],r:30,fill:'none',stroke:COL[opts.ring],strokeWidth:2.5,opacity:.5}):null,
+  opts.center?h('circle',{cx:50,cy:50,r:44,fill:'none',stroke:'#9AA3AE',strokeWidth:2,strokeDasharray:'3 4',opacity:.7}):null,
+  opts.comet!=null?h('circle',{cx:opts.comet[0],cy:opts.comet[1],r:5,fill:'#FFFFFF',stroke:'rgba(31,35,40,.18)',strokeWidth:1}):null);}
+
+class Component extends DCLogic {
+  state={mode:'idle',stage:1,done:0,syncing:false,delta:0,last:[],log:[],reduced:false,docsOpen:true,toastMsg:null,scriptOn:false,fail:null};
+  timers=[];script=[];fx=[];raf=null;t0=0;tStart=0;
+  cellG=[0,1,2,3].map(()=>React.createRef());sheen=[0,1,2,3].map(()=>React.createRef());rings=[0,1,2,3].map(()=>React.createRef());
+  comets=[0,1].map(()=>[0,1,2].map(()=>React.createRef()));counterRef=React.createRef();chipRef=React.createRef();
+  componentDidMount(){try{if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)this.setState({reduced:true});}catch(e){}this.applyFrame(performance.now());}
+  componentWillUnmount(){cancelAnimationFrame(this.raf);this.timers.concat(this.script).forEach(clearTimeout);}
+  after(ms,f){const t=setTimeout(f,ms);this.timers.push(t);return t;}
+  kick(){if(this.raf==null)this.raf=requestAnimationFrame(this.tick);}
+  tick=(now)=>{this.raf=null;const live=this.applyFrame(now);if(live)this.kick();};
+  applyFrame(now){
+    const s=this.state;const I=[0,0,0,0];const ringSt=[null,null,null,null];let env=0;let cometPos=[];
+    const anim=!s.reduced;
+    this.fx=this.fx.filter(f=>now-f.start<f.dur);
+    if(anim){
+      for(const f of this.fx){const t=(now-f.start)/f.dur;
+        if(f.type==='deposit'){const k=f.k;I[k]=Math.max(I[k],bell(t,.22,.2));[(k+1)%4,(k+3)%4].forEach(n=>I[n]=Math.max(I[n],.62*bell(t,.47,.15)));I[(k+2)%4]=Math.max(I[(k+2)%4],.5*bell(t,.63,.15));ringSt[k]={t:Math.min(1,t/.9),col:COL[k]};env=Math.max(env,bell(t,.4,.38));}
+        if(f.type==='swarm'){for(let i=0;i<4;i++){const ti=t-.07*i;I[i]=Math.max(I[i],.85*bell(ti,.26,.19));if(ti>0)ringSt[i]={t:Math.min(1,ti/.75),col:COL[i]};}env=Math.max(env,bell(t,.45,.4));}
+        if(f.type==='sync'){const v=.85*(bell(t,.2,.1)+bell(t,.52,.1));for(let i=0;i<4;i++){I[i]=Math.max(I[i],v);if(t>.52)ringSt[i]={t:Math.min(1,(t-.52)/.45),col:COL[i]};}env=1;}
+        if(f.type==='success'){const v=.55*bell(t,.35,.2);for(let i=0;i<4;i++)I[i]=Math.max(I[i],v);env=1;}
+      }
+      if(s.mode==='processing'&&!s.syncing){
+        const n=s.stage===1?1:2,period=s.stage===1?2600:3200;const base=((now-this.t0)/period*4)%4;
+        for(let c=0;c<n;c++){const raw=(base+c*2)%4;const seg=Math.floor(raw),f=raw-seg;const p=seg+ease(f);
+          for(let i=0;i<4;i++){const d=circ(p,i);I[i]=Math.max(I[i],(1-env)*.62*Math.pow(Math.max(0,1-d/1.05),1.6));}
+          const pos=q=>{q=((q%4)+4)%4;const a=Math.floor(q),b=(a+1)%4,g=q-a;return [C[a][0]+(C[b][0]-C[a][0])*g,C[a][1]+(C[b][1]-C[a][1])*g];};
+          cometPos.push({pts:[pos(p),pos(p-.07),pos(p-.14)],op:1-env});}
+      }
+    }
+    for(let i=0;i<4;i++){const g=this.cellG[i].current,sh=this.sheen[i].current;if(!g||!sh)continue;g.style.transform='scale('+(1+I[i]*.095).toFixed(4)+')';sh.setAttribute('opacity',(I[i]*.58).toFixed(3));
+      const r=this.rings[i].current;if(r){const R=ringSt[i];if(R){const e=1-Math.pow(1-R.t,3);r.setAttribute('r',(16+48*e).toFixed(2));r.setAttribute('opacity',(.6*(1-R.t)).toFixed(3));r.setAttribute('stroke',R.col);r.setAttribute('stroke-width',(3*(1-R.t)+.6).toFixed(2));}else r.setAttribute('opacity','0');}}
+    this.comets.forEach((trail,c)=>trail.forEach((ref,j)=>{const el=ref.current;if(!el)return;const cp=cometPos[c];if(!cp){el.setAttribute('opacity','0');return;}el.setAttribute('cx',cp.pts[j][0].toFixed(2));el.setAttribute('cy',cp.pts[j][1].toFixed(2));el.setAttribute('opacity',(cp.op*[1,.5,.22][j]).toFixed(3));}));
+    return anim&&(s.mode==='processing'||this.fx.length>0);
+  }
+  fire(type,k,dur){if(this.state.reduced)return;this.fx.push({type,k,start:performance.now(),dur});this.kick();}
+  stamp(){return this.tStart?((performance.now()-this.tStart)/1000).toFixed(1).padStart(5,' ')+'s':'  0.0s';}
+  logE(e){this.setState(s=>({log:[{t:this.stamp(),e},...s.log].slice(0,40)}));}
+  pulseCounter(col){if(this.state.reduced)return;const c=this.counterRef.current,ch=this.chipRef.current;
+    if(c&&c.animate)c.animate([{transform:'scale(1)',color:'#1F2328'},{transform:'scale(1.14)',color:col,offset:.3},{transform:'scale(1)',color:'#1F2328'}],{duration:900,easing:'cubic-bezier(.2,.7,.2,1)'});
+    if(ch&&ch.animate)ch.animate([{opacity:0,transform:'translateY(4px)'},{opacity:1,transform:'none',offset:.15},{opacity:1,offset:.75},{opacity:0}],{duration:1600});}
+  showChip(){const ch=this.chipRef.current;if(this.state.reduced&&ch){ch.style.opacity=1;clearTimeout(this.chipT);this.chipT=this.after(2200,()=>{if(ch)ch.style.opacity=0;});}}
+  toast(m){this.setState({toastMsg:m});this.after(2400,()=>this.setState(s=>s.toastMsg===m?{toastMsg:null}:null));}
+  start=()=>{if(this.state.mode!=='idle')return;this.tStart=performance.now();this.t0=performance.now();this.fx=[];this.setState({mode:'processing',stage:1,done:0,last:[],syncing:false,fail:null,log:[]},()=>{this.logE('processing.started');this.kick();});};
+  complete=(n)=>{const s=this.state;if(s.mode!=='processing'||s.stage!==1||s.syncing||s.done>=8)return;const next=Math.min(8,s.done+n),got=next-s.done;const last=DOCS.slice(s.done,next);
+    this.setState({done:next,delta:got,last},()=>{this.showChip();});
+    if(got===1){const k=(next-1)%4;this.fire('deposit',k,1050);this.pulseCounter(COL[k]);}else{this.fire('swarm',0,1150);this.pulseCounter('#2F6FE4');}
+    this.logE('document.completed ×'+got+'  ('+next+'/8)');};
+  finishReading=()=>{const s=this.state;if(s.mode!=='processing'||s.stage!==1||s.done<8||s.syncing)return;this.setState({syncing:true});this.fire('sync',0,1500);this.logE('reading.completed');
+    this.after(1500,()=>{this.t0=performance.now();this.setState({syncing:false,stage:2,last:[]},()=>{this.kick();this.logE('stage.started  connecting');});});};
+  succeed=()=>{const s=this.state;if(s.mode!=='processing'||s.stage!==2)return;this.fx=[];this.setState({mode:'success'},()=>{this.fire('success',0,900);this.applyFrame(performance.now());});this.logE('study.succeeded');};
+  failNow=()=>{const s=this.state;if(s.mode!=='processing')return;this.fx=[];this.setState({mode:'failed',syncing:false,fail:s.stage===1?DOCS[Math.min(s.done,7)]:'connect'},()=>this.applyFrame(performance.now()));this.logE('processing.failed');this.clearScript();};
+  retry=()=>{if(this.state.mode!=='failed')return;this.t0=performance.now();this.setState({mode:'processing',fail:null},()=>this.kick());this.logE('processing.retried');};
+  reset=()=>{this.clearScript();this.timers.forEach(clearTimeout);this.timers=[];this.fx=[];this.tStart=0;this.setState({mode:'idle',stage:1,done:0,syncing:false,delta:0,last:[],log:[],fail:null},()=>this.applyFrame(performance.now()));};
+  clearScript(){this.script.forEach(clearTimeout);this.script=[];if(this.state.scriptOn)this.setState({scriptOn:false});}
+  playScript=()=>{this.reset();this.setState({scriptOn:true});const seq=[[300,this.start],[3200,()=>this.complete(1)],[7400,()=>this.complete(1)],[9800,()=>this.complete(3)],[13600,()=>this.complete(1)],[15100,()=>this.complete(1)],[18200,()=>this.complete(1)],[20400,this.finishReading],[27000,this.succeed],[27100,()=>this.setState({scriptOn:false})]];
+    this.after(20,()=>{this.script=seq.map(([ms,f])=>setTimeout(f,ms));});};
+  renderVals(){
+    const s=this.state,h=React.createElement;const failed=s.mode==='failed';
+    const hive=h('svg',{viewBox:'-20 -20 140 140',width:'100%',height:'100%',role:'img','aria-label':'HiveForYou mark',style:{overflow:'visible',display:'block'}},
+      h('g',{key:'rings'},C.map((c,i)=>h('circle',{key:i,ref:this.rings[i],cx:c[0],cy:c[1],r:16,fill:'none',stroke:COL[i],opacity:0}))),
+      C.map((c,i)=>h('g',{key:'c'+i,transform:'translate('+c[0]+' '+c[1]+')'},h('g',{ref:this.cellG[i],style:{transformBox:'fill-box',transformOrigin:'center'}},
+        h('polygon',{points:HEX,fill:failed?GREY[i]:COL[i],stroke:failed?GREY[i]:COL[i],strokeWidth:1.5,strokeLinejoin:'round',style:{transition:'fill .7s ease, stroke .7s ease'}}),
+        h('polygon',{ref:this.sheen[i],points:HEX,fill:'#FFFFFF',opacity:0})))),
+      this.comets.map((tr,c)=>h('g',{key:'k'+c},tr.map((r,j)=>h('circle',{key:j,ref:r,cx:50,cy:20,r:[3.4,2.6,1.9][j],fill:'#FFFFFF',stroke:'rgba(31,35,40,.16)',strokeWidth:.8,opacity:0})))),
+      s.mode==='success'?h('g',{key:'ok',transform:'translate(50 50)'},h('circle',{r:9,fill:'#FFFFFF',stroke:'#1F2328',strokeWidth:1.6}),h('path',{d:'M-4 0.2 L-1.2 3 L4.2 -2.6',fill:'none',stroke:'#1F2328',strokeWidth:1.9,strokeLinecap:'round',strokeLinejoin:'round'})):null);
+    const p=s.mode==='processing';
+    let title='Ready to build your study',sub='8 documents are waiting. Start processing to begin reading.';
+    if(p&&s.stage===1&&!s.syncing){title=s.done<8?'Reading your documents':'All 8 documents are read';sub=s.done<8?'Hive is identifying each document and pulling out the facts. This can take a few minutes.':'Wrapping up the reading stage.';}
+    if(s.syncing){title='Reading complete';sub='Every document has been read. Next, Hive connects what they say.';}
+    if(p&&s.stage===2){title='Connecting findings';sub='Linking what the documents say across time. Your study isn\u2019t finished yet.';}
+    if(s.mode==='success'){title='Your study is ready';sub='Built from 8 documents. Every finding links back to its source.';}
+    if(failed){title=s.fail==='connect'?'We couldn\u2019t finish connecting findings':'We couldn\u2019t read one document';sub=s.fail==='connect'?'All 8 documents are read and saved. Nothing was lost.':'\u201c'+s.fail+'\u201d was hard to read. '+s.done+' of 8 documents are read and saved.';}
+    const failHelp=s.fail==='connect'?'Try again. Hive picks up from where it stopped, so documents won\u2019t be read twice.':'Try again first. If it still doesn\u2019t work, upload a clearer scan or the original PDF from your Hive.';
+    let live='';if(s.reduced&&p)live=s.syncing?'Reading complete.':(s.stage===2?'Working: connecting findings.':'Working: reading document '+Math.min(s.done+1,8)+' of 8.');
+    if(p&&s.last.length&&s.stage===1)live=(s.last.length===1?'Finished: '+s.last[0]:s.last.length+' documents finished: '+s.last.join(', '));
+    if(s.syncing)live='Reading complete. Moving on to connecting findings.';if(s.mode==='success')live='Done.';
+    const segs=[...Array(8)].map((_,i)=>{const on=i<s.done;const newIdx=i>=s.done-s.delta&&on;return {w:on?'100%':'0%',bg:failed?'#AEB5BF':s.mode==='success'||s.stage===2||s.syncing?'#2FA35A':'#2F6FE4',delay:newIdx?((i-(s.done-s.delta))*90)+'ms':'0ms'};});
+    const stIdx=s.mode==='success'?4:s.stage===2?1:0;
+    const steps=['Reading documents','Connecting findings','Checking sources','Preparing your study'].map((label,i)=>{const done=i<stIdx||(s.mode==='success');const act=i===stIdx&&(p||failed)&&s.mode!=='success';return {label,bar:done?'#2FA35A':act?(failed?'#AEB5BF':'#2F6FE4'):'#E6E9ED',font:(act?'600':'500')+' 13px/1.3 Figtree',color:done||act?'#1F2328':'#9AA3AE'};});
+    const docs=DOCS.map((t,i)=>{const read=i<s.done,cur=p&&s.stage===1&&i===s.done&&!s.syncing,isFail=failed&&s.fail===t,fresh=s.last.includes(t);return {title:t,status:isFail?'Couldn\u2019t read':read?'Read':cur?'Reading':s.mode==='idle'?'Waiting':'Queued',dot:isFail?'#9AA3AE':read?'#2FA35A':cur?'#3B7CF6':'#D9DDE3',fg:isFail?'#4A525C':read?'#1E7A41':cur?'#2456B8':'#9AA3AE',rowBg:fresh?'#F2FAF4':'#FFFFFF'};});
+    const ctl=(label,run,on,meta,hint,primary)=>({label,run,off:!on,meta,hint:on?'':hint,border:primary&&on?'#2F6FE4':'#E1E4E9',bg:primary&&on?'#F5F8FF':'#FFFFFF',fg:'#1F2328',dot:primary&&on?'#2F6FE4':'#C3C9D1',metaFg:'#6B7280'});
+    const st1=p&&s.stage===1&&!s.syncing;
+    const controls=[
+      ctl('Start processing',this.start,s.mode==='idle','','Reset first',s.mode==='idle'),
+      ctl('Complete one document',()=>this.complete(1),st1&&s.done<8,'+1','Start processing first',st1&&s.done<8),
+      ctl('Complete multiple documents',()=>this.complete(3),st1&&s.done<8,'+'+Math.min(3,8-s.done),'Start processing first',false),
+      ctl('Finish reading',this.finishReading,st1&&s.done===8,s.done<8?s.done+'/8':'','Available when 8 of 8 are read',st1&&s.done===8),
+      ctl('Succeed',this.succeed,p&&s.stage===2,'','Available after reading completes',p&&s.stage===2),
+      ctl('Fail',this.failNow,p&&!s.syncing,'','Only while processing',false),
+      ctl('Reset',this.reset,true,'','',false)];
+    const motifs=[
+      {name:'Relay',timing:'0.65 s per cell · loops',trigger:'While processing',body:'A point of light hops cell to cell, clockwise. Each cell brightens and lifts as it arrives, so the mark visibly changes every second.',svg:mini([.45,0,0,0],{comet:[58,35]})},
+      {name:'Deposit',timing:'1050 ms · once',trigger:'One document finished',body:'The arriving cell blooms, a ring in its colour spreads out, and the light washes across its neighbours, then the opposite cell. The counter lifts in the same colour.',svg:mini([.55,.3,0,.3],{ring:0})},
+      {name:'Swarm',timing:'1150 ms · once',trigger:'Several finished at once',body:'One collective wave: all four cells bloom in quick clockwise succession and the counter jumps by the real amount, labelled +3. No fake individual events.',svg:mini([.5,.4,.3,.2],{center:true})},
+      {name:'Sync',timing:'1500 ms · once',trigger:'Reading complete',body:'All cells pulse together twice, then the next stage starts. Stage two uses two lights instead of one, so you can tell the work moved on.',svg:mini([.45,.45,.45,.45])},
+      {name:'Hold',timing:'900 ms, then still',trigger:'Success',body:'One soft, unified glow, then the mark rests with a check at its centre. Nothing loops: stillness means done.',svg:mini([0,0,0,0],{})},
+      {name:'Rest',timing:'700 ms colour fade',trigger:'Failure',body:'Colour drains to quiet greys with no flashing or red. The message explains what happened and what to do next.',svg:mini([0,0,0,0],{grey:true})},
+      {name:'Still',timing:'No movement',trigger:'Reduced motion',body:'All motion stops. Counts, document statuses and a spoken status line still update with every event.',svg:mini([0,0,0,0],{dim:false})}];
+    const rules=[
+      {t:'Light moves, the logo doesn\u2019t',b:'Geometry and colours stay exact. Only a white highlight and a lift of up to 10% are added, using transforms and opacity.'},
+      {t:'Loops mean working; one-offs mean news',b:'Only the Relay repeats. Every other motion is tied to a real event and plays once.'},
+      {t:'Honest counting',b:'The counter and bar only change on completion events. A jump of three plays one Swarm, never three Deposits.'},
+      {t:'Reusable for every stage',b:'Stages change the number of lights (one for reading, two for connecting, more later). The vocabulary stays the same.'}];
+    return {hive,title,sub,live,failHelp,done:String(s.done),deltaLabel:'+'+s.delta,segs,steps,docs,docsSummary:s.done+' of 8 read',docsOpen:s.docsOpen,docsChev:s.docsOpen?'rotate(180deg)':'none',toggleDocs:()=>this.setState(x=>({docsOpen:!x.docsOpen})),
+      showCounter:true,isIdle:s.mode==='idle',isProcessing:p,isSuccess:s.mode==='success',isFailed:failed,
+      counterRef:this.counterRef,chipRef:this.chipRef,controls,start:this.start,retry:this.retry,reset:this.reset,
+      toast:()=>this.toast('Not part of this prototype'),toastMsg:s.toastMsg,
+      reduced:s.reduced,toggleReduced:()=>{this.setState(x=>({reduced:!x.reduced}),()=>{this.applyFrame(performance.now());this.kick();});},reducedNote:s.reduced?'On. Status updates continue.':'Off. Follows your system setting on load.',swBg:s.reduced?'#2F6FE4':'#C9CFD8',swLeft:s.reduced?'19px':'3px',
+      playScript:this.playScript,scriptOn:s.scriptOn,scriptLabel:s.scriptOn?'Scripted run playing…':'Play a scripted 8-document run',
+      log:s.log,logEmpty:!s.log.length,motifs,rules};
+  }
+}
+
+</script>
+</body>
+</html>
