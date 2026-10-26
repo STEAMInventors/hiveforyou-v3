@@ -10,7 +10,7 @@ import {
 describe("evidence-verification@1 constants", () => {
   it("pins stable version strings and reason codes", () => {
     expect(EVIDENCE_VERIFICATION_VERSION).toBe("evidence-verification@1");
-    expect(EVIDENCE_VERIFIER_VERSION).toBe("evidence-verifier@1");
+    expect(EVIDENCE_VERIFIER_VERSION).toBe("evidence-verifier@2");
     expect(EVIDENCE_VERIFICATION_REASON_CODES).toContain("QUOTE_NOT_IN_PAGE");
     expect(EVIDENCE_VERIFICATION_REASON_CODES).toContain("READ_FINGERPRINT_MISMATCH");
   });

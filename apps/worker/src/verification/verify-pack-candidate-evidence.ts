@@ -1,5 +1,6 @@
 import type { EvidenceVerificationV1 } from "@hiveforyou/contracts/evidence-verification/v1";
 import {
+  buildCatalogFactValueSupportContext,
   verifyCandidateFactEvidence,
   type ExpectedSourceEvidenceContextV1,
   type PackFactCatalogBody,
@@ -14,17 +15,28 @@ export type VerifyPackCandidateEvidenceInput = {
   persistedPages: ListDocumentPagesOutcome;
   fact: AcceptedPackFactV1;
   catalog: PackFactCatalogBody;
+  packVocabulary?: Record<string, unknown>;
 };
 
-function resolveValueKind(catalog: PackFactCatalogBody, fact: AcceptedPackFactV1): string | undefined {
+function resolveCatalogContext(
+  catalog: PackFactCatalogBody,
+  fact: AcceptedPackFactV1,
+  packVocabulary?: Record<string, unknown>,
+): { valueKind?: string; valueSupportContext: ReturnType<typeof buildCatalogFactValueSupportContext> } {
+  const valueSupportContext = buildCatalogFactValueSupportContext({
+    catalog,
+    recordTypeId: fact.record_type_id,
+    factId: fact.fact_id,
+    packVocabulary,
+  });
   for (const recordType of catalog.record_types) {
     if (recordType.record_type_id !== fact.record_type_id) {
       continue;
     }
     const match = recordType.facts.find((entry) => entry.fact_id === fact.fact_id);
-    return match?.value_kind;
+    return { valueKind: match?.value_kind, valueSupportContext };
   }
-  return undefined;
+  return { valueSupportContext };
 }
 
 export function listDocumentPagesToCorpus(outcome: ListDocumentPagesOutcome): PersistedPageCorpusV1 {
@@ -47,6 +59,11 @@ export function listDocumentPagesToCorpus(outcome: ListDocumentPagesOutcome): Pe
  * (not extract-time Reader memory).
  */
 export function verifyPackCandidateEvidence(input: VerifyPackCandidateEvidenceInput): EvidenceVerificationV1 {
+  const { valueKind, valueSupportContext } = resolveCatalogContext(
+    input.catalog,
+    input.fact,
+    input.packVocabulary,
+  );
   if (!input.persistedPages.found || input.persistedPages.pages.length === 0) {
     return verifyCandidateFactEvidence({
       expected: input.expected,
@@ -63,7 +80,8 @@ export function verifyPackCandidateEvidence(input: VerifyPackCandidateEvidenceIn
         value: input.fact.value,
         evidence: input.fact.evidence,
       },
-      valueKind: resolveValueKind(input.catalog, input.fact),
+      valueKind,
+      valueSupportContext,
     });
   }
 
@@ -75,6 +93,7 @@ export function verifyPackCandidateEvidence(input: VerifyPackCandidateEvidenceIn
       value: input.fact.value,
       evidence: input.fact.evidence,
     },
-    valueKind: resolveValueKind(input.catalog, input.fact),
+    valueKind,
+    valueSupportContext,
   });
 }

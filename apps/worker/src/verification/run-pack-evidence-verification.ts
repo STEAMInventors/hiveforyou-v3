@@ -121,6 +121,7 @@ export async function runPackEvidenceVerificationForRun(
         persistedPages: pagesOutcome,
         fact,
         catalog,
+        packVocabulary: input.selected.manifest.vocabulary,
       });
 
       if (verification.disposition === "VERIFIED") verifiedCount += 1;

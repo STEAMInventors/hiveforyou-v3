@@ -7,7 +7,21 @@ import {
 
 import { computePageSetDigest } from "./persisted-page-set-digest.js";
 import { computeSha256Digest } from "./pack-digest.js";
+import {
+  extractComparableCalendarDatesFromQuotes,
+  parseIsoCalendarDate,
+  phraseSupportedInQuotes,
+  searchPhrasesForCatalogCode,
+  type CatalogFactValueSupportContextV1,
+} from "./evidence-value-vocabulary.js";
 import { normalizeQuoteText, quoteFoundInPageText } from "./quote-evidence.js";
+
+export type { CatalogFactValueSupportContextV1 } from "./evidence-value-vocabulary.js";
+export {
+  buildCatalogFactValueSupportContext,
+  parsePackFieldSynonyms,
+  type PackFieldSynonymEntryV1,
+} from "./evidence-value-vocabulary.js";
 
 const SHA256_DIGEST_RE = /^sha256:[0-9a-f]{64}$/i;
 
@@ -44,6 +58,8 @@ export type VerifyCandidateFactEvidenceInput = {
   fact: CandidateFactEvidenceInputV1;
   /** Catalog `value_kind` when available; drives deterministic value support checks. */
   valueKind?: string;
+  /** Pack enum + declarative synonyms for this fact (optional; improves code/date support only). */
+  valueSupportContext?: CatalogFactValueSupportContextV1;
 };
 
 function rejected(reason: EvidenceVerificationReasonCodeV1, anchorsVerified = 0): EvidenceVerificationV1 {
@@ -185,6 +201,79 @@ function verifyEvidenceAnchors(
 
 type ValueSupport = "supported" | "unsupported" | "unresolved";
 
+function catalogCodesSupportedByQuotes(
+  enumValues: readonly string[],
+  factFieldKey: string,
+  fieldSynonyms: CatalogFactValueSupportContextV1["fieldSynonyms"],
+  normalizedQuoteTexts: readonly string[],
+): string[] {
+  const supported: string[] = [];
+  for (const code of enumValues) {
+    const phrases = searchPhrasesForCatalogCode(code, factFieldKey, fieldSynonyms);
+    if (phrases.some((phrase) => phraseSupportedInQuotes(phrase, normalizedQuoteTexts))) {
+      supported.push(code);
+    }
+  }
+  return supported;
+}
+
+function checkCodeValueSupport(
+  value: string,
+  context: CatalogFactValueSupportContextV1 | undefined,
+  normalizedQuoteTexts: readonly string[],
+): ValueSupport {
+  const token = value.trim();
+  if (token.length === 0) {
+    return "unsupported";
+  }
+
+  const enumValues = context?.enumValues;
+  if (enumValues && enumValues.length > 0 && context) {
+    const matched = catalogCodesSupportedByQuotes(
+      enumValues,
+      context.factFieldKey,
+      context.fieldSynonyms,
+      normalizedQuoteTexts,
+    );
+    if (matched.length === 0) {
+      return "unsupported";
+    }
+    if (matched.length > 1) {
+      return matched.includes(token) ? "unresolved" : "unsupported";
+    }
+    return matched[0] === token ? "supported" : "unsupported";
+  }
+
+  if (phraseSupportedInQuotes(token, normalizedQuoteTexts)) {
+    return "supported";
+  }
+  return "unsupported";
+}
+
+function checkDateValueSupport(value: string, normalizedQuoteTexts: readonly string[]): ValueSupport {
+  const norm = normalizeQuoteText(value);
+  if (norm.length > 0 && normalizedQuoteTexts.some((quote) => quote.includes(norm))) {
+    return "supported";
+  }
+
+  const candidateIso = parseIsoCalendarDate(value);
+  if (!candidateIso) {
+    return "unsupported";
+  }
+
+  const datesInQuotes = extractComparableCalendarDatesFromQuotes(normalizedQuoteTexts);
+  if (datesInQuotes.size === 0) {
+    return "unsupported";
+  }
+  if (!datesInQuotes.has(candidateIso)) {
+    return "unsupported";
+  }
+  if (datesInQuotes.size > 1) {
+    return "unresolved";
+  }
+  return "supported";
+}
+
 /**
  * Deterministic value-in-quote support. Numeric-only quantity matches are intentionally unresolved
  * (quoted numbers alone do not establish semantic value support).
@@ -193,6 +282,7 @@ export function checkDeterministicValueSupport(
   valueKind: string | undefined,
   value: unknown,
   normalizedQuoteTexts: readonly string[],
+  valueSupportContext?: CatalogFactValueSupportContextV1,
 ): ValueSupport {
   if (value === null || value === undefined) {
     return "unsupported";
@@ -200,8 +290,7 @@ export function checkDeterministicValueSupport(
   const combinedQuotes = normalizedQuoteTexts.join(" ");
 
   switch (valueKind) {
-    case "text":
-    case "date": {
+    case "text": {
       if (typeof value !== "string") {
         return "unsupported";
       }
@@ -210,17 +299,17 @@ export function checkDeterministicValueSupport(
         ? "supported"
         : "unsupported";
     }
+    case "date": {
+      if (typeof value !== "string") {
+        return "unsupported";
+      }
+      return checkDateValueSupport(value, normalizedQuoteTexts);
+    }
     case "code": {
       if (typeof value !== "string") {
         return "unsupported";
       }
-      const token = value.trim();
-      if (token.length === 0) {
-        return "unsupported";
-      }
-      return normalizedQuoteTexts.some((quote) => quote.includes(token) || quote.includes(normalizeQuoteText(token)))
-        ? "supported"
-        : "unsupported";
+      return checkCodeValueSupport(value, valueSupportContext, normalizedQuoteTexts);
     }
     case "quantity": {
       if (typeof value === "number") {
@@ -301,6 +390,7 @@ export function verifyCandidateFactEvidence(input: VerifyCandidateFactEvidenceIn
     input.valueKind,
     fact.value,
     anchors.normalizedQuotes,
+    input.valueSupportContext,
   );
   if (valueSupport === "unsupported") {
     return rejected("VALUE_NOT_SUPPORTED", anchors.count);

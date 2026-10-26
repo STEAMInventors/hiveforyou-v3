@@ -1,6 +1,6 @@
 export const EVIDENCE_VERIFICATION_VERSION = "evidence-verification@1" as const;
 
-export const EVIDENCE_VERIFIER_VERSION = "evidence-verifier@1" as const;
+export const EVIDENCE_VERIFIER_VERSION = "evidence-verifier@2" as const;
 
 export const EVIDENCE_VERIFICATION_DISPOSITIONS = ["VERIFIED", "REJECTED", "UNRESOLVED"] as const;
 

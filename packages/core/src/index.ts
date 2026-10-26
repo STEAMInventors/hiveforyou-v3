@@ -12,10 +12,14 @@ export {
   computePageSetDigest,
 } from "./persisted-page-set-digest.js";
 export {
+  buildCatalogFactValueSupportContext,
   checkDeterministicValueSupport,
+  parsePackFieldSynonyms,
   verifyCandidateFactEvidence,
   type CandidateFactEvidenceInputV1,
+  type CatalogFactValueSupportContextV1,
   type ExpectedSourceEvidenceContextV1,
+  type PackFieldSynonymEntryV1,
   type PersistedPageCorpusV1,
   type VerifyCandidateFactEvidenceInput,
 } from "./evidence-verification.js";

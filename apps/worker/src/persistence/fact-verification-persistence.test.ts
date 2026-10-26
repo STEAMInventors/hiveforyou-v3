@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { ErrorCode } from "@hiveforyou/contracts/errors/v1";
-import { EVIDENCE_VERIFICATION_REASON_CODES } from "@hiveforyou/contracts/evidence-verification/v1";
+import {
+  EVIDENCE_VERIFICATION_REASON_CODES,
+  EVIDENCE_VERIFIER_VERSION,
+} from "@hiveforyou/contracts/evidence-verification/v1";
 
 import {
   assertEvidenceReasonCodesFitGate2c,
@@ -55,7 +58,7 @@ describe("Gate 2c verification reason codes", () => {
       page_set_digest: `sha256:${"c".repeat(64)}`,
       verification_disposition: "REJECTED",
       verification_reason_code: "VALUE_NOT_SUPPORTED",
-      verifier_version: "evidence-verifier@1",
+      verifier_version: EVIDENCE_VERIFIER_VERSION,
       evidence_anchors_verified: 0,
       evidence: [],
     });
